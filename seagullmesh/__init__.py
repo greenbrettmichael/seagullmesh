@@ -278,7 +278,7 @@ class Mesh3:
         """Returns True if the mesh self-intersects"""
         return sgm.meshing.does_self_intersect(self._mesh)
 
-    def aabb_tree(self, vert_points: Union[str, VertexPointMap] = 'points'):
+    def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points'):
         """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
 
         By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
@@ -302,7 +302,7 @@ class Mesh3:
             self,
             faces: Faces,
             bary_coords: A,
-            vert_points: Union[str, VertexPointMap] = 'points',
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points',
     ) -> A:
         """Construct a set of points from face barycentric coordinates
 
@@ -331,10 +331,12 @@ class Mesh3:
         """
         return sgm.locate.shortest_path(self._mesh, src_face, src_bc, tgt_face, tgt_bc)
 
-    def lscm(self, uv_map: Union[str, UvMap], initial_verts: Tuple[Vertex, Vertex] = None) -> str:
+    def lscm(self, uv_map: str | PropertyMap[Vertex, Point2], initial_verts: Tuple[Vertex, Vertex] = None) -> str:
         """Performs least-squares conformal mapping
 
-        initial_verts are indices into the UV map whose coordinates have been fixed
+        `initial_verts` are indices into the UV map whose coordinates have been fixed.
+        Returns a string indicating the result, 'Success' on success or an arrow otherwise.
+
         """
         if isinstance(uv_map, str):
             uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
@@ -343,7 +345,7 @@ class Mesh3:
         else:
             return sgm.parametrize.lscm(self._mesh, uv_map.pmap)
 
-    def arap(self, uv_map: Union[str, UvMap]):
+    def arap(self, uv_map: str | PropertyMap[Vertex, Point2]):
         """Performs as-rigid-as-possible parameterization"""
         uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
         sgm.parametrize.arap(self._mesh, uv_map.pmap)
@@ -618,8 +620,6 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         locals()[dunder] = _dunder_impl
 
 
-VertexPointMap = PropertyMap[Vertex, Union[Point2, Point3]]
-UvMap = PropertyMap[Vertex, Point2]
 
 
 class MeshData(Generic[Key]):
