@@ -197,7 +197,7 @@ void init_meshing(py::module &m) {
         ) {
             auto params = PMP::parameters::
                 vertex_mean_curvature_map(mean_curv_map)
-                .vertex_Gaussian_curvature_map(mean_curv_map)
+                .vertex_Gaussian_curvature_map(gauss_curv_map)
                 .vertex_principal_curvatures_and_directions_map(princ_curv_dir_map)
                 .ball_radius(ball_radius)
             ;
