@@ -136,6 +136,15 @@ void define_array_2_property_map(py::module &m, std::string name) {
     ;
 }
 
+
+struct ExpandedPrincipalCurvaturesAndDirections {
+    py::array_t<double> min_curvature;
+    py::array_t<double> max_curvature;
+    py::array_t<double> min_direction;
+    py::array_t<double> max_direction;
+};
+
+
 template <typename Key>
 void define_princ_curv_dir_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, PrincipalCurvDir>;
@@ -150,7 +159,29 @@ void define_princ_curv_dir_property_map(py::module &m, std::string name) {
             }
             return vals;
         })
-        .def("what", [](const PMap& pmap) {return 3.0;})
+        .def("get_expanded", [](const PMap& pmap, const std::vector<Key>& keys) {
+            const size_t nk = keys.size();
+            py::array_t<double, py::array::c_style> min_curvature({int(nk)});
+            py::array_t<double, py::array::c_style> max_curvature({int(nk)});
+            py::array_t<double, py::array::c_style> min_direction({nk, size_t(3)});
+            py::array_t<double, py::array::c_style> max_direction({nk, size_t(3)});
+
+            auto r_min_curvature = min_curvature.mutable_unchecked<1>();
+            auto r_max_curvature = max_curvature.mutable_unchecked<1>();
+            auto r_min_direction = min_direction.mutable_unchecked<2>();
+            auto r_max_direction = max_direction.mutable_unchecked<2>();
+
+            for (auto i = 0; i < nk; i++) {
+                PrincipalCurvDir x = pmap[keys[i]];
+                r_min_curvature(i) = x.min_curvature;
+                r_max_curvature(i) = x.max_curvature;
+                for (auto j = 0; j < 3; j++) {
+                    r_min_direction(i, j) = x.min_direction[j];
+                    r_max_direction(i, j) = x.max_direction[j];
+                }
+            }
+            return ExpandedPrincipalCurvaturesAndDirections{min_curvature, max_curvature, min_direction, max_direction};
+        })
 //        .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
 //            const size_t nk = keys.size();
 //            auto r = vals.unchecked<2>();
@@ -179,6 +210,12 @@ void init_properties(py::module &m) {
         .def_property_readonly("max_curvature", [](const PrincipalCurvDir& p) {return p.max_curvature;})
         .def_property_readonly("min_direction", [](const PrincipalCurvDir& p) {return p.min_direction;})
         .def_property_readonly("max_direction", [](const PrincipalCurvDir& p) {return p.max_direction;})
+    ;
+    py::class_<ExpandedPrincipalCurvaturesAndDirections>(sub, "ExpandedPrincipalCurvaturesAndDirections")
+        .def_readonly("min_curvature", &ExpandedPrincipalCurvaturesAndDirections::min_curvature)
+        .def_readonly("max_curvature", &ExpandedPrincipalCurvaturesAndDirections::max_curvature)
+        .def_readonly("min_direction", &ExpandedPrincipalCurvaturesAndDirections::min_direction)
+        .def_readonly("max_direction", &ExpandedPrincipalCurvaturesAndDirections::max_direction)
     ;
 
     define_property_map<V, bool             >(sub, "VertBoolPropertyMap");
