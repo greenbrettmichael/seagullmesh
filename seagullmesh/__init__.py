@@ -211,8 +211,8 @@ class Mesh3:
             self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
         ):
-            sgm.meshing.remesh(self._mesh, faces, target_edge_length, n_iter, protect_constraints,
-                               vcm.pmap, ecm.pmap, touched.pmap)
+            sgm.meshing.uniform_isotropic_remeshing(
+                self._mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap)
 
     def remesh_adaptive(
             self,
@@ -241,8 +241,9 @@ class Mesh3:
             self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
         ):
-            sgm.meshing.remesh(self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
-                               n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap)
+            sgm.meshing.adaptive_isotropic_remeshing(
+                self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
+               n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap)
 
     def fair(self, verts: Vertices, continuity=0) -> None:
         """Fair the specified mesh vertices"""
