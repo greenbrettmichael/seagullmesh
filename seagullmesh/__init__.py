@@ -51,9 +51,20 @@ class Mesh3:
         """Vector of vertex indices"""
         return self._mesh.vertices
 
-    faces = property(lambda self: array(self._mesh.faces))
-    edges = property(lambda self: array(self._mesh.edges))
-    halfedges = property(lambda self: array(self._mesh.halfedges))
+    @property
+    def faces(self) -> sgm.mesh.Faces:
+        """Vector of face indices"""
+        return self._mesh.faces
+
+    @property
+    def edges(self) -> sgm.mesh.Edges:
+        """Vector of edge indices"""
+        return self._mesh.edges
+
+    @property
+    def halfedges(self) -> sgm.mesh.Halfedges:
+        """Vector of halfedge indices"""
+        return self._mesh.halfedges
 
     n_vertices = property(lambda self: self._mesh.n_vertices)
     n_faces = property(lambda self: self._mesh.n_faces)
@@ -604,24 +615,17 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
     def __getitem__(self, key: Union[A, Sequence[Key], slice]) -> Sequence[Val]: ...
 
     def __getitem__(self, key):
-        if isinstance(key, slice):
+        try:
+            return self.pmap[key]
+        except TypeError:
+            # Could be some sort of subscripting indexing vector
             return self.pmap[self._data.mesh_keys[key]]
-        else:
-            # If it's a Key or Sequence[Key] the C++ property handles the indexing
-            try:
-                return self.pmap[key]
-            except TypeError:
-                # Let numpy handle the indexing
-                return self.pmap[array(self._data.mesh_keys)[key]]
 
     def __setitem__(self, key, val):
-        if isinstance(key, slice):
+        try:
+            self.pmap[key] = val
+        except TypeError:
             self.pmap[self._data.mesh_keys[key]] = val
-        else:
-            try:
-                self.pmap[key] = val
-            except TypeError:
-                self.pmap[array(self._data.mesh_keys)[key]] = val
 
     def all_values(self):
         return self.pmap[self._data.mesh_keys]
@@ -629,26 +633,16 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
     def __getitem__(self, key) -> A:
-        if isinstance(key, slice):
+        try:
+            return self.pmap.get_array(key)
+        except TypeError:
             return self.pmap.get_array(self._data.mesh_keys[key])
-        elif isinstance(key, int):
-            return self.pmap.get_array([self._data.mesh_keys[key]])
-        else:
-            # If a Sequence[Key] the C++ property handles the indexing
-            try:
-                return self.pmap.get_array(key)
-            except TypeError:
-                # Let numpy handle the indexing
-                return self.pmap.get_array(array(self._data.mesh_keys)[key])
 
     def __setitem__(self, key, val: A):
-        if isinstance(key, slice):
+        try:
+            self.pmap.set_array(key, val)
+        except TypeError:
             self.pmap.set_array(self._data.mesh_keys[key], val)
-        else:
-            try:
-                self.pmap.set_array(key, val)
-            except TypeError:
-                self.pmap.set_array(array(self._data.mesh_keys)[key], val)
 
     def all_values(self):
         return self.pmap.get_array(self._data.mesh_keys)
