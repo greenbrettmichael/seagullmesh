@@ -3,8 +3,10 @@ import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
+from numpy import arange
+
 from seagullmesh import sgm, Mesh3
-from test.util import tetrahedron
+from test.util import tetrahedron, tetrahedron_mesh
 
 props = sgm.properties
 
@@ -44,7 +46,12 @@ def test_pyvista_roundtrip():
 
 
 def test_indices_indexing():
-    pass
+    mesh = tetrahedron_mesh()
+    idxs = mesh.vertices
+    assert idxs[0].to_int() == 0
+    assert len(idxs) == mesh.n_vertices
+    assert len(idxs) == len(idxs[:])
+    assert len(idxs) == len(idxs[arange(len(idxs))])
 
 
 @pytest.fixture()

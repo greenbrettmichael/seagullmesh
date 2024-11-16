@@ -61,31 +61,49 @@ void init_mesh(py::module &m) {
     ;
 
 
-    py::class_<V>(sub, "Vertex");
+    py::class_<V>(sub, "Vertex")
+        .def("to_int", [](const V& idx) {return V::size_type(idx);})
+    ;
     py::class_<F>(sub, "Face");
     py::class_<E>(sub, "Edge");
     py::class_<H>(sub, "Halfedge");
 
     py::class_<std::vector<V>>(sub, "Vertices")
-        .def("__len__", [](const std::vector<int> &v) { return v.size(); })
+        .def("__len__", [](const std::vector<V> &v) { return v.size(); })
         .def("__iter__", [](std::vector<V>& idxs) {
                 return py::make_iterator(idxs.begin(), idxs.end());
             }, py::keep_alive<0, 1>()  /* Keep vector alive while iterator is used */
         )
         .def("__getitem__", [](const std::vector<V>& idxs, size_t i) {
-            if (i >= idxs.size())
+            if (i >= idxs.size()) {
                 throw py::index_error();
+            }
             return idxs[i];
         })
         .def("__getitem__", [](const std::vector<V>& idxs, py::slice slice) {
             py::ssize_t start, stop, step, slicelength;
-            if (!slice.compute(idxs.size(), &start, &stop, &step, &slicelength))
+            if (!slice.compute(idxs.size(), &start, &stop, &step, &slicelength)) {
                 throw py::error_already_set();
+            }
             std::vector<V> out;
             out.reserve(slicelength);
             for (int i = 0; i < slicelength; ++i) {
                 out.emplace_back(idxs[start]);
                 start += step;
+            }
+            return out;
+        })
+        .def("__getitem__", [](const std::vector<V>& idxs, const py::array_t<size_t>& sub) {
+            if (sub.ndim() != 1) {
+                throw py::index_error();
+            }
+            py::ssize_t n = sub.size();
+            std::vector<V> out;
+            out.reserve(n);
+
+            auto r = sub.unchecked<1>();
+            for (int i = 0; i < n; ++i) {
+                out.emplace_back(idxs.at(r(i)));
             }
             return out;
         })
