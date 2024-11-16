@@ -26,6 +26,7 @@ void define_simple_type_2(py::module &m, std::string name) {
     ;
 }
 
+// Used for defining Vertex/Vertices, Face/Faces, etc.
 template<typename Idx>
 void define_indices(py::module &m, std::string idx_name, std::string idxs_name) {
     using Idxs = typename std::vector<Idx>;
@@ -120,9 +121,17 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             return out;
         })
     ;
-
 }
 
+template<typename Idx, typename IdxRange>
+std::vector<Idx> indices_from_range(typename Idx::size_type n, const IdxRange idx_range) {
+    std::vector<Idx> idxs;
+    idxs.reserve(n);
+    for (Idx idx : idx_range) {
+        idxs.emplace_back(idx);
+    }
+    return idxs;
+}
 
 
 void init_mesh(py::module &m) {
@@ -176,36 +185,16 @@ void init_mesh(py::module &m) {
         .def_property_readonly("points", [](const Mesh3& mesh) { return mesh.points(); })
 
         .def_property_readonly("vertices", [](const Mesh3& mesh) {
-            std::vector<V> verts;
-            verts.reserve(mesh.number_of_vertices());
-            for (V v : mesh.vertices()) {
-                verts.emplace_back(v);
-            }
-            return verts;
+            return indices_from_range<V, Mesh3::Vertex_range>(mesh.number_of_vertices(), mesh.vertices());
         })
         .def_property_readonly("faces", [](const Mesh3& mesh) {
-            std::vector<F> faces;
-            faces.reserve(mesh.number_of_faces());
-            for (F f : mesh.faces()) {
-                faces.emplace_back(f);
-            }
-            return faces;
+            return indices_from_range<F, Mesh3::Face_range>(mesh.number_of_faces(), mesh.faces());
         })
         .def_property_readonly("edges", [](const Mesh3& mesh) {
-            std::vector<E> edges;
-            edges.reserve(mesh.number_of_edges());
-            for (E e : mesh.edges()) {
-                edges.emplace_back(e);
-            }
-            return edges;
+            return indices_from_range<E, Mesh3::Edge_range>(mesh.number_of_edges(), mesh.edges());
         })
         .def_property_readonly("halfedges", [](const Mesh3& mesh) {
-            std::vector<H> halfedges;
-            halfedges.reserve(mesh.number_of_halfedges());
-            for (H h : mesh.halfedges()) {
-                halfedges.emplace_back(h);
-            }
-            return halfedges;
+            return indices_from_range<H, Mesh3::Halfedge_range>(mesh.number_of_halfedges(), mesh.halfedges());
         })
 
         .def("edge_vertices", [](const Mesh3& mesh, const std::vector<E>& edges) {
