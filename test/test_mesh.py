@@ -1,30 +1,18 @@
 import pytest
-import os
 
-from tempfile import TemporaryDirectory, TemporaryFile
+from tempfile import TemporaryDirectory
 from pathlib import Path
 
-import numpy as np
-from numpy import array, cos, sin,  pi, ones, arange, uint64, full, zeros
-from numpy.testing import assert_array_equal
+from seagullmesh import sgm, Mesh3
+from test.util import tetrahedron
 
-from seagullmesh import sgm, Mesh3, MeshData, Point2, Point3, Vector2, Vector3
 props = sgm.properties
 
 
-def tetrahedron(scale=1.0, rot_z=0.0):
-    verts = scale * array([[1, 1, 1], [-1, 1, -1], [1, -1, -1], [-1, -1, 1]], dtype='float')
-
-    if rot_z:
-        rot = array([[cos(rot_z), -sin(-rot_z), 0], [sin(rot_z), cos(-rot_z), 0], [0, 0, 1]])
-        verts = verts @ rot.T
-
-    faces = array([[2, 1, 0], [2, 3, 1], [3, 2, 0], [1, 3, 0]], dtype='int')
-    return verts, faces
-
-
-def tetrahedron_mesh() -> Mesh3:
-    return Mesh3.from_polygon_soup(*tetrahedron())
+try:
+    import pyvista
+except ImportError:
+    pyvista = None
 
 
 def test_from_polygon_soup():
@@ -48,115 +36,11 @@ def test_to_file(ext):
         mesh.to_file(file)
 
 
+@pytest.mark.skipif(pyvista is None, reason="pyvista not installed")
 def test_pyvista_roundtrip():
-    from pyvista import Sphere
-    pvmesh0 = Sphere().clean().triangulate()
+    pvmesh0 = pyvista.Sphere().clean().triangulate()
     mesh = Mesh3.from_pyvista(pvmesh0)
     _pvmesh1 = mesh.to_pyvista()
-
-
-@pytest.mark.parametrize(
-    ['data_name', 'cls', 'default'],
-    [
-        ('vertex_data', props.VertIntPropertyMap, 0),
-        ('vertex_data', props.VertUIntPropertyMap, 0),
-        ('face_data', props.FaceIntPropertyMap, 0),
-        ('face_data', props.FaceUIntPropertyMap, 0),
-
-    ]
-)
-def test_explicit_property_map_construction(data_name, cls, default):
-    mesh = tetrahedron_mesh()
-    d = getattr(mesh, data_name)
-    d['foo'] = cls(mesh.mesh, 'foo', default)
-    assert (d['foo'][:] == default).all()
-
-
-@pytest.mark.parametrize(
-    ['data_name', 'cls', 'default', 'signed'],
-    [
-        ('vertex_data', props.VertBoolPropertyMap, False, None),
-        ('vertex_data', props.VertIntPropertyMap, 0, True),
-        ('vertex_data', props.VertUIntPropertyMap, 0, False),
-        ('vertex_data', props.VertDoublePropertyMap, 0.0, None),
-        ('vertex_data', props.VertPoint2PropertyMap, Point2(0, 0), None),
-        ('face_data', props.FaceBoolPropertyMap, False, None),
-        ('face_data', props.FaceIntPropertyMap, 0, True),
-        ('face_data', props.FaceUIntPropertyMap, 0, False),
-        ('face_data', props.FaceDoublePropertyMap, 0.0, None),
-        ('face_data', props.FacePoint2PropertyMap, Point2(0, 0), None),
-    ]
-)
-def test_add_property_map(data_name, cls, default, signed):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
-    data = getattr(mesh, data_name)
-    pmap = data.add_property('foo', default=default, signed=signed)
-    assert isinstance(pmap.pmap, cls)
-
-
-@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
-@pytest.mark.parametrize('val_type', [int, bool, float])
-def test_scalar_properties(key_type, val_type):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
-    data: MeshData = getattr(mesh, key_type + '_data')
-
-    data['foo'] = full(data.n_mesh_keys, val_type(0))
-
-    keys = data.mesh_keys
-    key = keys[0]
-    data['foo'][key] = val_type(1)
-
-    assert 'foo' in data
-    assert 'bar' not in data
-
-    val = data['foo'][key]
-    assert val == val_type(1)
-
-    data['foo'][keys[:2]] = [val_type(1), val_type(1)]
-    assert data['foo'][keys[0]] == val_type(1) and data['foo'][keys[1]] == val_type(1)
-
-    data.remove_property('foo')
-    assert 'foo' not in data.mesh_keys
-    assert 'foo' not in data
-
-
-@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
-@pytest.mark.parametrize('val_type', [Point2, Point3, Vector2, Vector3])
-def test_array_properties(key_type, val_type):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
-    d: MeshData = getattr(mesh, key_type + '_data')
-
-    ndims = int(val_type.__name__[-1])
-    default = val_type(*[0.0 for _ in range(ndims)])
-    d.add_property('foo', default=default)
-
-    nkeys = d.n_mesh_keys
-    data = np.random.uniform(-1, 1, (nkeys, ndims))
-    d['foo'] = data
-
-    assert_array_equal(data, d['foo'][:])
-
-
-def corefine_meshes():
-    m1 = Mesh3.from_polygon_soup(*tetrahedron())
-    m2 = Mesh3.from_polygon_soup(*tetrahedron(scale=0.9, rot_z=pi/3))
-    return m1, m2
-
-
-def test_corefine():
-    m1, m2 = corefine_meshes()
-    nv1_orig, nv2_orig = m1.n_vertices, m2.n_vertices
-    m1.corefine(m2)
-
-    nv1, nv2 = m1.n_vertices, m2.n_vertices
-    assert nv1 > nv1_orig and nv2 > nv2_orig
-
-
-@pytest.mark.parametrize('op', ['union', 'intersection', 'difference'])
-@pytest.mark.parametrize('inplace', [False, True])
-def test_boolean_ops(op, inplace):
-    m1, m2 = corefine_meshes()
-    _m3 = getattr(m1, op)(m2, inplace=inplace)
 
 
 @pytest.fixture()
