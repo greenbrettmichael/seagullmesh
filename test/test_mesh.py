@@ -3,7 +3,7 @@ import pytest
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
-from numpy import arange
+from numpy import arange, ones
 
 from seagullmesh import sgm, Mesh3
 from test.util import tetrahedron, tetrahedron_mesh
@@ -50,8 +50,9 @@ def test_indices_indexing():
     idxs = mesh.vertices
     assert idxs[0].to_int() == 0
     assert len(idxs) == mesh.n_vertices
-    assert len(idxs) == len(idxs[:])
-    assert len(idxs) == len(idxs[arange(len(idxs))])
+    assert idxs == idxs[:]
+    assert idxs == idxs[arange(len(idxs))]
+    assert idxs == idxs[ones(len(idxs), dtype=bool)]
 
 
 @pytest.fixture()

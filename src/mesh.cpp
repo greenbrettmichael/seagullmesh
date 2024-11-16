@@ -107,6 +107,40 @@ void init_mesh(py::module &m) {
             }
             return out;
         })
+        .def("__getitem__", [](const std::vector<V>& idxs, const py::array_t<bool>& sub) {
+            py::ssize_t n = sub.size();
+            if (sub.ndim() != 1 || n != idxs.size()) {
+                throw py::index_error();
+            }
+            std::vector<V> out;
+            auto r = sub.unchecked<1>();
+            for (int i = 0; i < n; ++i) {
+                if ( r(i) ) {
+                    out.emplace_back(idxs[i]);
+                }
+            }
+            return out;
+        })
+        .def("__eq__", [](const std::vector<V>& self, const std::vector<V>& other) {
+            if (self.size() != other.size()) {
+                return false;
+            }
+            for (int i = 0; i < self.size(); ++i) {
+                if ( self[i] != other[i] ) {
+                    return false;
+                }
+            }
+            return true;
+        })
+        .def("to_ints", [](const std::vector<V>& idxs) {
+            const py::ssize_t n = idxs.size();
+            py::array_t<V::size_type> out({n});
+            auto r = out.mutable_unchecked<1>();
+            for (int i = 0; i < n; ++i) {
+                r(i) = V::size_type(idxs[i]);
+            }
+            return out;
+        })
     ;
 
 
