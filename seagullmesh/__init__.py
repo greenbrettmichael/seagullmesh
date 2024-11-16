@@ -46,7 +46,11 @@ class Mesh3:
         # from the python side
         self.vertex_data.assign_property_map('points', mesh.points)
 
-    vertices = property(lambda self: array(self._mesh.vertices))
+    @property
+    def vertices(self) -> sgm.mesh.Vertices:
+        """Vector of vertex indices"""
+        return self._mesh.vertices
+
     faces = property(lambda self: array(self._mesh.faces))
     edges = property(lambda self: array(self._mesh.edges))
     halfedges = property(lambda self: array(self._mesh.halfedges))

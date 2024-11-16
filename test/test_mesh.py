@@ -43,6 +43,10 @@ def test_pyvista_roundtrip():
     _pvmesh1 = mesh.to_pyvista()
 
 
+def test_indices_indexing():
+    pass
+
+
 @pytest.fixture()
 def armadillo():
     file = Path(__file__).parent / 'assets' / 'armadillo.off'

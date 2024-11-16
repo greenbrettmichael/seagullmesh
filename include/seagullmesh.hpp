@@ -4,6 +4,7 @@
 #include <pybind11/pytypes.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/numpy.h>
 
 // This is necessary to build on appveyor for some reason
@@ -27,3 +28,14 @@ typedef Mesh3::Vertex_index             V;
 typedef Mesh3::Face_index               F;
 typedef Mesh3::Halfedge_index           H;
 typedef Mesh3::Edge_index               E;
+
+
+PYBIND11_MAKE_OPAQUE(std::vector<V>);
+//PYBIND11_MAKE_OPAQUE(std::vector<F>);
+//PYBIND11_MAKE_OPAQUE(std::vector<H>);
+//PYBIND11_MAKE_OPAQUE(std::vector<E>);
+
+//py::implicitly_convertible<py::list, std::vector<V>>();
+//py::implicitly_convertible<py::list, std::vector<F>>();
+//py::implicitly_convertible<py::list, std::vector<H>>();
+//py::implicitly_convertible<py::list, std::vector<E>>();
