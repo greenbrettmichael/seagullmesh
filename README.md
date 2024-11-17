@@ -44,6 +44,13 @@ mesh = Mesh3.from_pyvista(polydata)
 
 with the corresponding output methods `mesh.to_polygon_soup`, `mesh.to_file`, `mesh.to_pyvista`.
 
+Meshes can also be constructed from oriented point clouds using CGAL's [Poisson Surface Reconstruction package](
+https://doc.cgal.org/latest/Poisson_surface_reconstruction_3/index.html)
+
+```python
+mesh = Mesh3.poisson_surface_reconstruction(points, normals, spacing)
+```
+
 ### Mesh indices
 
 CGAL indices `Surface_mesh::vertex_index`, `::edge_index`, `::face_index`, `::edge_index`, and `::halfedge_index` are exposed in the python properties `mesh.vertices`, `.faces`, `.edges`, and `.halfedges`, which are returned as numpy arrays of indices for convenience. These arrays are used for indexing property maps and specifying regions for further processing. (See below.)

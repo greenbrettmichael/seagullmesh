@@ -505,6 +505,11 @@ class Mesh3:
         sgm.meshing.interpolated_corrected_curvatures(
             self._mesh, mcm.pmap, gcm.pmap, pcm.pmap, ball_radius)
 
+    @staticmethod
+    def poisson_surface_reconstruction(points: ndarray, normals: ndarray, spacing: float) -> Mesh3:
+        mesh = sgm.poisson_reconstruct.reconstruct_surface(points, normals, spacing)
+        return Mesh3(mesh)
+
 
 class Skeleton:
     """Wrapper around the C++ sgm.skeletonization.Skeleton class
