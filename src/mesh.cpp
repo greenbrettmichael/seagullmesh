@@ -9,13 +9,18 @@
 #include <CGAL/Surface_mesh/IO/OFF.h>
 #include <CGAL/Heat_method_3/Surface_mesh_geodesic_distances_3.h>
 #include <CGAL/Polygon_mesh_processing/measure.h>
+#include <CGAL/Bbox_3.h>
+#include <CGAL/Polygon_mesh_processing/bbox.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
+
+typedef CGAL::Bbox_3 BBox3;
 
 template<typename T>
 void define_simple_type_3(py::module &m, std::string name) {
     py::class_<T>(m, name.c_str(), py::module_local())
         .def(py::init<double, double, double>())
+        .def("__eq__", [](const T& self, const T& other) {return self == other;})
     ;
 }
 
@@ -23,6 +28,7 @@ template<typename T>
 void define_simple_type_2(py::module &m, std::string name) {
     py::class_<T>(m, name.c_str(), py::module_local())
         .def(py::init<double, double>())
+        .def("__eq__", [](const T& self, const T& other) {return self == other;})
     ;
 }
 
@@ -32,6 +38,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
     using Idxs = typename std::vector<Idx>;
 
     py::class_<Idx>(m, idx_name.c_str())
+        .def(py::init<Idx::size_type>())
         .def("to_int", [](const Idx& idx) {return Idx::size_type(idx);})
     ;
     py::class_<Idxs>(m, idxs_name.c_str())
@@ -173,6 +180,23 @@ void init_mesh(py::module &m) {
         })
     ;
 
+    py::class_<BBox3>(sub, "BoundingBox3", py::module_local())
+        .def(py::init<double, double, double, double, double, double>())
+        .def_property_readonly("x_min", &BBox3::xmin)
+        .def_property_readonly("x_max", &BBox3::xmax)
+        .def_property_readonly("y_min", &BBox3::ymin)
+        .def_property_readonly("y_max", &BBox3::ymax)
+        .def_property_readonly("x_min", &BBox3::zmin)
+        .def_property_readonly("z_max", &BBox3::zmax)
+        .def("diagonal", [](const BBox3& bbox) {
+            return std::sqrt(
+                CGAL::square(bbox.xmax() - bbox.xmin()) +
+                CGAL::square(bbox.ymax() - bbox.ymin()) +
+                CGAL::square(bbox.zmax() - bbox.zmin())
+            );
+        })
+    ;
+
 
     py::class_<Mesh3>(sub, "Mesh3")
         .def(py::init<>())
@@ -195,6 +219,10 @@ void init_mesh(py::module &m) {
         })
         .def_property_readonly("halfedges", [](const Mesh3& mesh) {
             return indices_from_range<H, Mesh3::Halfedge_range>(mesh.number_of_halfedges(), mesh.halfedges());
+        })
+
+        .def("bounding_box", [](const Mesh3& mesh) {
+            return PMP::bbox(mesh);
         })
 
         .def("edge_vertices", [](const Mesh3& mesh, const std::vector<E>& edges) {

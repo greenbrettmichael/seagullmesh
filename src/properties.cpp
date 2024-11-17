@@ -68,69 +68,40 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
 }
 
 
-template <typename Key, typename Val>
-void define_array_3_property_map(py::module &m, std::string name) {
+// For Point2/3 and Vector2/3
+template <unsigned int N, typename Key, typename Val>
+void define_array_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
     define_property_map<Key, Val>(m, name, false)
         .def("get_array", [](const PMap& pmap, const std::vector<Key>& keys) {
-            const size_t nk = keys.size();
-            py::array_t<double, py::array::c_style> vals({nk, size_t(3)});
+            const size_t n_keys = keys.size();
+            py::array_t<double, py::array::c_style> vals({n_keys, size_t(N)});
             auto r = vals.mutable_unchecked<2>();
 
-            for (auto i = 0; i < nk; i++) {
+            for (auto i = 0; i < n_keys; i++) {
                 auto val = pmap[keys[i]];
-                for (auto j = 0; j < 3; j++) {
+                for (auto j = 0; j < N; j++) {
                     r(i, j) = val[j];
                 }
             }
             return vals;
         })
         .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
-            const size_t nk = keys.size();
+            const size_t n_keys = keys.size();
             auto r = vals.unchecked<2>();
-            if (nk != r.shape(0)) {
+            if (n_keys != r.shape(0)) {
                 throw std::runtime_error("Key and value array sizes do not match");
             }
-            if (3 != r.shape(1)) {
-                throw std::runtime_error("Expected an array with 3 columns");
+            if (N != r.shape(1)) {
+                throw std::runtime_error("Array has wrong number of columns");
             }
-            for (auto i = 0; i < nk; i++) {
-                pmap[keys[i]] = Val(r(i, 0), r(i, 1), r(i, 2));
-            }
-        })
-    ;
-}
-
-template <typename Key, typename Val>
-void define_array_2_property_map(py::module &m, std::string name) {
-    using PMap = typename Mesh3::Property_map<Key, Val>;
-
-    define_property_map<Key, Val>(m, name, false)
-        .def("get_array", [](const PMap& pmap, const std::vector<Key>& keys) {
-            const size_t nk = keys.size();
-            py::array_t<double, py::array::c_style> vals({nk, size_t(2)});
-            auto r = vals.mutable_unchecked<2>();
-
-            for (auto i = 0; i < nk; i++) {
-                auto val = pmap[keys[i]];
-                for (auto j = 0; j < 2; j++) {
-                    r(i, j) = val[j];
+            for (auto i = 0; i < n_keys; i++) {
+                if constexpr ( N == 3 ) {
+                    pmap[keys[i]] = Val(r(i, 0), r(i, 1), r(i, 2));
+                } else {
+                    pmap[keys[i]] = Val(r(i, 0), r(i, 1));
                 }
-            }
-            return vals;
-        })
-        .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
-            const size_t nk = keys.size();
-            auto r = vals.unchecked<2>();
-            if (nk != r.shape(0)) {
-                throw std::runtime_error("Key and value array sizes do not match");
-            }
-            if (2 != r.shape(1)) {
-                throw std::runtime_error("Expected an array with 2 columns");
-            }
-            for (auto i = 0; i < nk; i++) {
-                pmap[keys[i]] = Val(r(i, 0), r(i, 1));
             }
         })
     ;
@@ -182,19 +153,6 @@ void define_princ_curv_dir_property_map(py::module &m, std::string name) {
             }
             return ExpandedPrincipalCurvaturesAndDirections{min_curvature, max_curvature, min_direction, max_direction};
         })
-//        .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
-//            const size_t nk = keys.size();
-//            auto r = vals.unchecked<2>();
-//            if (nk != r.shape(0)) {
-//                throw std::runtime_error("Key and value array sizes do not match");
-//            }
-//            if (2 != r.shape(1)) {
-//                throw std::runtime_error("Expected an array with 2 columns");
-//            }
-//            for (auto i = 0; i < nk; i++) {
-//                pmap[keys[i]] = Val(r(i, 0), r(i, 1));
-//            }
-//        })
     ;
 }
 
@@ -236,25 +194,25 @@ void init_properties(py::module &m) {
     define_property_map<H, int     >(sub, "HalfedgeIntPropertyMap");
     define_property_map<H, double  >(sub, "HalfedgeDoublePropertyMap");
 
-    define_array_3_property_map<V, Point3  >(sub, "VertPoint3PropertyMap");
-    define_array_3_property_map<V, Vector3 >(sub, "VertVector3PropertyMap");
-    define_array_2_property_map<V, Point2  >(sub, "VertPoint2PropertyMap");
-    define_array_2_property_map<V, Vector2 >(sub, "VertVector2PropertyMap");
+    define_array_property_map<3, V, Point3  >(sub, "VertPoint3PropertyMap");
+    define_array_property_map<3, V, Vector3 >(sub, "VertVector3PropertyMap");
+    define_array_property_map<2, V, Point2  >(sub, "VertPoint2PropertyMap");
+    define_array_property_map<2, V, Vector2 >(sub, "VertVector2PropertyMap");
 
-    define_array_3_property_map<F, Point3  >(sub, "FacePoint3PropertyMap");
-    define_array_3_property_map<F, Vector3 >(sub, "FaceVector3PropertyMap");
-    define_array_2_property_map<F, Point2  >(sub, "FacePoint2PropertyMap");
-    define_array_2_property_map<F, Vector2 >(sub, "FaceVector2PropertyMap");
+    define_array_property_map<3, F, Point3  >(sub, "FacePoint3PropertyMap");
+    define_array_property_map<3, F, Vector3 >(sub, "FaceVector3PropertyMap");
+    define_array_property_map<2, F, Point2  >(sub, "FacePoint2PropertyMap");
+    define_array_property_map<2, F, Vector2 >(sub, "FaceVector2PropertyMap");
 
-    define_array_3_property_map<E, Point3  >(sub, "EdgePoint3PropertyMap");
-    define_array_3_property_map<E, Vector3 >(sub, "EdgeVector3PropertyMap");
-    define_array_2_property_map<E, Point2  >(sub, "EdgePoint2PropertyMap");
-    define_array_2_property_map<E, Vector2 >(sub, "EdgeVector2PropertyMap");
+    define_array_property_map<3, E, Point3  >(sub, "EdgePoint3PropertyMap");
+    define_array_property_map<3, E, Vector3 >(sub, "EdgeVector3PropertyMap");
+    define_array_property_map<2, E, Point2  >(sub, "EdgePoint2PropertyMap");
+    define_array_property_map<2, E, Vector2 >(sub, "EdgeVector2PropertyMap");
 
-    define_array_3_property_map<H, Point3  >(sub, "HalfedgePoint3PropertyMap");
-    define_array_3_property_map<H, Vector3 >(sub, "HalfedgeVector3PropertyMap");
-    define_array_2_property_map<H, Point2  >(sub, "HalfedgePoint2PropertyMap");
-    define_array_2_property_map<H, Vector2 >(sub, "HalfedgeVector2PropertyMap");
+    define_array_property_map<3, H, Point3  >(sub, "HalfedgePoint3PropertyMap");
+    define_array_property_map<3, H, Vector3 >(sub, "HalfedgeVector3PropertyMap");
+    define_array_property_map<2, H, Point2  >(sub, "HalfedgePoint2PropertyMap");
+    define_array_property_map<2, H, Vector2 >(sub, "HalfedgeVector2PropertyMap");
 
     define_princ_curv_dir_property_map<V>(sub, "VertPrincipalCurvDirMap");
 

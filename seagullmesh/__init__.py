@@ -109,6 +109,9 @@ class Mesh3:
         """Returns a (len(faces) * 3) array of face normal vectors"""
         return self._mesh.face_normals(faces)
 
+    def bounding_box(self) -> sgm.mesh.BoundingBox3:
+        return self._mesh.bounding_box()
+
     @staticmethod
     def from_polygon_soup(verts: A, faces: A, orient=True) -> Mesh3:
         """Constructs a surface mesh from vertices (nv * 3) and faces (nf * 3) arrays
@@ -506,9 +509,50 @@ class Mesh3:
             self._mesh, mcm.pmap, gcm.pmap, pcm.pmap, ball_radius)
 
     @staticmethod
-    def poisson_surface_reconstruction(points: ndarray, normals: ndarray, spacing: float) -> Mesh3:
+    def from_poisson_surface_reconstruction(
+            points: ndarray,
+            normals: ndarray,
+            spacing: float,
+    ) -> Mesh3:
         mesh = sgm.poisson_reconstruct.reconstruct_surface(points, normals, spacing)
         return Mesh3(mesh)
+
+    def alpha_wrapping(
+            self,
+            alpha: float | None,
+            offset: float | None,
+            relative_alpha: float = 20,
+            relative_offset: float = 600,
+    ) -> Mesh3:
+        if alpha is None or offset is None:
+            diagonal = self.bounding_box().diagonal()
+            alpha = diagonal / relative_alpha if alpha is None else alpha
+            offset = diagonal / relative_offset if offset is None else offset
+
+        mesh = sgm.alpha_wrapping.wrap_mesh(self._mesh, alpha, offset)
+        return Mesh3(mesh)
+
+    @staticmethod
+    def from_alpha_wrapping(
+            points: ndarray,
+            alpha: float | None,
+            offset: float | None,
+            relative_alpha: float = 20,
+            relative_offset: float = 600,
+    ):
+        if alpha is None or offset is None:
+            diagonal = _bbox_diagonal(points)
+            alpha = diagonal / relative_alpha if alpha is None else alpha
+            offset = diagonal / relative_offset if offset is None else offset
+
+        mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
+        return Mesh3(mesh)
+
+
+def _bbox_diagonal(points: ndarray):
+    x0, y0, z0 = points.min(axis=0)
+    x1, y1, z1 = points.max(axis=0)
+    return sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
 
 
 class Skeleton:
@@ -648,6 +692,18 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
             self.pmap.set_array(key, val)
         except TypeError:
             self.pmap.set_array(self._data.mesh_keys[key], val)
+
+    def get_objects(self, key) -> Sequence[Val]:
+        try:
+            return self.pmap[key]
+        except TypeError:
+            return self.pmap[self._data.mesh_keys[key]]
+
+    def set_objects(self, key, val):
+        try:
+            self.pmap[key] = val
+        except TypeError:
+            self.pmap[self._data.mesh_keys[key]] = val
 
     def all_values(self):
         return self.pmap.get_array(self._data.mesh_keys)

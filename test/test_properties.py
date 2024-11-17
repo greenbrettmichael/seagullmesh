@@ -3,9 +3,9 @@ import pytest
 from numpy import full
 from numpy.testing import assert_array_equal
 
-from seagullmesh import Point2, Mesh3, MeshData, Point3, Vector2, Vector3
+from seagullmesh import Point2, MeshData, Point3, Vector2, Vector3
 from test.test_mesh import props
-from test.util import tetrahedron_mesh, tetrahedron
+from test.util import tetrahedron_mesh
 
 
 @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ def test_explicit_property_map_construction(data_name, cls, default):
     ]
 )
 def test_add_property_map(data_name, cls, default, signed):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
+    mesh = tetrahedron_mesh()
     data = getattr(mesh, data_name)
     pmap = data.add_property('foo', default=default, signed=signed)
     assert isinstance(pmap.pmap, cls)
@@ -50,7 +50,7 @@ def test_add_property_map(data_name, cls, default, signed):
 @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
 @pytest.mark.parametrize('val_type', [int, bool, float])
 def test_scalar_properties(key_type, val_type):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
+    mesh = tetrahedron_mesh()
     data: MeshData = getattr(mesh, key_type + '_data')
 
     data['foo'] = full(data.n_mesh_keys, val_type(0))
@@ -76,7 +76,7 @@ def test_scalar_properties(key_type, val_type):
 @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
 @pytest.mark.parametrize('val_type', [Point2, Point3, Vector2, Vector3])
 def test_array_properties(key_type, val_type):
-    mesh = Mesh3.from_polygon_soup(*tetrahedron())
+    mesh = tetrahedron_mesh()
     d: MeshData = getattr(mesh, key_type + '_data')
 
     ndims = int(val_type.__name__[-1])
@@ -88,3 +88,11 @@ def test_array_properties(key_type, val_type):
     d['foo'] = data
 
     assert_array_equal(data, d['foo'][:])
+
+    data2 = data * 2
+    objs = [val_type(*val) for val in data2]
+    d['foo'].set_objects(d.mesh_keys, objs)
+    objs2 = d['foo'].get_objects(d.mesh_keys)
+
+    for (o1, o2) in zip(objs, objs2):
+        assert o1 == o2

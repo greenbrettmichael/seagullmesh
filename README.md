@@ -44,16 +44,26 @@ mesh = Mesh3.from_pyvista(polydata)
 
 with the corresponding output methods `mesh.to_polygon_soup`, `mesh.to_file`, `mesh.to_pyvista`.
 
+#### Mesh construction from point clouds
 Meshes can also be constructed from oriented point clouds using CGAL's [Poisson Surface Reconstruction package](
 https://doc.cgal.org/latest/Poisson_surface_reconstruction_3/index.html)
 
 ```python
-mesh = Mesh3.poisson_surface_reconstruction(points, normals, spacing)
+mesh = Mesh3.from_poisson_surface_reconstruction(points, normals, spacing)
+```
+
+Or from unoriented point clouds using CGAL's [3D Alpha Wrapping](https://doc.cgal.org/latest/Alpha_wrap_3/index.html).
+
+```python
+mesh = Mesh3.from_alpha_wrapping(points, alpha, offset)
 ```
 
 ### Mesh indices
 
-CGAL indices `Surface_mesh::vertex_index`, `::edge_index`, `::face_index`, `::edge_index`, and `::halfedge_index` are exposed in the python properties `mesh.vertices`, `.faces`, `.edges`, and `.halfedges`, which are returned as numpy arrays of indices for convenience. These arrays are used for indexing property maps and specifying regions for further processing. (See below.)
+CGAL indices `Surface_mesh::vertex_index`, `::edge_index`, `::face_index`, `::edge_index`, and `::halfedge_index` 
+are exposed in the python properties `mesh.vertices`, `.faces`, `.edges`, and `.halfedges`, which are returned as 
+opaque wrappers around `std::vectors` that allow numpy-like indexing and slicing. These vectors are used for indexing 
+property maps and specifying regions for further processing. (See below.)
 
 ### Mesh property maps
 
@@ -61,25 +71,35 @@ Property maps are stored in the python properties `mesh.vertex_data`,
 `edge_data`, etc. They can be manually created by specifying a default value:
 ```python
 mesh.vertex_data.add_property('my_property1', default=1)
+mesh.edge_data.add_property('my_bool', default=False)
 ```
 
-Or automatically on insert, where a default value of 0 is assumed:
+Because it may be necessary to distinguish between C++ signed and unsigned integer value types, an additional `signed` 
+kwarg is supported for integer types:
+
+```python
+mesh.vertex_data.add_property('my_uint', default=0, signed=False)
+```
+
+Properties can also be created by assigned an array directly to a new property map name, 
+where a default value of 0 is assumed:
 ```python
 mesh.vertex_data['my_property2'] = np.arange(mesh.n_vertices)
 ```
 
-Indexing can use the appropriate keys:
+Indexing can use the appropriate keys, which returns a numpy array of property values for the corresponding indices:
 ```python
 my_property_vals = mesh.vertex_data['my_property2'][mesh.vertices]
 ```
 
-Numpy indexing is also supported for convenience:
+Numpy-like indexing is also supported for convenience:
 ```python
 first_10 = mesh.vertex_data['my_property2'][:10]
-
+every_other = mesh.vertex_data['my_property2'][(np.arange(mesh.n_vertices) % 2) == 0]
 ```
 
-Non-scalar valued properties are supported in the form of CGAL's `Point_2`, `Point_3`, `Vector_2`, `Vector_3` objects must be constructed manually. Conversion to and from numpy arrays is handled automatically.
+Non-scalar valued properties are supported in the form of CGAL's `Point_2`, `Point_3`, `Vector_2`, `Vector_3`, exposed
+as the python classes `seagullmesh.Point2`, `Point3`, `Vector2` and `Vector3`.
 
 ```python
 from seagullmesh import Point2
