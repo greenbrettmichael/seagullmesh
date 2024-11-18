@@ -141,21 +141,19 @@ std::vector<Idx> indices_from_range(typename Idx::size_type n, const IdxRange id
 }
 
 
-//template<size_t N, typename Idx, typename Val>
-//py::array_t<double> indices_to_array(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
-//    const size_t n_idxs = idxs.size();
-////    if constexpr ( N == 1) {
-////    }
-//    py::array_t<double> vals({n_idxs, N});
-//    auto r = vals.mutable_unchecked<N>();
-//    for (auto i = 0; i < n_idxs; ++i) {
-//        Val val = fn(idxs[i]);
-//        for (auto j = 0; j < N; ++j) {
-//            r(i, j) = CGAL::to_double(val[j]);
-//        }
-//    }
-//    return vals;
-//}
+template<size_t N, typename Idx, typename Val>
+py::array_t<double> map_indices_to_array(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
+    const size_t n_idxs = idxs.size();
+    py::array_t<double> vals({n_idxs, N});
+    auto r = vals.mutable_unchecked<2>();
+    for (auto i = 0; i < n_idxs; ++i) {
+        Val val = fn(idxs[i]);
+        for (auto j = 0; j < N; ++j) {
+            r(i, j) = CGAL::to_double(val[j]);
+        }
+    }
+    return vals;
+}
 
 
 void init_mesh(py::module &m) {
@@ -310,20 +308,15 @@ void init_mesh(py::module &m) {
             return std::make_tuple(points, faces_out);
         })
         .def("face_normals", [](const Mesh3& mesh, const std::vector<F>& faces) {
-            const size_t nf = faces.size();
-            py::array_t<double> normals({nf, size_t(3)});
-            auto r = normals.mutable_unchecked<2>();
-            for (auto i = 0; i < nf; i++) {
-                auto normal = PMP::compute_face_normal(faces[i], mesh);
-                for (auto j = 0; j < 3; j++) {
-                    r(i, j) = CGAL::to_double(normal[j]);
-                }
-            }
-            return normals;
+            return map_indices_to_array<3, F, Vector3>(
+                faces, [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
+            )
         })
-//        .def("vertex_normals", [](const Mesh3& mesh, const std::vector<V>& verts) {
-//            return indices_to_array<3, V, Vector3>(verts, [mesh](V v) {return PMP::compute_vertex_normal(v, mesh);});
-//        })
+        .def("vertex_normals", [](const Mesh3& mesh, const std::vector<V>& verts) {
+            return map_indices_to_array<3, V, Vector3>(
+                verts, [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
+            );
+        })
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
         .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
         .def("estimate_geodesic_distances", [](const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, V source) {
