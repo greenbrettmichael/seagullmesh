@@ -75,7 +75,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             Idxs out;
             out.reserve(n);
 
-            auto r = sub.unchecked<1>();
+            auto r = sub.template unchecked<1>();
             for (int i = 0; i < n; ++i) {
                 out.emplace_back(idxs.at(r(i)));
             }
@@ -87,7 +87,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
                 throw py::index_error();
             }
             Idxs out;
-            auto r = sub.unchecked<1>();
+            auto r = sub.template unchecked<1>();
             for (int i = 0; i < n; ++i) {
                 if ( r(i) ) {
                     out.emplace_back(idxs[i]);
@@ -108,8 +108,8 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         })
         .def("to_ints", [](const Idxs& idxs) {
             const py::ssize_t n = idxs.size();
-            py::array_t<size_type> out({n});
-            auto r = out.mutable_unchecked<1>();
+            py::template array_t<size_type> out({n});
+            auto r = out.template mutable_unchecked<1>();
             for (int i = 0; i < n; ++i) {
                 r(i) = size_type(idxs[i]);
             }
@@ -122,7 +122,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             py::ssize_t n = idxs.size();
             Idxs out;
             out.reserve(n);
-            auto r = idxs.unchecked<1>();
+            auto r = idxs.template unchecked<1>();
             for (int i = 0; i < n; ++i) {
                 out.emplace_back(V(r(i)));
             }
