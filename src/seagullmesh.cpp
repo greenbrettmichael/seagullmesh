@@ -12,7 +12,7 @@ void init_border(py::module&);
 void init_simplification(py::module&);
 void init_skeletonization(py::module&);
 void init_poisson_reconstruct(py::module&);
-void init_alpha_wrapping(py::module);
+void init_alpha_wrapping(py::module&);
 
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
