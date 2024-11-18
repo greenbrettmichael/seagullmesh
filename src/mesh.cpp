@@ -271,7 +271,7 @@ void init_mesh(py::module &m) {
                     }
                 }
             }
-            return faces;
+            return std::vector<F>(faces.begin(), faces.end());
         })
         .def("vertices_to_edges", [](const Mesh3& mesh, const std::vector<V>& verts) {
             std::set<E> edges;
@@ -280,7 +280,7 @@ void init_mesh(py::module &m) {
                     edges.insert(mesh.edge(h));
                 }
             }
-            return edges;
+            return std::vector<E>(edges.begin(), edges.end());
         })
         .def("vertex_degrees", [](const Mesh3& mesh, const std::vector<V>& verts) {
             int n = verts.size();
