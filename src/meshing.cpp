@@ -11,6 +11,7 @@
 #include <CGAL/Polygon_mesh_processing/interpolated_corrected_curvatures.h>
 #include <CGAL/Polygon_mesh_processing/Adaptive_sizing_field.h>
 #include <CGAL/Polygon_mesh_processing/Uniform_sizing_field.h>
+#include <CGAL/Polygon_mesh_processing/refine_mesh_at_isolevel.h>
 
 typedef std::vector<V>                                      Verts;
 typedef std::vector<F>                                      Faces;
@@ -202,6 +203,15 @@ void init_meshing(py::module &m) {
                 .ball_radius(ball_radius)
             ;
             PMP::interpolated_corrected_curvatures(mesh, params);
+        })
+        .def("refine_mesh_at_isolevel", [](
+            Mesh3& mesh,
+            VertDouble& value_map,
+            double isovalue,
+            EdgeBool& edge_is_constrained_map,
+        ) {
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
+            PMP::refine_mesh_at_isolevel(mesh, value_map, isovalue, params);
         })
     ;
 }
