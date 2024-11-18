@@ -78,6 +78,13 @@ class Mesh3:
         """The C++ mesh object"""
         return self._mesh
 
+    @property
+    def has_garbage(self) -> bool:
+        return self._mesh.has_garbage
+
+    def collect_garbage(self) -> None:
+        self._mesh.collect_garbage()
+
     def volume(self) -> float:
         return self._mesh.volume()
 

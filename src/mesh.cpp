@@ -141,6 +141,23 @@ std::vector<Idx> indices_from_range(typename Idx::size_type n, const IdxRange id
 }
 
 
+//template<size_t N, typename Idx, typename Val>
+//py::array_t<double> indices_to_array(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
+//    const size_t n_idxs = idxs.size();
+////    if constexpr ( N == 1) {
+////    }
+//    py::array_t<double> vals({n_idxs, N});
+//    auto r = vals.mutable_unchecked<N>();
+//    for (auto i = 0; i < n_idxs; ++i) {
+//        Val val = fn(idxs[i]);
+//        for (auto j = 0; j < N; ++j) {
+//            r(i, j) = CGAL::to_double(val[j]);
+//        }
+//    }
+//    return vals;
+//}
+
+
 void init_mesh(py::module &m) {
     py::module sub = m.def_submodule("mesh");
 
@@ -197,9 +214,11 @@ void init_mesh(py::module &m) {
         })
     ;
 
-
     py::class_<Mesh3>(sub, "Mesh3")
         .def(py::init<>())
+
+        .def_property_readonly("has_garbage", [](const Mesh3& mesh) {return mesh.has_garbage();})
+        .def("collect_garbage", [](Mesh3& mesh) {mesh.collect_garbage();})
         
         .def_property_readonly("is_valid", [](const Mesh3& mesh) { return mesh.is_valid(false); })
         .def_property_readonly("n_vertices", [](const Mesh3& mesh) { return mesh.number_of_vertices(); })
@@ -244,41 +263,34 @@ void init_mesh(py::module &m) {
 
             return verts;
         })
-        .def("expand_selection", [](Mesh3& mesh, const std::vector<V>& selected) {
-            std::set<V> expanded;
-            for (V v0 : selected) {
-                expanded.insert(v0);
-                for (V v1 : vertices_around_target(mesh.halfedge(v0), mesh)) {
-                    if (v1 != mesh.null_vertex()) {
-                        expanded.insert(v1);
-                    }
-                }
-            }
-            return expanded;
-        })
-        .def("expand_selection", [](Mesh3& mesh, const std::vector<F>& selected) {
-            std::set<F> expanded;
-            for (F f0 : selected) {
-                expanded.insert(f0);
-                for (F f1 : faces_around_face(mesh.halfedge(f0), mesh)) {
-                    if (f1 != mesh.null_face()) {
-                        expanded.insert(f1);
-                    }
-                }
-            }
-            return expanded;
-        })
-        .def("vertices_to_faces", [](Mesh3& mesh, const std::vector<V>& verts) {
+        .def("vertices_to_faces", [](const Mesh3& mesh, const std::vector<V>& verts) {
             std::set<F> faces;
             for (V v : verts) {
                 for (F f : faces_around_target(mesh.halfedge(v), mesh)) {
-                    // if (mesh.is_valid(f)) {
                     if (f != mesh.null_face()) {
                         faces.insert(f);
                     }
                 }
             }
             return faces;
+        })
+        .def("vertices_to_edges", [](const Mesh3& mesh, const std::vector<V>& verts) {
+            std::set<E> edges;
+            for (V v : verts) {
+                for (H h : halfedges_around_source(v, mesh)) {
+                    edges.insert(mesh.edge(h));
+                }
+            }
+            return edges;
+        })
+        .def("vertex_degrees", [](const Mesh3& mesh, const std::vector<V>& verts) {
+            int n = verts.size();
+            py::array_t<Mesh3::size_type> degrees({size_t(n)});
+            auto r = degrees.mutable_unchecked<1>();
+            for (int i = 0; i < n; ++i) {
+                r(i) = mesh.degree(verts[i]);
+            }
+            return degrees;
         })
         .def("to_polygon_soup", [](const Mesh3& mesh) {
             std::vector<Point3> verts;
@@ -297,10 +309,9 @@ void init_mesh(py::module &m) {
             }
             return std::make_tuple(points, faces_out);
         })
-
-        .def("face_normals", [](const Mesh3& mesh, const std::vector<F> faces) {
+        .def("face_normals", [](const Mesh3& mesh, const std::vector<F>& faces) {
             const size_t nf = faces.size();
-            py::array_t<double, py::array::c_style> normals({nf, size_t(3)});
+            py::array_t<double> normals({nf, size_t(3)});
             auto r = normals.mutable_unchecked<2>();
             for (auto i = 0; i < nf; i++) {
                 auto normal = PMP::compute_face_normal(faces[i], mesh);
@@ -310,7 +321,11 @@ void init_mesh(py::module &m) {
             }
             return normals;
         })
+//        .def("vertex_normals", [](const Mesh3& mesh, const std::vector<V>& verts) {
+//            return indices_to_array<3, V, Vector3>(verts, [mesh](V v) {return PMP::compute_vertex_normal(v, mesh);});
+//        })
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
+        .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
         .def("estimate_geodesic_distances", [](const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, V source) {
             CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, source);
         })
