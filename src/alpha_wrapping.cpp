@@ -11,7 +11,7 @@ void init_alpha_wrapping(py::module &m) {
             CGAL::alpha_wrap_3(mesh, alpha, offset, out);
             return out;
         })
-        .def("wrap_points", [](const py::array_t<double>& points, const double alpha, const double offset)) {
+        .def("wrap_points", [](const py::array_t<double>& points, const double alpha, const double offset) {
             std::vector<Point3> pts = array_to_points_3(points);
             Mesh3 out;
             CGAL::alpha_wrap_3(pts, alpha, offset, out);

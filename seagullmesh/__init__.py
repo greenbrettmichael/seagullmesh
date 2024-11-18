@@ -34,6 +34,10 @@ if TYPE_CHECKING:
 A = ndarray
 
 
+class ParametrizationError(RuntimeError):
+    pass
+
+
 class Mesh3:
     def __init__(self, mesh: _Mesh3):
         self._mesh = mesh
@@ -393,24 +397,32 @@ class Mesh3:
         """
         return sgm.locate.shortest_path(self._mesh, src_face, src_bc, tgt_face, tgt_bc)
 
-    def lscm(self, uv_map: str | PropertyMap[Vertex, Point2], initial_verts: Tuple[Vertex, Vertex] = None) -> str:
+    def lscm(self, uv_map: str | PropertyMap[Vertex, Point2], initial_verts: Tuple[Vertex, Vertex] = None) -> None:
         """Performs least-squares conformal mapping
 
         `initial_verts` are indices into the UV map whose coordinates have been fixed.
-        Returns a string indicating the result, 'Success' on success or an arrow otherwise.
+        Raises a seagullmesh.ParametrizationError if parametrization fails.
 
         """
         if isinstance(uv_map, str):
             uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
         if initial_verts is not None:
-            return sgm.parametrize.lscm(self._mesh, uv_map.pmap, *initial_verts)
+            msg = sgm.parametrize.lscm(self._mesh, uv_map.pmap, *initial_verts)
         else:
-            return sgm.parametrize.lscm(self._mesh, uv_map.pmap)
+            msg = sgm.parametrize.lscm(self._mesh, uv_map.pmap)
 
-    def arap(self, uv_map: str | PropertyMap[Vertex, Point2]):
-        """Performs as-rigid-as-possible parameterization"""
+        if msg != "Success":
+            raise ParametrizationError(msg)
+
+    def arap(self, uv_map: str | PropertyMap[Vertex, Point2]) -> None:
+        """Performs as-rigid-as-possible parameterization
+
+        Raises a seagullmesh.ParametrizationError if parametrization fails.
+        """
         uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
-        sgm.parametrize.arap(self._mesh, uv_map.pmap)
+        msg = sgm.parametrize.arap(self._mesh, uv_map.pmap)
+        if msg != "Success":
+            raise ParametrizationError(msg)
 
     def estimate_geodesic_distances(
             self,

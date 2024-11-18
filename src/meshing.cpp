@@ -208,7 +208,7 @@ void init_meshing(py::module &m) {
             Mesh3& mesh,
             VertDouble& value_map,
             double isovalue,
-            EdgeBool& edge_is_constrained_map,
+            EdgeBool& edge_is_constrained_map
         ) {
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
             PMP::refine_mesh_at_isolevel(mesh, value_map, isovalue, params);

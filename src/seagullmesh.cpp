@@ -12,18 +12,20 @@ void init_border(py::module&);
 void init_simplification(py::module&);
 void init_skeletonization(py::module&);
 void init_poisson_reconstruct(py::module&);
+void init_alpha_wrapping(py::module);
 
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
     init_properties(m);
-//    init_corefine(m);
-//    init_meshing(m);
-//    init_locate(m);
-//    init_parametrize(m);
-//    init_triangulate(m);
-//    init_border(m);
-//    init_simplification(m);
-//    init_skeletonization(m);
-//    init_poisson_reconstruct(m);
+    init_corefine(m);
+    init_meshing(m);
+    init_locate(m);
+    init_parametrize(m);
+    init_triangulate(m);
+    init_border(m);
+    init_simplification(m);
+    init_skeletonization(m);
+    init_poisson_reconstruct(m);
+    init_alpha_wrapping(m);
 }

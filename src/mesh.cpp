@@ -310,7 +310,7 @@ void init_mesh(py::module &m) {
         .def("face_normals", [](const Mesh3& mesh, const std::vector<F>& faces) {
             return map_indices_to_array<3, F, Vector3>(
                 faces, [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
-            )
+            );
         })
         .def("vertex_normals", [](const Mesh3& mesh, const std::vector<V>& verts) {
             return map_indices_to_array<3, V, Vector3>(
