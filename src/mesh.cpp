@@ -35,11 +35,12 @@ void define_simple_type_2(py::module &m, std::string name) {
 // Used for defining Vertex/Vertices, Face/Faces, etc.
 template<typename Idx>
 void define_indices(py::module &m, std::string idx_name, std::string idxs_name) {
+    using size_type = typename Idx::size_type;
     using Idxs = typename std::vector<Idx>;
 
     py::class_<Idx>(m, idx_name.c_str())
-        .def(py::init<Idx::size_type>())
-        .def("to_int", [](const Idx& idx) {return Idx::size_type(idx);})
+        .def(py::init<size_type>())
+        .def("to_int", [](const Idx& idx) {return size_type(idx);})
     ;
     py::class_<Idxs>(m, idxs_name.c_str())
         .def("__len__", [](const Idxs& idxs) { return idxs.size(); })
@@ -66,7 +67,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             }
             return out;
         })
-        .def("__getitem__", [](const Idxs& idxs, const py::array_t<Idx::size_type>& sub) {
+        .def("__getitem__", [](const Idxs& idxs, const py::array_t<size_type>& sub) {
             if (sub.ndim() != 1) {
                 throw py::index_error();
             }
@@ -107,14 +108,14 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         })
         .def("to_ints", [](const Idxs& idxs) {
             const py::ssize_t n = idxs.size();
-            py::array_t<Idx::size_type> out({n});
+            py::array_t<size_type> out({n});
             auto r = out.mutable_unchecked<1>();
             for (int i = 0; i < n; ++i) {
-                r(i) = Idx::size_type(idxs[i]);
+                r(i) = size_type(idxs[i]);
             }
             return out;
         })
-        .def("from_ints", [](const py::array_t<Idx::size_type>& idxs) {
+        .def("from_ints", [](const py::array_t<size_type>& idxs) {
             if (idxs.ndim() != 1) {
                 throw py::index_error();
             }
