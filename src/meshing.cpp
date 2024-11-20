@@ -1,5 +1,8 @@
 #include "seagullmesh.hpp"
 
+#include <boost/range/adaptors.hpp>
+#include <boost/range/algorithm/copy.hpp>
+
 #include <CGAL/Polygon_mesh_processing/remesh.h>
 #include <CGAL/Polygon_mesh_processing/fair.h>
 #include <CGAL/Polygon_mesh_processing/angle_and_area_smoothing.h>
@@ -167,8 +170,18 @@ void init_meshing(py::module &m) {
             ;
             PMP::smooth_shape(faces, mesh, time, params);
         })
-        .def("does_self_intersect", [](Mesh3& mesh) {
+        .def("does_self_intersect", [](const Mesh3& mesh) {
             return PMP::does_self_intersect(mesh);
+        })
+        .def("self_intersections", [](const Mesh3& mesh) {
+            std::vector<std::pair<F, F>> pairs;
+            PMP::self_intersections(mesh, std::back_inserter(pairs));
+
+            std::vector<F> first, second;
+            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
+            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
+
+            return std::make_tuple(first, second);
         })
         .def("remesh_planar_patches", [](
                 const Mesh3& mesh,

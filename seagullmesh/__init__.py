@@ -344,6 +344,10 @@ class Mesh3:
         """Returns True if the mesh self-intersects"""
         return sgm.meshing.does_self_intersect(self._mesh)
 
+    def self_intersections(self) -> Tuple[Faces, Faces]:
+        """Returns pairs of intersecting faces"""
+        return sgm.meshing.self_intersections(self._mesh)
+
     def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points'):
         """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
 
