@@ -265,6 +265,7 @@ void init_mesh(py::module &m) {
         .def("vertices_to_faces", [](const Mesh3& mesh, const std::vector<V>& verts) {
             std::set<F> faces;
             for (V v : verts) {
+                // mesh.halfedge(v) returns an incoming halfedge of vertex v
                 for (F f : faces_around_target(mesh.halfedge(v), mesh)) {
                     if (f != mesh.null_face()) {
                         faces.insert(f);
