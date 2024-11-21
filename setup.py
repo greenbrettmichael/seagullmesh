@@ -213,6 +213,8 @@ class BuildExt(build_ext):
             if 'CGAL_DEBUG' not in os.environ:
                 opts.append('/DCGAL_DEBUG=1')
 
+            opts.append('/DCGAL_PMP_REMOVE_SELF_INTERSECTION_OUTPUT=1')
+
         for ext in self.extensions:
             ext.extra_compile_args = opts
             ext.extra_link_args = link_opts

@@ -15,6 +15,7 @@
 #include <CGAL/Polygon_mesh_processing/Adaptive_sizing_field.h>
 #include <CGAL/Polygon_mesh_processing/Uniform_sizing_field.h>
 #include <CGAL/Polygon_mesh_processing/refine_mesh_at_isolevel.h>
+#include <CGAL/Polygon_mesh_processing/repair_self_intersections.h>
 
 typedef std::vector<V>                                      Verts;
 typedef std::vector<F>                                      Faces;
@@ -182,6 +183,10 @@ void init_meshing(py::module &m) {
             boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
 
             return std::make_tuple(first, second);
+        })
+        .def("remove_self_intersections", [](Mesh3& mesh) {
+            // PMP::experimental::remove_self_intersections(mesh);
+            auto temp = CGAL::Polygon_mesh_processing::experimental::remove_self_intersections(mesh);
         })
         .def("remesh_planar_patches", [](
                 const Mesh3& mesh,

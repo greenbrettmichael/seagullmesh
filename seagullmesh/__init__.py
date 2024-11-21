@@ -348,6 +348,9 @@ class Mesh3:
         """Returns pairs of intersecting faces"""
         return sgm.meshing.self_intersections(self._mesh)
 
+    def remove_self_intersections(self) -> None:
+        return sgm.meshing.remove_self_intersections(self._mesh)
+
     def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points'):
         """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
 
