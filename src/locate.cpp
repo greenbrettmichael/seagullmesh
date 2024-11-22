@@ -7,12 +7,7 @@
 #include <CGAL/AABB_face_graph_triangle_primitive.h>
 #include <CGAL/AABB_tree.h>
 
-// TODO AABB_traits is deprecated, use AABB_traits_3
-#include <CGAL/AABB_traits.h>
-//#include <CGAL/AABB_traits_3.h>
-
-typedef std::vector<F>         Faces3;
-typedef std::vector<V>         Verts3;
+#include <CGAL/AABB_traits_3.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 typedef PMP::Barycentric_coordinates<Kernel::FT>    Barycentric_coordinates;
@@ -21,36 +16,6 @@ typedef PMP::Face_location<Mesh3, Kernel::FT>       FaceLocation;
 typedef Mesh3::Property_map<V, Point3>             VertPoints3;
 typedef Mesh3::Property_map<V, Point2>             VertPoints2;
 
-typedef typename CGAL::AABB_face_graph_triangle_primitive<Mesh3>    AABB_primitive3;
-typedef typename CGAL::AABB_traits<Kernel, AABB_primitive3>         AABB_traits3;
-typedef typename CGAL::AABB_tree<AABB_traits3>                      AABB_Tree3;
-
-template<typename Point, typename VPM>
-auto construct_points(
-        const Mesh3& mesh,
-        const std::vector<F>& faces,
-        const py::array_t<double>& bary_coords,
-        const VPM& vertex_point_map
-) {
-    size_t nf = faces.size();
-    auto rbc = bary_coords.unchecked<2>();
-    size_t nb = rbc.shape(0);
-    if (nf != nb) {
-        throw std::runtime_error("number of faces doesn't match number of points");
-    }
-
-    std::vector<Point> points;
-    points.reserve(nf);
-    auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
-
-    for (auto i = 0; i < nf; i++) {
-        Barycentric_coordinates bc = {rbc(i, 0), rbc(i, 1), rbc(i, 2)};
-        FaceLocation loc = {faces[i], bc};
-        auto pt = PMP::construct_point(loc, mesh, params);
-        points.emplace_back(pt);
-    }
-    return points_to_array(points);
-}
 
 struct Point2_to_Point3 {
     // https://stackoverflow.com/questions/66308313/2d-aabbtree-in-cgal-with-custom-property-map
@@ -71,9 +36,43 @@ struct Point2_to_Point3 {
     }
 };
 
-typedef typename CGAL::AABB_face_graph_triangle_primitive<Mesh3, Point2_to_Point3>      AABB_primitive2;
-typedef typename CGAL::AABB_traits<Kernel, AABB_primitive2>                             AABB_traits2;
-typedef typename CGAL::AABB_tree<AABB_traits2>                                          AABB_Tree2;
+typedef typename CGAL::AABB_face_graph_triangle_primitive<Mesh3, VertPoints3>       AABB_primitive3;
+typedef typename CGAL::AABB_traits_3<Kernel, AABB_primitive3>                       AABB_traits3;
+typedef typename CGAL::AABB_tree<AABB_traits3>                                      AABB_Tree3;
+
+typedef typename CGAL::AABB_face_graph_triangle_primitive<Mesh3, Point2_to_Point3>  AABB_primitive2;
+typedef typename CGAL::AABB_traits_3<Kernel, AABB_primitive2>                       AABB_traits2;
+typedef typename CGAL::AABB_tree<AABB_traits2>                                      AABB_Tree2;
+
+
+template<size_t N, typename Point, typename VPM>
+auto construct_points(
+        const Mesh3& mesh,
+        const std::vector<F>& faces,
+        const py::array_t<double>& bary_coords,
+        const VPM& vertex_point_map
+) {
+    const size_t nf = faces.size();
+    auto rbc = bary_coords.unchecked<2>();
+    const size_t nb = size_t(rbc.shape(0));
+    if (nf != nb) {
+        throw std::runtime_error("number of faces doesn't match number of points");
+    }
+
+    py::array_t<double> points({nf, N});
+    auto rpts = points.mutable_unchecked<2>();
+    auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
+
+    for (size_t i = 0; i < nf; ++i) {
+        Barycentric_coordinates bc = {rbc(i, 0), rbc(i, 1), rbc(i, 2)};
+        FaceLocation loc = {faces[i], bc};
+        auto pt = PMP::construct_point(loc, mesh, params);
+        for (size_t j = 0; j < N; ++j) {
+            rpts(i, j) = pt[j];
+        }
+    }
+    return points;
+}
 
 template<typename AABB_Tree, typename Point, typename VPM>
 auto locate_points(
@@ -83,14 +82,12 @@ auto locate_points(
         const VPM& vertex_point_map
 ) {
     size_t np = points.size();
-    std::vector<F> faces;
-    faces.reserve(np);
+    std::vector<F> faces(np);
     py::array_t<double, py::array::c_style> bary_coords({np, size_t(3)});
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
-
     auto rbc = bary_coords.mutable_unchecked<2>();
 
-    for (auto i = 0; i < np; i++) {
+    for (size_t i = 0; i < np; i++) {
         FaceLocation loc = PMP::locate_with_AABB_tree(points[i], tree, mesh, params);
         faces.emplace_back(loc.first);
 
@@ -154,7 +151,7 @@ void init_locate(py::module &m) {
                 const py::array_t<double>& bary_coords,
                 const VertPoints3& vertex_point_map
         ){
-            return construct_points<Point3, VertPoints3>(mesh, faces, bary_coords, mesh.points());
+            return construct_points<3, Point3, VertPoints3>(mesh, faces, bary_coords, mesh.points());
         })
         .def("construct_points", [](
                 const Mesh3& mesh,
@@ -162,7 +159,7 @@ void init_locate(py::module &m) {
                 const py::array_t<double>& bary_coords,
                 const VertPoints3& vertex_point_map
         ){
-            return construct_points<Point3, VertPoints3>(mesh, faces, bary_coords, vertex_point_map);
+            return construct_points<3, Point3, VertPoints3>(mesh, faces, bary_coords, vertex_point_map);
         })
         .def("construct_points", [](
                 const Mesh3& mesh,
@@ -170,7 +167,7 @@ void init_locate(py::module &m) {
                 const py::array_t<double>& bary_coords,
                 const VertPoints2& vertex_point_map
         ){
-            return construct_points<Point2, VertPoints2>(mesh, faces, bary_coords, vertex_point_map);
+            return construct_points<2, Point2, VertPoints2>(mesh, faces, bary_coords, vertex_point_map);
         })
         .def("shortest_path", [](
                 const Mesh3& mesh,
