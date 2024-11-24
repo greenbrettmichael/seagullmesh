@@ -81,7 +81,7 @@ struct SurfacePoints {
     py::array_t<double> bary_coords;
 };
 
-template<typename size_t N, typename AABB_Tree, typename VPM>
+template<size_t N, typename AABB_Tree, typename VPM>
 SurfacePoints locate_points(
         const Mesh3& mesh,
         const AABB_Tree& tree,
