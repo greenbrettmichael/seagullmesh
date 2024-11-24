@@ -89,8 +89,8 @@ SurfacePoints locate_points(
         const VPM& vertex_point_map
 ) {
     size_t np = size_t(points.shape(0));
-    // std::vector<F> faces(np);
     std::vector<F> faces;
+    faces.reserve(np);
     py::array_t<double> bary_coords({np, size_t(3)});
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
     auto rpts = points.unchecked<2>();
