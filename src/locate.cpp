@@ -74,21 +74,28 @@ auto construct_points(
     return points;
 }
 
-template<typename AABB_Tree, typename Point, typename VPM>
+template<typename size_t N, typename AABB_Tree, typename VPM>
 auto locate_points(
         const Mesh3& mesh,
         const AABB_Tree& tree,
-        const std::vector<Point>& points,
+        const py::array_t<double>& points,
         const VPM& vertex_point_map
 ) {
-    size_t np = points.size();
+    size_t np = size_t(points.shape(0));
     std::vector<F> faces(np);
     py::array_t<double, py::array::c_style> bary_coords({np, size_t(3)});
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
+    auto rpts = points.unchecked<2>();
     auto rbc = bary_coords.mutable_unchecked<2>();
 
     for (size_t i = 0; i < np; i++) {
-        FaceLocation loc = PMP::locate_with_AABB_tree(points[i], tree, mesh, params);
+        Point3 pt;
+        if constexpr ( N == 3 ) {
+            pt = Point3(rpts(i, 0), rpts(i, 1), rpts(i, 2));
+        } else {
+            pt = Point3(rpts(i, 0), rpts(i, 1), 0);
+        }
+        FaceLocation loc = PMP::locate_with_AABB_tree(pt, tree, mesh, params);
         faces.emplace_back(loc.first);
 
         for (size_t j = 0; j < 3; j++) {
@@ -123,27 +130,22 @@ void init_locate(py::module &m) {
             PMP::build_AABB_tree(mesh, tree, params);
             return tree;
         })
-        .def("locate_points", [](const Mesh3& mesh, const AABB_Tree3& tree, const py::array_t<double>& points) {
-            auto pts = array_to_points_3(points);
-            return locate_points(mesh, tree, pts, mesh.points());
-        })
         .def("locate_points", [](
                 const Mesh3& mesh,
                 const AABB_Tree3& tree,
-                const py::array_t<double>& points,
+                const py::array_t<double>& points,  // n_pts x 3
                 const VertPoints3& vertex_point_map
             ) {
-            auto pts = array_to_points_3(points);
-            return locate_points(mesh, tree, pts, vertex_point_map);
+            return locate_points<3, AABB_Tree3, VertPoints3>(mesh, tree, points, vertex_point_map);
         })
         .def("locate_points", [](
                 const Mesh3& mesh,
                 const AABB_Tree2& tree,
-                const py::array_t<double>& points,
+                const py::array_t<double>& points,  // n_pts x 2
                 const VertPoints2& vertex_point_map
         ) {
-            auto pts = array_to_points_2(points);
-            return locate_points(mesh, tree, pts, vertex_point_map);
+            return locate_points<2, AABB_Tree2, Point2_to_Point3>(
+                mesh, tree, points, Point2_to_Point3(vertex_point_map));
         })
         .def("construct_points", [](
                 const Mesh3& mesh,

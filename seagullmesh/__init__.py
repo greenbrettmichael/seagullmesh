@@ -360,7 +360,12 @@ class Mesh3:
         vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
         return sgm.locate.aabb_tree(self._mesh, vert_points.pmap)
 
-    def locate_points(self, points: ndarray, aabb_tree=None) -> Tuple[Faces, A]:
+    def locate_points(
+            self,
+            points: ndarray,
+            aabb_tree=None,
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points',
+    ) -> Tuple[Faces, A]:
         """Given an array of points, locate the nearest corresponding points on the mesh
 
         `aabb_tree` is an optional axis-aligned bounding box from Mesh3.aabb_tree. If the tree was constructed with a
@@ -369,7 +374,8 @@ class Mesh3:
         Returns a list of face indices of length np, and an array (np, 3) of barycentric coordinates within those faces.
         """
         tree = aabb_tree or self.aabb_tree()
-        return sgm.locate.locate_points(self._mesh, tree, points)
+        vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
+        return sgm.locate.locate_points(self._mesh, tree, points, vert_points.pmap)
 
     def construct_points(
             self,
