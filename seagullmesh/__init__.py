@@ -375,7 +375,8 @@ class Mesh3:
         """
         tree = aabb_tree or self.aabb_tree()
         vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
-        return sgm.locate.locate_points(self._mesh, tree, points, vert_points.pmap)
+        surface_points = sgm.locate.locate_points(self._mesh, tree, points, vert_points.pmap)
+        return surface_points.faces, surface_points.bary_coords
 
     def construct_points(
             self,

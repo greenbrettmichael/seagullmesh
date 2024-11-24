@@ -74,27 +74,34 @@ auto construct_points(
     return points;
 }
 
+struct SurfacePoints {
+    SurfacePoints(std::vector<F> faces, py::array_t<double> bary_coords) : faces(faces), bary_coords(bary_coords) { }
+
+    std::vector<F> faces;
+    py::array_t<double> bary_coords;
+};
+
 template<typename size_t N, typename AABB_Tree, typename VPM>
-auto locate_points(
+SurfacePoints locate_points(
         const Mesh3& mesh,
         const AABB_Tree& tree,
         const py::array_t<double>& points,
         const VPM& vertex_point_map
 ) {
     size_t np = size_t(points.shape(0));
-    std::vector<F> faces(np);
-    py::array_t<double, py::array::c_style> bary_coords({np, size_t(3)});
+    // std::vector<F> faces(np);
+    std::vector<F> faces;
+    py::array_t<double> bary_coords({np, size_t(3)});
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
     auto rpts = points.unchecked<2>();
     auto rbc = bary_coords.mutable_unchecked<2>();
 
     for (size_t i = 0; i < np; i++) {
-        Point3 pt;
+        double z = 0.0;
         if constexpr ( N == 3 ) {
-            pt = Point3(rpts(i, 0), rpts(i, 1), rpts(i, 2));
-        } else {
-            pt = Point3(rpts(i, 0), rpts(i, 1), 0);
+            z = rpts(i, 2);
         }
+        Point3 pt = Point3(rpts(i, 0), rpts(i, 1), z);
         FaceLocation loc = PMP::locate_with_AABB_tree(pt, tree, mesh, params);
         faces.emplace_back(loc.first);
 
@@ -103,11 +110,16 @@ auto locate_points(
         }
     }
 
-    return std::make_tuple(faces, bary_coords);
+    return SurfacePoints(faces, bary_coords);
 }
 
 void init_locate(py::module &m) {
     py::module sub = m.def_submodule("locate");
+
+    py::class_<SurfacePoints>(sub, "SurfacePoints")
+        .def_readonly("faces", &SurfacePoints::faces)
+        .def_readonly("bary_coords", &SurfacePoints::bary_coords)
+    ;
 
     py::class_<AABB_Tree3>(sub, "AABB_Tree3");
 
