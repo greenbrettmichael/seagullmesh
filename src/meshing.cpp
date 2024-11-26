@@ -21,6 +21,8 @@
 
 typedef std::vector<V>                                      Verts;
 typedef std::vector<F>                                      Faces;
+typedef std::vector<E>                                      Edges;
+
 typedef Mesh3::Property_map<V, Point3>                      VertPoint;
 typedef Mesh3::Property_map<V, double>                      VertDouble;
 typedef Mesh3::Property_map<V, bool>                        VertBool;
@@ -60,18 +62,22 @@ struct VertParamInterpolator {
     using value_type = Point3;
     using reference = Point3&;
     using category = boost::read_write_property_map_tag;
+    typedef std::function< std::tuple<double, double, double>(double, double) > SurfFn;
 
     Mesh3& mesh;
+    SurfFn& surf_fn;
     VertPoint& points;
     VertBool& touched;
     VertDouble& t_map;
     VertDouble& theta_map;
 
     VertParamInterpolator(
-            Mesh3& m, VertPoint& p, VertBool& touched, VertDouble& t, VertDouble& theta
-        ) : mesh(m), points(p), touched(touched), t_map(t), theta_map(theta) {}
+            Mesh3& m, SurfFn& fn, VertPoint& p, VertBool& touched, VertDouble& t, VertDouble& theta
+        ) : mesh(m), surf_fn(fn), points(p), touched(touched), t_map(t), theta_map(theta) {}
 
-    friend void check_params(const VertParamInterpolator& map, V v) {
+
+    friend Point3& get (const VertParamInterpolator& map, V v) { return map.points[v]; }
+    friend void put (const VertParamInterpolator& map, V v, const Point3& point) {
         if ( map.theta_map[v] != -1) { return; }
         map.touched[v] = true;
         std::set<double> nbr_t;
@@ -100,38 +106,15 @@ struct VertParamInterpolator {
                 n++;
             }
         }
+        double this_theta = std::atan2(sin_theta / n, cos_theta / n);
 
         map.t_map[v] = this_t;
-        map.theta_map[v] = std::atan2(sin_theta / n, cos_theta / 2);
-    }
-
-    friend Point3& get (const VertParamInterpolator& map, V v) { return map.points[v]; }
-    friend void put (const VertParamInterpolator& map, V v, const Point3& point) {
-        check_params(map, v);
-        map.points[v] = point;
+        map.theta_map[v] = this_theta;
+        std::tuple<double, double, double> xyz = map.surf_fn(this_t, this_theta);
+        map.points[v] = Point3(std::get<0>(xyz), std::get<1>(xyz), std::get<2>(xyz));
     }
 };
 
-struct VertParamProjector {
-    typedef std::function< std::tuple<double, double, double>(double, double) > SurfFn;
-
-    SurfFn& surf_fn;
-    VertDouble& t_map;
-    VertDouble& theta_map;
-
-    VertParamProjector(SurfFn& fn, VertDouble& t_map, VertDouble& theta_map)
-        : surf_fn(fn), t_map(t_map), theta_map(theta_map) { }
-
-    Point3 operator()(V v) const {
-        std::tuple<double, double, double> xyz = surf_fn(t_map[v], theta_map[v]);
-        return Point3(std::get<0>(xyz), std::get<1>(xyz), std::get<2>(xyz));
-    }
-};
-
-struct NeverAllowMoveFunctor {
-    NeverAllowMoveFunctor();
-    bool operator()(V v, Point3 src, Point3 tgt) const { return false; }
-};
 
 void init_meshing(py::module &m) {
 
@@ -143,24 +126,11 @@ void init_meshing(py::module &m) {
             VertBool& touched,
             VertDouble& t,
             VertDouble& theta,
-            unsigned int n_iter,
-            EdgeBool& edge_is_constrained_map
+            const Edges& edges
         ) {
-            VertParamInterpolator interpolator(mesh, mesh.points(), touched, t, theta);
-            VertParamProjector projector(surf_fn, t, theta);
-            // NeverAllowMoveFunctor allow_move();
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_point_map(interpolator)
-                .protect_constraints(true)
-                .do_collapse(false)
-                .do_flip(false)
-                .edge_is_constrained_map(edge_is_constrained_map)
-                .projection_functor(projector)
-                .number_of_relaxation_steps(0)
-                // .allow_move_functor(allow_move)
-            ;
-            PMP::isotropic_remeshing(mesh.faces(), thresh, mesh, params);
+            VertParamInterpolator interpolator(mesh, surf_fn, mesh.points(), touched, t, theta);
+            auto params = PMP::parameters::vertex_point_map(interpolator);
+            PMP::split_long_edges(edges, thresh, mesh, params);
         })
         .def("uniform_isotropic_remeshing", [](
                 Mesh3& mesh,
