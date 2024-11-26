@@ -454,6 +454,10 @@ class Mesh3:
         is_border = self.vertex_data.get_or_create_property(is_border, default=False)
         sgm.border.label_border_vertices(self._mesh, is_border.pmap)
 
+    def label_border_edges(self, is_border: str | PropertyMap[Edge, bool]):
+        is_border = self.edge_data.get_or_create_property(is_border, default=False)
+        sgm.border.label_border_edges(self._mesh, is_border.pmap)
+
     def remesh_planar_patches(
             self,
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
