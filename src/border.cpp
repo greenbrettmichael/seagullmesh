@@ -9,22 +9,22 @@ typedef Mesh3::Property_map<E, bool>       EdgeBool;
 
 
 struct touch_border_vertices {
-  const Mesh3& mesh;
-  VertBool& verts;
+    const Mesh3& mesh;
+    VertBool& verts;
 
-  touch_border_vertices (const Mesh3& m, VertBool& v) : mesh(m), verts(v) {}
+    touch_border_vertices (const Mesh3& m, VertBool& v) : mesh(m), verts(v) {}
 
-  void operator()(const H& h) const {
-    verts[mesh.source(h)] = true;
-    verts[mesh.target(h)] = true;
-  }
+    void operator()(const H& h) const {
+        verts[mesh.source(h)] = true;
+        verts[mesh.target(h)] = true;
+    }
 };
 
 struct touch_border_edges {
     const Mesh3& mesh;
     EdgeBool& edges;
 
-    touch_border_edges (const Mesh3& mesh m, EdgeBool& e) : mesh(m), edges(e) {}
+    touch_border_edges (const Mesh3& m, EdgeBool& e) : mesh(m), edges(e) {}
 
     void operator()(const H& h) const {
         edges[mesh.edge(h)] = true;

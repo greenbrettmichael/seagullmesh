@@ -93,20 +93,21 @@ struct VertParamInterpolator {
             }
             nbr_t.insert(t);
         }
+        if ( this_t == -1.0 ) {
+            throw std::runtime_error("couldnt figure out t");
+        }
 
         // Avg theta values of t-neighbors
         double cos_theta = 0, sin_theta = 0;
-        size_t n = 0;
         for (H h : halfedges_around_source(v, map.mesh)) {
             V w = map.mesh.target(h);  // Neighbor vertex
             if ( this_t == map.t_map[w] ) {
                 double theta = map.theta_map[w];
                 cos_theta += std::cos(theta);
                 sin_theta += std::sin(theta);
-                n++;
             }
         }
-        double this_theta = std::atan2(sin_theta / n, cos_theta / n);
+        double this_theta = std::atan2(sin_theta, cos_theta);
 
         map.t_map[v] = this_t;
         map.theta_map[v] = this_theta;
