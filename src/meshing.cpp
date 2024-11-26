@@ -1,7 +1,9 @@
 #include "seagullmesh.hpp"
 
+#include <cmath>
 #include <boost/range/adaptors.hpp>
 #include <boost/range/algorithm/copy.hpp>
+#include <pybind11/functional.h>
 
 #include <CGAL/Polygon_mesh_processing/remesh.h>
 #include <CGAL/Polygon_mesh_processing/fair.h>
@@ -41,7 +43,7 @@ struct TouchedVertPoint {
     VertPoint& points;
     VertBool& touched;
 
-    TouchedVertPoint();
+    TouchedVertPoint();  // TODO is this required?
     TouchedVertPoint(VertPoint& p, VertBool& t) : points(p), touched(t) {}
 
     friend Point3& get (const TouchedVertPoint& map, V v) { return map.points[v]; }
@@ -52,9 +54,114 @@ struct TouchedVertPoint {
 };
 
 
+struct VertParamInterpolator {
+    // Used for tracking which verts get moved during remesh, etc
+    using key_type = V;
+    using value_type = Point3;
+    using reference = Point3&;
+    using category = boost::read_write_property_map_tag;
+
+    Mesh3& mesh;
+    VertPoint& points;
+    VertBool& touched;
+    VertDouble& t_map;
+    VertDouble& theta_map;
+
+    VertParamInterpolator(
+            Mesh3& m, VertPoint& p, VertBool& touched, VertDouble& t, VertDouble& theta
+        ) : mesh(m), points(p), touched(touched), t_map(t), theta_map(theta) {}
+
+    friend void check_params(const VertParamInterpolator& map, V v) {
+        if ( map.theta_map[v] != -1) { return; }
+        map.touched[v] = true;
+        std::set<double> nbr_t;
+        double this_t = -1.0;
+
+        // Find what t_section this belongs to
+        for (H h : halfedges_around_source(v, map.mesh)) {
+            V w = map.mesh.target(h);  // Neighbor vertex
+            double t = map.t_map[w];
+            if ( nbr_t.count(t) ) {  // If more than one neighbor has this t
+                this_t = t;
+                break;
+            }
+            nbr_t.insert(t);
+        }
+
+        // Avg theta values of t-neighbors
+        double cos_theta = 0, sin_theta = 0;
+        size_t n = 0;
+        for (H h : halfedges_around_source(v, map.mesh)) {
+            V w = map.mesh.target(h);  // Neighbor vertex
+            if ( this_t == map.t_map[w] ) {
+                double theta = map.theta_map[w];
+                cos_theta += std::cos(theta);
+                sin_theta += std::sin(theta);
+                n++;
+            }
+        }
+
+        map.t_map[v] = this_t;
+        map.theta_map[v] = std::atan2(sin_theta / n, cos_theta / 2);
+    }
+
+    friend Point3& get (const VertParamInterpolator& map, V v) { return map.points[v]; }
+    friend void put (const VertParamInterpolator& map, V v, const Point3& point) {
+        check_params(map, v);
+        map.points[v] = point;
+    }
+};
+
+struct VertParamProjector {
+    typedef std::function< std::tuple<double, double, double>(double, double) > SurfFn;
+
+    SurfFn& surf_fn;
+    VertDouble& t_map;
+    VertDouble& theta_map;
+
+    VertParamProjector(SurfFn& fn, VertDouble& t_map, VertDouble& theta_map)
+        : surf_fn(fn), t_map(t_map), theta_map(theta_map) { }
+
+    Point3 operator()(V v) const {
+        std::tuple<double, double, double> xyz = surf_fn(t_map[v], theta_map[v]);
+        return Point3(std::get<0>(xyz), std::get<1>(xyz), std::get<2>(xyz));
+    }
+};
+
+struct NeverAllowMoveFunctor {
+    NeverAllowMoveFunctor();
+    bool operator()(V v, Point3 src, Point3 tgt) const { return false; }
+};
+
 void init_meshing(py::module &m) {
 
     m.def_submodule("meshing")
+        .def("upsample_tube", [](
+            Mesh3& mesh,
+            double thresh,
+            std::function<std::tuple<double, double, double>(double, double)>& surf_fn,
+            VertBool& touched,
+            VertDouble& t,
+            VertDouble& theta,
+            unsigned int n_iter,
+            EdgeBool& edge_is_constrained_map
+        ) {
+            VertParamInterpolator interpolator(mesh, mesh.points(), touched, t, theta);
+            VertParamProjector projector(surf_fn, t, theta);
+            // NeverAllowMoveFunctor allow_move();
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .vertex_point_map(interpolator)
+                .protect_constraints(true)
+                .do_collapse(false)
+                .do_flip(false)
+                .edge_is_constrained_map(edge_is_constrained_map)
+                .projection_functor(projector)
+                .number_of_relaxation_steps(0)
+                // .allow_move_functor(allow_move)
+            ;
+            PMP::isotropic_remeshing(mesh.faces(), thresh, mesh, params);
+        })
         .def("uniform_isotropic_remeshing", [](
                 Mesh3& mesh,
                 const Faces& faces,
