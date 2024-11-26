@@ -18,7 +18,17 @@ struct touch_border_vertices {
     verts[mesh.source(h)] = true;
     verts[mesh.target(h)] = true;
   }
+};
 
+struct touch_border_edges {
+    const Mesh3& mesh;
+    EdgeBool& edges;
+
+    touch_border_edges (const Mesh3& mesh m, EdgeBool& e) : mesh(m), edges(e) {}
+
+    void operator()(const H& h) const {
+        edges[mesh.edge(h)] = true;
+    }
 };
 
 
@@ -26,6 +36,10 @@ void init_border(py::module &m) {
     m.def_submodule("border")
         .def("label_border_vertices", [](const Mesh3& mesh, VertBool& vert_is_border) {
             auto output_iter = boost::make_function_output_iterator(touch_border_vertices(mesh, vert_is_border));
+            PMP::border_halfedges(faces(mesh), mesh, output_iter);
+        })
+        .def("label_border_edges", [](const Mesh3& mesh, EdgeBool& edge_is_border) {
+            auto output_iter = boost::make_function_output_iterator(touch_border_edges(mesh, edge_is_border));
             PMP::border_halfedges(faces(mesh), mesh, output_iter);
         })
     ;    
