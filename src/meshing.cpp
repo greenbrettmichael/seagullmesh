@@ -185,8 +185,8 @@ void init_meshing(py::module &m) {
             return std::make_tuple(first, second);
         })
         .def("remove_self_intersections", [](Mesh3& mesh) {
-            // PMP::experimental::remove_self_intersections(mesh);
-            auto temp = CGAL::Polygon_mesh_processing::experimental::remove_self_intersections(mesh);
+            // returns a bool, presumably success
+            return PMP::experimental::remove_self_intersections(mesh);
         })
         .def("remesh_planar_patches", [](
                 const Mesh3& mesh,
