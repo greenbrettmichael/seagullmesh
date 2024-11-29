@@ -133,14 +133,6 @@ class TubeMesher {
                     break;
                 }
             }
-
-            // // 
-            // for (auto it = std::make_reverse_iterator(prev_xs.lower_bound(theta1)); it != prev_xs.rend(); ++it) {
-            //     std::cout << "what " << it->first << " " << it->secondl
-            //     if (it->first <= theta0) { break; }
-            //     face.push_back(it->second);
-            // }
-
             // Finalize the face 
             if (debug) {
                 std::cout << "Adding face for theta " << theta0 << " => " << theta1 << ": ";
