@@ -39,7 +39,10 @@ class ParametrizationError(RuntimeError):
 
 
 class Mesh3:
-    def __init__(self, mesh: _Mesh3):
+    def __init__(self, mesh: _Mesh3 | None = None):
+        if mesh is None:
+            mesh = _Mesh3()
+
         self._mesh = mesh
         self.vertex_data = MeshData(mesh, sgm.properties.add_vertex_property, 'vertices', 'Vert')
         self.face_data = MeshData(mesh, sgm.properties.add_face_property, 'faces', 'Face')
