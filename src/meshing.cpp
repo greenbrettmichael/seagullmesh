@@ -18,6 +18,8 @@
 #include <CGAL/Polygon_mesh_processing/Uniform_sizing_field.h>
 #include <CGAL/Polygon_mesh_processing/refine_mesh_at_isolevel.h>
 #include <CGAL/Polygon_mesh_processing/repair_self_intersections.h>
+#include <CGAL/Polygon_mesh_processing/surface_Delaunay_remeshing.h>
+
 
 typedef std::vector<V>                                      Verts;
 typedef std::vector<F>                                      Faces;
@@ -181,6 +183,11 @@ void init_meshing(py::module &m) {
                 .edge_is_constrained_map(edge_is_constrained_map)
             ;
             PMP::isotropic_remeshing(faces, sizing_field, mesh, params);
+        })
+        .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
+            return PMP::surface_Delaunay_remeshing(mesh, params);
+
         })
         .def("fair", [](Mesh3& mesh, const Verts& verts, const unsigned int fairing_continuity) {
             // A value controling the tangential continuity of the output surface patch.
