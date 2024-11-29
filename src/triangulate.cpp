@@ -100,16 +100,8 @@ class TubeMesher {
         ) : mesh(mesh), t_map(t_map), theta_map(theta_map) {
             prev_xs = _add_xs(t0, theta0, pts0);
     }
-    auto get_prev_xs() {
-        return prev_xs;
-    }
-    void add_xs(double t, const py::array_t<double>& theta, const py::array_t<double>& pts, size_t n_max_faces) {
+    void add_xs(double t, const py::array_t<double>& theta, const py::array_t<double>& pts) {
         std::map<double, V> next_xs = _add_xs(t, theta, pts);
-
-        bool debug = n_max_faces > 0;
-
-        if (debug) { std::cout << "nv  " << mesh.number_of_vertices() << "\n"; }
-
         std::vector<V> face;
         double theta0 = 0, theta1 = 0;
 
@@ -130,23 +122,31 @@ class TubeMesher {
                         face.push_back(it0->second);
                         it0--;
                     }
-                    break;
+                    break; // Finished this face
                 }
-            }
-            // Finalize the face 
-            if (debug) {
-                std::cout << "Adding face for theta " << theta0 << " => " << theta1 << ": ";
-                for (V v : face) {
-                    std::cout << V::size_type(v) << ", "; 
-                }
-                std::cout << "\n";
             }
             mesh.add_face(face);
             theta0 = theta1;
-
-            if ( debug && mesh.number_of_faces() > n_max_faces) { break; }
         }
         prev_xs = next_xs;
+    }
+    void close_xs(bool flip) {
+        std::vector<V> face;
+        face.reserve(prev_xs.size());
+
+        for (auto const& kv : prev_xs) {
+            // NB the first vertex is stored twice, once at 0 and once at 2pi
+            // don't add it twice
+            if (kv.first != 2 * CGAL_PI) {
+                face.push_back(kv.second);
+            }
+        }
+
+        if (flip){
+            std::reverse(face.begin(), face.end());
+        }
+
+        mesh.add_face(face);
     }
 };
 
@@ -156,7 +156,7 @@ void init_triangulate(py::module &m) {
     py::class_<TubeMesher>(sub, "TubeMesher")
         .def(py::init<Mesh3&, VertDouble&, VertDouble&, double, const py::array_t<double>&, const py::array_t<double>>())
         .def("add_xs", &TubeMesher::add_xs)
-        .def("get_prev_xs", &TubeMesher::get_prev_xs)
+        .def("close_xs", &TubeMesher::close_xs)
     ;
 
     sub
