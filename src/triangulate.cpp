@@ -174,6 +174,11 @@ void init_triangulate(py::module &m) {
         .def("reverse_face_orientations", [](Mesh3& mesh, const std::vector<F>& faces) {
             PMP::reverse_face_orientations(faces, mesh);
         })
-
+        .def("does_bound_a_volume", [](const Mesh3& mesh) {
+            return PMP::does_bound_a_volume(mesh);
+        })
+        .def("is_outward_oriented", [](const Mesh3& mesh) {
+            return PMP::is_outward_oriented(mesh);
+        })
     ;
 }

@@ -456,10 +456,12 @@ class Mesh3:
     def label_border_vertices(self, is_border: str | PropertyMap[Vertex, bool]):
         is_border = self.vertex_data.get_or_create_property(is_border, default=False)
         sgm.border.label_border_vertices(self._mesh, is_border.pmap)
+        return is_border
 
     def label_border_edges(self, is_border: str | PropertyMap[Edge, bool]):
         is_border = self.edge_data.get_or_create_property(is_border, default=False)
         sgm.border.label_border_edges(self._mesh, is_border.pmap)
+        return is_border
 
     def remesh_planar_patches(
             self,
@@ -587,6 +589,29 @@ class Mesh3:
 
         mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
         return Mesh3(mesh)
+
+    def triangulate_faces(self, faces: Faces | None = None):
+        faces = self.faces if faces is None else faces
+        sgm.triangulate.triangulate_faces(self._mesh, faces)
+
+    def reverse_face_orientation(self, faces: Faces | None = None):
+        faces = self.faces if faces is None else faces
+        sgm.triangulate.reverse_face_orientations(self._mesh, faces)
+
+    def does_bound_a_volume(self) -> bool:
+        return sgm.triangulate.does_bound_a_volume(self._mesh)
+
+    def is_outward_oriented(self) -> bool:
+        return sgm.triangulate.is_outward_oriented(self._mesh)
+
+    def regularize_face_selection_borders(
+            self,
+            is_selected: PropertyMap[Face, bool],
+            weight: float,
+            prevent_unselection: bool = False,
+    ):
+        sgm.border.regularize_face_selection_borders(self._mesh, is_selected, weight, prevent_unselection)
+
 
 
 def _bbox_diagonal(points: ndarray):
