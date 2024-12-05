@@ -185,6 +185,7 @@ void init_properties(py::module &m) {
     define_property_map<F, int     >(sub, "FaceIntPropertyMap");
     define_property_map<F, size_t  >(sub, "FaceUIntPropertyMap");
     define_property_map<F, double  >(sub, "FaceDoublePropertyMap");
+    define_property_map<F, F::size_type >(sub, "FaceIndexPropertyMap");
 
     define_property_map<E, bool    >(sub, "EdgeBoolPropertyMap");
     define_property_map<E, int     >(sub, "EdgeIntPropertyMap");
@@ -230,6 +231,7 @@ void init_properties(py::module &m) {
      .def("add_face_property",     &add_property_map<F, bool>)
      .def("add_face_property",     &add_property_map<F, size_t>, py::arg(), py::arg(), py::arg().noconvert())
      .def("add_face_property",     &add_property_map<F, int>)
+     .def("add_face_property",     &add_property_map<F, F::size_type>, py::arg(), py::arg(), py::arg().noconvert())
      .def("add_face_property",     &add_property_map<F, double>)
      .def("add_face_property",     &add_property_map<F, Point3>)
      .def("add_face_property",     &add_property_map<F, Vector3>)

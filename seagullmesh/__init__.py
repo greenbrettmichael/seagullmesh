@@ -160,15 +160,33 @@ class Mesh3:
         faces = cells.reshape(-1, 3)
         return Mesh3.from_polygon_soup(polydata.points, faces, orient=orient)
 
-    def to_pyvista(self) -> pv.PolyData:
+    def to_pyvista(
+            self,
+            vertex_data: Literal['all'] | Sequence[str] = (),
+            face_data: Literal['all'] | Sequence[str] = (),
+    ) -> pv.PolyData:
         """Returns the mesh as a `pyvista.PolyData` object.
 
-        Currently, all vertex/face/edge/halfedge data is ignored.
+        By default, vertex and cell data is ignored -- specify vertex_data and cell_data as a list of keys
+        naming property maps to copy, or the string 'all' for all of them.
         """
         from pyvista import PolyData  # noqa
         verts, _faces = self._mesh.to_polygon_soup()
         faces = concatenate([full((_faces.shape[0], 1), 3, dtype='int'), _faces.astype('int')], axis=1)
         mesh = PolyData(verts, faces=faces)
+
+        if vertex_data:
+            keys = self.vertex_data.keys() if vertex_data == 'all' else vertex_data
+            vertices = self.vertices
+            for k in keys:
+                mesh.point_data[k] = self.vertex_data[k][vertices]
+
+        if face_data:
+            keys = self.face_data.keys() if face_data == 'all' else face_data
+            faces = self.faces
+            for k in keys:
+                mesh.cell_data[k] = self.face_data[k][faces]
+
         return mesh
 
     def corefine(self, other: Mesh3) -> None:
@@ -225,6 +243,7 @@ class Mesh3:
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
+            face_patch_map: Optional[PropertyMap, int] = None,
     ) -> None:
         """Perform isotropic remeshing on the specified faces (default: all faces).
 
@@ -243,8 +262,13 @@ class Mesh3:
             self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
         ):
-            sgm.meshing.uniform_isotropic_remeshing(
-                self._mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap)
+            args = [
+                self._mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
+
+            if face_patch_map:
+                sgm.meshing.uniform_isotropic_remeshing2(*args, face_patch_map.pmap)
+            else:
+                sgm.meshing.uniform_isotropic_remeshing(*args)
 
     def remesh_adaptive(
             self,
@@ -257,6 +281,7 @@ class Mesh3:
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
+            face_patch_map: Optional[PropertyMap, int] = None,
     ) -> None:
         """Isotropic remeshing with a sizing field adaptive to the local curvature.
 
@@ -273,9 +298,12 @@ class Mesh3:
             self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
         ):
-            sgm.meshing.adaptive_isotropic_remeshing(
-                self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
-               n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap)
+            args = [self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
+               n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
+            if face_patch_map:
+                sgm.meshing.adaptive_isotropic_remeshing2(*args, face_patch_map.pmap)
+            else:
+                sgm.meshing.adaptive_isotropic_remeshing(*args)
 
     def fair(self, verts: Vertices, continuity=0) -> None:
         """Fair the specified mesh vertices"""
@@ -616,6 +644,12 @@ class Mesh3:
         vertices = self.vertices if vertices is None else vertices
         return sgm.mesh.vertex_degrees(vertices)
 
+    def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
+        # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
+        face_patch_idx = self.face_data.get_or_create_property(face_patch_idx, default=0, is_index=True)
+        sgm.connected.label_selected_face_patches(self._mesh, faces, face_patch_idx.pmap)
+        return face_patch_idx
+
 
 def _bbox_diagonal(points: ndarray):
     x0, y0, z0 = points.min(axis=0)
@@ -842,6 +876,7 @@ class MeshData(Generic[Key]):
             key: str,
             default: Val,
             signed: Optional[bool] = None,
+            is_index: Optional[bool] = None,
     ) -> PropertyMap[Key, Val]:
         """Add a property map
 
@@ -854,12 +889,17 @@ class MeshData(Generic[Key]):
         require either signed or unsigned ints, so the optional `signed` parameter can make it
         explicit whether signed or unsigned ints are required.
         """
-        if signed is None:
+        if signed is is_index is None:
             # Infer C++ property map type from the default
             pmap = self._add_fn(self._mesh, key, default)
         elif isinstance(default, int):
-            # Specify e.g. "VertIntPropertyMap", "VertUIntPropertyMap"
-            pmap_cls = f"{self._cpp_cls_prefix}{'' if signed else 'U'}IntPropertyMap"
+            if is_index:
+                # Specify e.g. "FaceIndexPropertyMap"
+                pmap_cls = f"{self._cpp_cls_prefix}IndexPropertyMap"
+            else:
+                assert signed is not None
+                # Specify e.g. "VertIntPropertyMap", "VertUIntPropertyMap"
+                pmap_cls = f"{self._cpp_cls_prefix}{'' if signed else 'U'}IntPropertyMap"
             pmap = getattr(sgm.properties, pmap_cls)(self._mesh, key, default)
         else:
             raise TypeError(
@@ -887,6 +927,7 @@ class MeshData(Generic[Key]):
             key: Union[str, PropertyMap[Key, Val]],
             default: Val,
             signed: bool | None = None,
+            is_index: bool | None = None,
     ) -> PropertyMap[Key, Val]:
         if isinstance(key, PropertyMap):
             return key
@@ -894,7 +935,7 @@ class MeshData(Generic[Key]):
         if key in self._data:
             return self._data[key]
         else:
-            return self.add_property(key, default, signed=signed)
+            return self.add_property(key, default, signed=signed, is_index=is_index)
 
     def __getitem__(self, item: str) -> PropertyMap[Key, Any]:
         return self._data[item]
