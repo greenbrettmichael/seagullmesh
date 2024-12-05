@@ -650,6 +650,11 @@ class Mesh3:
         sgm.connected.label_selected_face_patches(self._mesh, faces, face_patch_idx.pmap)
         return face_patch_idx
 
+    def connected_component(
+            self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
+        with self.face_data.temporary(edge_is_constrained, tempname='_ecm', default=False) as ecm:
+            return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
+
 
 def _bbox_diagonal(points: ndarray):
     x0, y0, z0 = points.min(axis=0)

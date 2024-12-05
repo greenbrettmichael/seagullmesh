@@ -8,6 +8,7 @@
 typedef CGAL::Face_filtered_graph<Mesh3>         FilteredMesh;
 
 typedef Mesh3::Property_map<F, bool>             FaceBool;
+typedef Mesh3::Property_map<E, bool>             EdgeBool;
 typedef Mesh3::Property_map<F, F::size_type>     FacePatchId;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
@@ -15,11 +16,11 @@ namespace PMP = CGAL::Polygon_mesh_processing;
 void init_connected(py::module &m) {
     py::module sub = m.def_submodule("connected");
 
-
     sub
-        .def("label_connected_components", [](const Mesh3& mesh, FacePatchId& face_patch) {
+        .def("label_connected_components", [](const Mesh3& mesh, FacePatchId& face_patch, EdgeBool& edge_is_constrained) {
             // Returns the number of connected components
-            return PMP::connected_components(mesh, face_patch);
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
+            return PMP::connected_components(mesh, face_patch, params);
         })
         .def("label_selected_face_patches", [](Mesh3& mesh, const std::vector<F> faces, FacePatchId& face_patch) {
             FilteredMesh filtered(mesh, faces);
@@ -31,8 +32,16 @@ void init_connected(py::module &m) {
             for (auto const& [f, i] : filtered_face_patch) {
                 face_patch[f] = i + 1;
             }
-
             return n_components;
+        })
+        .def("keep_connected_components", [](Mesh3& mesh, const std::vector<F::size_type>& components_to_keep, const FacePatchId& components) {
+            PMP::keep_connected_components(mesh, components_to_keep, components);
+        })
+        .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
+            std::vector<F> out;
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
+            PMP::connected_component(seed_face, mesh, std::back_inserter(out), params);
+            return out;
         })
     ;
 }
