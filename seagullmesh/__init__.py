@@ -612,6 +612,9 @@ class Mesh3:
     ):
         sgm.border.regularize_face_selection_borders(self._mesh, is_selected, weight, prevent_unselection)
 
+    def vertex_degrees(self, vertices: Vertices | None = None) -> ndarray:
+        vertices = self.vertices if vertices is None else vertices
+        return sgm.mesh.vertex_degrees(vertices)
 
 
 def _bbox_diagonal(points: ndarray):

@@ -288,6 +288,15 @@ void init_mesh(py::module &m) {
             }
             return std::vector<E>(edges.begin(), edges.end());
         })
+        .def("faces_to_edges", [](const Mesh3& mesh, const std::vector<F>& faces) {
+            std::set<E> edges;
+            for (F f : faces) {
+                for (H h : halfedges_around_face(f, mesh)) {
+                    edges.insert(mesh.edge(h));
+                }
+            }
+            return std::vector<E>(edges.begin(), edges.end());
+        })
         .def("vertex_degrees", [](const Mesh3& mesh, const std::vector<V>& verts) {
             size_t n = verts.size();
             py::array_t<Mesh3::size_type> degrees({py::ssize_t(n)});
