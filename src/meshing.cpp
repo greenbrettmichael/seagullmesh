@@ -58,8 +58,8 @@ struct TouchedVertPoint {
 };
 
 
+// TODO this is not used any longer I think
 struct VertParamInterpolator {
-    // Used for tracking which verts get moved during remesh, etc
     using key_type = V;
     using value_type = Point3;
     using reference = Point3&;
@@ -122,7 +122,7 @@ struct VertParamInterpolator {
 void init_meshing(py::module &m) {
 
     m.def_submodule("meshing")
-        .def("upsample_tube", [](
+        .def("upsample_tube", [](  // TODO pretty sure it's not used anymore
             Mesh3& mesh,
             double thresh,
             std::function<std::tuple<double, double, double>(double, double)>& surf_fn,

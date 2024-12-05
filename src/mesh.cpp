@@ -291,7 +291,7 @@ void init_mesh(py::module &m) {
         .def("faces_to_edges", [](const Mesh3& mesh, const std::vector<F>& faces) {
             std::set<E> edges;
             for (F f : faces) {
-                for (H h : halfedges_around_face(f, mesh)) {
+                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
                     edges.insert(mesh.edge(h));
                 }
             }
