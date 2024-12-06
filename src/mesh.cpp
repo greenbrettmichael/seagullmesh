@@ -242,6 +242,7 @@ void init_mesh(py::module &m) {
     py::class_<Mesh3>(sub, "Mesh3")
         .def(py::init<>())
         .def(py::init<const Mesh3&>())
+        .def(py::self += py::self)
 
         .def_property_readonly("has_garbage", [](const Mesh3& mesh) {return mesh.has_garbage();})
         .def("collect_garbage", [](Mesh3& mesh) {mesh.collect_garbage();})
