@@ -95,6 +95,10 @@ class Mesh3:
 
         return out
 
+    def transform(self, transform: ndarray, inplace=False) -> Mesh3:
+        out = self if inplace else self.copy()
+        out._mesh.transform(transform)
+
     @property
     def has_garbage(self) -> bool:
         return self._mesh.has_garbage
