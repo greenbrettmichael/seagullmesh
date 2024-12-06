@@ -1,41 +1,10 @@
 #include "seagullmesh.hpp"
-#include <CGAL/Polygon_mesh_processing/border.h>
-#include <CGAL/boost/graph/selection.h>
-#include <boost/iterator/function_output_iterator.hpp>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-typedef Mesh3::Property_map<V, bool>       VertBool;
-typedef Mesh3::Property_map<E, bool>       EdgeBool;
-typedef Mesh3::Property_map<F, bool>       FaceBool;
 
-
-struct touch_border_vertices {
-    const Mesh3& mesh;
-    VertBool& verts;
-
-    touch_border_vertices (const Mesh3& m, VertBool& v) : mesh(m), verts(v) {}
-
-    void operator()(const H& h) const {
-        verts[mesh.source(h)] = true;
-        verts[mesh.target(h)] = true;
-    }
-};
-
-struct touch_border_edges {
-    const Mesh3& mesh;
-    EdgeBool& edges;
-
-    touch_border_edges (const Mesh3& m, EdgeBool& e) : mesh(m), edges(e) {}
-
-    void operator()(const H& h) const {
-        edges[mesh.edge(h)] = true;
-    }
-};
-
-
-void init_border(py::module &m) {
-    m.def_submodule("border")
+void init_generators(py::module &m) {
+    m.def_submodule("generators")
         .def("extract_boundary_cycles", [](const Mesh3& mesh) {
             std::vector<H> out;
             PMP::extract_boundary_cycles(mesh, std::back_inserter(out));
