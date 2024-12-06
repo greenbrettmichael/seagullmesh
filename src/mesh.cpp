@@ -17,6 +17,10 @@ namespace PMP = CGAL::Polygon_mesh_processing;
 typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
 
+typedef CGAL::dynamic_vertex_property_t<std::size_t>                            VertexIndex;
+typedef typename boost::property_map<PolygonMesh, VertexIndex>::const_type      VertexIndexMap;
+// VertexIndexMap vim = get(VertexIndex(), mesh);
+
 
 Transform3 array_to_transform3(const py::array_t<double>& transform) {
     auto r = transform.unchecked<2>();
