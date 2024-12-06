@@ -85,6 +85,16 @@ class Mesh3:
         """The C++ mesh object"""
         return self._mesh
 
+    def copy(self) -> Mesh3:
+        """Deep-copy the mesh and all its properties"""
+        out = Mesh3(sgm.mesh.Mesh3(self._mesh))
+
+        # The properties have been copied, just need to create new pmap references
+        for k in ('vertex_data', 'face_data', 'edge_data', 'halfedge_data'):
+            _copy_property_metadata(getattr(self, k), out._mesh, getattr(out, k))
+
+        return out
+
     @property
     def has_garbage(self) -> bool:
         return self._mesh.has_garbage
@@ -970,6 +980,14 @@ class MeshData(Generic[Key]):
 
     def __iter__(self) -> Iterator[str]:
         yield from self._data.__iter__()
+
+
+def _copy_property_metadata(src_data: MeshData, dest_mesh: _Mesh3, dest_data: MeshData):
+    for name, pmap_wrapper in src_data.items():
+        dest_pmap = type(pmap_wrapper.pmap)(dest_mesh, name)
+        if dest_pmap is None:
+            raise KeyError(f"Property map {name} doesn't exist in destination {type(dest_data)}")
+        dest_data.assign_property_map(name, dest_pmap, wrapper_cls=pmap_wrapper.__class__)
 
 
 class TubeMesher:

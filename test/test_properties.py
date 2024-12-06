@@ -96,3 +96,15 @@ def test_array_properties(key_type, val_type):
 
     for (o1, o2) in zip(objs, objs2):
         assert o1 == o2
+
+
+def test_copy_mesh_copies_properties():
+    mesh1 = tetrahedron_mesh()
+    mesh1.vertex_data.add_property('foo', default=0)
+    mesh1.vertex_data['foo'][0] = 1
+
+    mesh2 = mesh1.copy()
+    mesh2.vertex_data['foo'][0] = 2
+
+    assert mesh1.vertex_data['foo'] == 1  # Should be unchanged
+
