@@ -12,7 +12,7 @@ template<size_t N, typename Idx, typename Val>
 py::array_t<double> map_indices_to_vector(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
     const size_t n_idxs = idxs.size();
     py::array_t<double> vals({n_idxs, N});
-    auto r = vals.mutable_unchecked<2>();
+    auto r = vals.template mutable_unchecked<2>();
     for (auto i = 0; i < n_idxs; ++i) {
         Val val = fn(idxs[i]);
         for (auto j = 0; j < N; ++j) {
@@ -27,7 +27,7 @@ template<typename Idx, typename Val>
 py::array_t<Val> map_indices_to_scalar(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
     const py::ssize_t n_idxs = idxs.size();
     py::array_t<Val> vals({n_idxs});
-    auto r = vals.mutable_unchecked<1>();
+    auto r = vals.template mutable_unchecked<1>();
     for (auto i = 0; i < n_idxs; ++i) {
         r(i) = fn(idxs[i]);
     }
