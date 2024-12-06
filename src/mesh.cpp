@@ -284,6 +284,21 @@ void init_mesh(py::module &m) {
             }
             return verts;
         })
+        .def("triangle_soup", [](const Mesh3& mesh) {
+            VertexIndexMap vim = get(VertexIndex(), mesh);
+            const size_t nf = mesh.number_of_faces();
+            py::array_t<size_t> verts({nf, size_t(3)});
+            auto r = verts.mutable_unchecked<2>();
+            size_t i = 0;
+            for (F f : mesh.faces()) {
+                size_t j = 0;
+                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+                    r(i, j++) = get(vim, target(h, mesh));
+                }
+                ++i;
+            }
+            return verts;
+        })
         .def("vertices_to_faces", [](const Mesh3& mesh, const std::vector<V>& verts) {
             std::set<F> faces;
             for (V v : verts) {
