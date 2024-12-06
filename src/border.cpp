@@ -36,6 +36,16 @@ struct touch_border_edges {
 
 void init_border(py::module &m) {
     m.def_submodule("border")
+        .def("extract_boundary_cycles", [](const Mesh3& mesh) {
+            std::vector<H> out;
+            PMP::extract_boundary_cycles(mesh, std::back_inserter(out));
+            return out;  // returns one halfedge per boundary cycle
+        })
+        .def("face_patch_border", [](const Mesh3& mesh, const std::vector<F>& faces) {
+            std::vector<H> out;
+            PMP::border_halfedges(faces, mesh, std::back_inserter(out));
+            return out;
+        })
         .def("label_border_vertices", [](const Mesh3& mesh, VertBool& vert_is_border) {
             auto output_iter = boost::make_function_output_iterator(touch_border_vertices(mesh, vert_is_border));
             PMP::border_halfedges(faces(mesh), mesh, output_iter);
