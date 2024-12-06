@@ -25,11 +25,13 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
     });
 
     return py::class_<PMap>(m, name.c_str(), py::buffer_protocol())
-        .def(
-            py::init([](Mesh3& mesh, std::string name, const Val default_val) {
+        .def(py::init([](Mesh3& mesh, std::string name, const Val default_val) {
                 return add_property_map<Key, Val>(mesh, name, default_val);
             })
         )
+        .def("get_property_map", [](const Mesh3& mesh, const std::string& name) {
+            return mesh.property_map<Key, Val>(name);  // returns std::optional<pmap>
+        })
         .def_property_readonly_static("_is_sgm_property_map", [](py::object /* self */) { return true; })
         .def_property_readonly_static("_is_scalar", [is_scalar](py::object /* self */) { return is_scalar; })
         .def("__getitem__", [](const PMap& pmap, const Key& key) {
