@@ -168,15 +168,32 @@ class Mesh3:
             raise ValueError(f"Unsupported format '{ext}'")
 
     @staticmethod
-    def from_pyvista(polydata: pv.PolyData, orient=True) -> Mesh3:
+    def from_pyvista(
+            polydata: pv.PolyData,
+            orient=True,
+            vertex_data: Sequence[str] | Literal['all'] = (),
+            face_data: Sequence[str] | Literal['all'] = (),
+    ) -> Mesh3:
         """Converts a `pyvista.PolyData` object to a surface mesh.
 
-        Currently, all point/cell data is ignored.
+        All point/cell data is ignored unless property names to copy are specified.
         """
         from vtkmodules.util.numpy_support import vtk_to_numpy
         cells = vtk_to_numpy(polydata.GetPolys().GetConnectivityArray())
         faces = cells.reshape(-1, 3)
-        return Mesh3.from_polygon_soup(polydata.points, faces, orient=orient)
+        out = Mesh3.from_polygon_soup(polydata.points, faces, orient=orient)
+
+        if vertex_data:
+            keys = polydata.point_data.keys() if vertex_data == 'all' else vertex_data
+            for k in keys:
+                out.vertex_data[k] = polydata.point_data[k]
+
+        if face_data:
+            keys = polydata.cell_data.keys() if face_data == 'all' else face_data
+            for k in keys:
+                out.face_data[k] = polydata.cell_data[k]
+
+        return out
 
     def to_pyvista(
             self,
@@ -668,6 +685,12 @@ class Mesh3:
         face_patch_idx = self.face_data.get_or_create_property(face_patch_idx, default=0, is_index=True)
         sgm.connected.label_selected_face_patches(self._mesh, faces, face_patch_idx.pmap)
         return face_patch_idx
+
+    def label_connected_components(self, face_patches: PropertyMap[Face, int], edge_is_constrained: PropertyMap[Edge, bool]) -> int:
+        return sgm.connected.label_connected_components(self._mesh, face_patches.pmap, edge_is_constrained.pmap)
+
+    def remove_connected_face_patches(self, to_remove: Sequence[int], face_patches: PropertyMap[Face, int]):
+        sgm.connected.remove_connected_face_patches(self._mesh, to_remove, face_patches.pmap)
 
     def connected_component(
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
