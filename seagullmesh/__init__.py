@@ -400,20 +400,25 @@ class Mesh3:
     def remove_self_intersections(self) -> None:
         return sgm.meshing.remove_self_intersections(self._mesh)
 
-    def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points'):
+    def _get_vertex_point_map(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
+        if vert_points is None:
+            return self.mesh.points
+        else:
+            return self.vertex_data.get_property_map(vert_points).pmap
+
+    def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
         """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
 
         By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
         property map storing Point2 or Point3 locations.
         """
-        vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
-        return sgm.locate.aabb_tree(self._mesh, vert_points.pmap)
+        return sgm.locate.aabb_tree(self._mesh, self._get_vertex_point_map(vert_points))
 
     def locate_points(
             self,
             points: ndarray,
             aabb_tree=None,
-            vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points',
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
     ) -> Tuple[Faces, A]:
         """Given an array of points, locate the nearest corresponding points on the mesh
 
@@ -423,15 +428,15 @@ class Mesh3:
         Returns a list of face indices of length np, and an array (np, 3) of barycentric coordinates within those faces.
         """
         tree = aabb_tree or self.aabb_tree()
-        vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
-        surface_points = sgm.locate.locate_points(self._mesh, tree, points, vert_points.pmap)
+        pmap = self._get_vertex_point_map(vert_points)
+        surface_points = sgm.locate.locate_points(self._mesh, tree, points, pmap)
         return surface_points.faces, surface_points.bary_coords
 
     def construct_points(
             self,
             faces: Faces,
             bary_coords: A,
-            vert_points: str | PropertyMap[Vertex, Point2 | Point3] = 'points',
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
     ) -> A:
         """Construct a set of points from face barycentric coordinates
 
@@ -440,12 +445,8 @@ class Mesh3:
         By default, points are constructed using the default mesh vertex points. An optional vertex point map of value
         Point2 or Point3 can also be supplied. The returned array if of shape (len(faces), 2 or 3) as appropriate.
         """
-        if vert_points is None:
-            vert_points = self.points
-        else:
-            vert_points = self.vertex_data[vert_points] if isinstance(vert_points, str) else vert_points
-
-        return sgm.locate.construct_points(self._mesh, faces, bary_coords, vert_points.pmap)
+        pmap = self._get_vertex_point_map(vert_points)
+        return sgm.locate.construct_points(self._mesh, faces, bary_coords, pmap)
 
     def shortest_path(
             self,
@@ -672,6 +673,12 @@ class Mesh3:
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
         with self.face_data.temporary(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
+
+    def edge_soup(self) -> ndarray:
+        return self._mesh.edge_soup()
+
+    def triangle_soup(self) -> ndarray:
+        return self._mesh.triangle_soup()
 
 
 def _bbox_diagonal(points: ndarray):
@@ -945,9 +952,15 @@ class MeshData(Generic[Key]):
         wrapped_pmap = self._data[name] = wrapper_cls(pmap=pmap, data=self)
         return wrapped_pmap
 
+    def get_property_map(self, key: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
+        if isinstance(key, PropertyMap):
+            return key
+
+        return self._data[key]
+
     def get_or_create_property(
             self,
-            key: Union[str, PropertyMap[Key, Val]],
+            key: str | PropertyMap[Key, Val],
             default: Val,
             signed: bool | None = None,
             is_index: bool | None = None,

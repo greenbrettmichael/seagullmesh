@@ -44,6 +44,15 @@ Transform3 array_to_transform3(const py::array_t<double>& transform) {
     }
 }
 
+VertexIndexMap build_vertex_index_map(const Mesh3& mesh) {
+    VertexIndexMap vim = get(VertexIndex(), mesh);
+    size_t i = 0;
+    for (const V v : mesh.vertices()) {
+        put(vim, v, i++);
+    }
+    return vim;
+}
+
 
 template<typename T>
 void define_simple_type_3(py::module &m, std::string name) {
@@ -271,7 +280,7 @@ void init_mesh(py::module &m) {
             }
         })
         .def("edge_soup", [](const Mesh3& mesh) {
-            VertexIndexMap vim = get(VertexIndex(), mesh);
+            VertexIndexMap vim = build_vertex_index_map(mesh);
             const size_t ne = mesh.number_of_edges();
             py::array_t<size_t> verts({ne, size_t(2)});
             auto r = verts.mutable_unchecked<2>();
@@ -285,7 +294,7 @@ void init_mesh(py::module &m) {
             return verts;
         })
         .def("triangle_soup", [](const Mesh3& mesh) {
-            VertexIndexMap vim = get(VertexIndex(), mesh);
+            VertexIndexMap vim = build_vertex_index_map(mesh);
             const size_t nf = mesh.number_of_faces();
             py::array_t<size_t> verts({nf, size_t(3)});
             auto r = verts.mutable_unchecked<2>();
