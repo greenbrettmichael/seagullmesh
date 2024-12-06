@@ -20,8 +20,8 @@ void init_alpha_wrapping(py::module&);
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
-    init_connected(m);
     init_properties(m);
+    init_connected(m);
     init_meshing(m);
     init_corefine(m);
     init_locate(m);
