@@ -59,83 +59,9 @@ struct TouchedVertPoint {
 };
 
 
-// TODO this is not used any longer I think
-struct VertParamInterpolator {
-    using key_type = V;
-    using value_type = Point3;
-    using reference = Point3&;
-    using category = boost::read_write_property_map_tag;
-    typedef std::function< std::tuple<double, double, double>(double, double) > SurfFn;
-
-    Mesh3& mesh;
-    SurfFn& surf_fn;
-    VertPoint& points;
-    VertBool& touched;
-    VertDouble& t_map;
-    VertDouble& theta_map;
-
-    VertParamInterpolator(
-            Mesh3& m, SurfFn& fn, VertPoint& p, VertBool& touched, VertDouble& t, VertDouble& theta
-        ) : mesh(m), surf_fn(fn), points(p), touched(touched), t_map(t), theta_map(theta) {}
-
-
-    friend Point3& get (const VertParamInterpolator& map, V v) { return map.points[v]; }
-    friend void put (const VertParamInterpolator& map, V v, const Point3& point) {
-        if ( map.theta_map[v] != -1) { return; }
-        map.touched[v] = true;
-        std::set<double> nbr_t;
-        double this_t = -1.0;
-
-        // Find what t_section this belongs to
-        for (H h : halfedges_around_source(v, map.mesh)) {
-            V w = map.mesh.target(h);  // Neighbor vertex
-            double t = map.t_map[w];
-            if ( nbr_t.count(t) ) {  // If more than one neighbor has this t
-                this_t = t;
-                break;
-            }
-            nbr_t.insert(t);
-        }
-        if ( this_t == -1.0 ) {
-            throw std::runtime_error("couldnt figure out t");
-        }
-
-        // Avg theta values of t-neighbors
-        double cos_theta = 0, sin_theta = 0;
-        for (H h : halfedges_around_source(v, map.mesh)) {
-            V w = map.mesh.target(h);  // Neighbor vertex
-            if ( this_t == map.t_map[w] ) {
-                double theta = map.theta_map[w];
-                cos_theta += std::cos(theta);
-                sin_theta += std::sin(theta);
-            }
-        }
-        double this_theta = std::atan2(sin_theta, cos_theta);
-
-        map.t_map[v] = this_t;
-        map.theta_map[v] = this_theta;
-        std::tuple<double, double, double> xyz = map.surf_fn(this_t, this_theta);
-        map.points[v] = Point3(std::get<0>(xyz), std::get<1>(xyz), std::get<2>(xyz));
-    }
-};
-
-
 void init_meshing(py::module &m) {
 
     m.def_submodule("meshing")
-        .def("upsample_tube", [](  // TODO pretty sure it's not used anymore
-            Mesh3& mesh,
-            double thresh,
-            std::function<std::tuple<double, double, double>(double, double)>& surf_fn,
-            VertBool& touched,
-            VertDouble& t,
-            VertDouble& theta,
-            const Edges& edges
-        ) {
-            VertParamInterpolator interpolator(mesh, surf_fn, mesh.points(), touched, t, theta);
-            auto params = PMP::parameters::vertex_point_map(interpolator);
-            PMP::split_long_edges(edges, thresh, mesh, params);
-        })
         .def("uniform_isotropic_remeshing", [](
                 Mesh3& mesh,
                 const Faces& faces,

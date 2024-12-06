@@ -51,7 +51,7 @@ class Mesh3:
 
         # Mesh3 automatically constructs a vertex point 3 property, make it available
         # from the python side
-        self.vertex_data.assign_property_map('points', mesh.points)
+        # self.vertex_data.assign_property_map('points', mesh.points)
 
     @property
     def vertices(self) -> sgm.mesh.Vertices:
@@ -99,6 +99,9 @@ class Mesh3:
         out = self if inplace else self.copy()
         out._mesh.transform(transform)
 
+    def add(self, other: Mesh3, check_properties=True):
+        pass
+
     @property
     def has_garbage(self) -> bool:
         return self._mesh.has_garbage
@@ -116,6 +119,7 @@ class Mesh3:
 
     def edge_lengths(self, edges: Edges | None = None) -> A:
         edges = self.edges if edges is None else edges
+        raise NotImplementedError("TODO just do this in c++")
         points = self.vertex_data['points'][:]
         return np.linalg.norm(
             np.diff(points[self.edge_vertices(edges)], axis=1).squeeze(axis=1),
