@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import cached_property
@@ -8,15 +9,12 @@ from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overl
     Generic, List, Iterator, Type, Dict, Literal
 
 import numpy as np
-from numpy import ndarray, zeros_like, array, sqrt, concatenate, full
-from seagullmesh._seagullmesh.mesh import (  # noqa
+
+from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
-    polygon_soup_to_mesh3,
-    load_mesh_from_file,
     Point2, Point3, Vector2, Vector3,
     Vertex, Face, Edge, Halfedge,
 )
-
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
 
@@ -31,8 +29,6 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-A = ndarray
-
 
 class ParametrizationError(RuntimeError):
     pass
@@ -44,10 +40,14 @@ class Mesh3:
             mesh = _Mesh3()
 
         self._mesh = mesh
-        self.vertex_data = MeshData(mesh, sgm.properties.add_vertex_property, 'vertices', 'Vert')
-        self.face_data = MeshData(mesh, sgm.properties.add_face_property, 'faces', 'Face')
-        self.edge_data = MeshData(mesh, sgm.properties.add_edge_property, 'edges', 'Edge')
-        self.halfedge_data = MeshData(mesh, sgm.properties.add_halfedge_property, 'halfedges', 'HalfEdge')
+
+        if hasattr(sgm, 'properties'):
+            self.vertex_data = MeshData(mesh, sgm.properties.add_vertex_property, 'vertices', 'Vert')
+            self.face_data = MeshData(mesh, sgm.properties.add_face_property, 'faces', 'Face')
+            self.edge_data = MeshData(mesh, sgm.properties.add_edge_property, 'edges', 'Edge')
+            self.halfedge_data = MeshData(mesh, sgm.properties.add_halfedge_property, 'halfedges', 'HalfEdge')
+        else:
+            warnings.warn("properties module not available")
 
         # Mesh3 automatically constructs a vertex point 3 property, make it available
         # from the python side
@@ -95,9 +95,10 @@ class Mesh3:
 
         return out
 
-    def transform(self, transform: ndarray, inplace=False) -> Mesh3:
+    def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
         out._mesh.transform(transform)
+        return out
 
     def add(self, other: Mesh3, check_properties=True):
         pass
@@ -112,20 +113,6 @@ class Mesh3:
     def volume(self) -> float:
         return self._mesh.volume()
 
-    def edge_vertices(self, edges: Edges | None = None) -> A:
-        """Returns a len(edges) * 2 array of integer vertex indices"""
-        edges = self.edges if edges is None else edges
-        return self._mesh.edge_vertices(edges)
-
-    def edge_lengths(self, edges: Edges | None = None) -> A:
-        edges = self.edges if edges is None else edges
-        raise NotImplementedError("TODO just do this in c++")
-        points = self.vertex_data['points'][:]
-        return np.linalg.norm(
-            np.diff(points[self.edge_vertices(edges)], axis=1).squeeze(axis=1),
-            axis=1,
-        )
-
     def expand_selection(self, selection: Sequence[Key]) -> Sequence[Key]:
         """Given a list of vertices or faces, returns a sequence containing the original and adjacent elements"""
         return self._mesh.expand_selection(selection)
@@ -133,11 +120,11 @@ class Mesh3:
     def vertices_to_faces(self, verts: Vertices) -> Faces:
         return self._mesh.vertices_to_faces(verts)
 
-    def to_polygon_soup(self) -> Tuple[A, A]:
+    def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return self._mesh.to_polygon_soup()
 
-    def face_normals(self, faces: Faces) -> A:
+    def face_normals(self, faces: Faces) -> np.ndarray:
         """Returns a (len(faces) * 3) array of face normal vectors"""
         return self._mesh.face_normals(faces)
 
@@ -145,17 +132,17 @@ class Mesh3:
         return self._mesh.bounding_box()
 
     @staticmethod
-    def from_polygon_soup(verts: A, faces: A, orient=True) -> Mesh3:
+    def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True) -> Mesh3:
         """Constructs a surface mesh from vertices (nv * 3) and faces (nf * 3) arrays
 
         If `orient` is True (default), the faces are reindexed to represent a consistent manifold surface.
         """
-        mesh = polygon_soup_to_mesh3(verts, faces, orient)
+        mesh = sgm.mesh.polygon_soup_to_mesh3(verts, faces, orient)
         return Mesh3(mesh)
 
     @staticmethod
     def from_file(filename: str) -> Mesh3:
-        mesh = load_mesh_from_file(filename)
+        mesh = sgm.mesh.load_mesh_from_file(filename)
         return Mesh3(mesh)
 
     def to_file(self, filename: str):
@@ -205,10 +192,9 @@ class Mesh3:
         By default, vertex and cell data is ignored -- specify vertex_data and cell_data as a list of keys
         naming property maps to copy, or the string 'all' for all of them.
         """
-        from pyvista import PolyData  # noqa
-        verts, _faces = self._mesh.to_polygon_soup()
-        faces = concatenate([full((_faces.shape[0], 1), 3, dtype='int'), _faces.astype('int')], axis=1)
-        mesh = PolyData(verts, faces=faces)
+        import pyvista as pv
+        verts, faces = self._mesh.to_polygon_soup()
+        mesh = pv.PolyData.from_regular_faces(verts, faces)
 
         if vertex_data:
             keys = self.vertex_data.keys() if vertex_data == 'all' else vertex_data
@@ -344,7 +330,7 @@ class Mesh3:
         """Fair the specified mesh vertices"""
         sgm.meshing.fair(self._mesh, verts, continuity)
 
-    def refine(self, faces: Faces, density=sqrt(3)) -> Tuple[Vertices, Faces]:
+    def refine(self, faces: Faces, density=np.sqrt(3)) -> Tuple[Vertices, Faces]:
         """Refine the specified mesh faces
 
         The number of faces is increased by a factor of `density`.
@@ -433,10 +419,10 @@ class Mesh3:
 
     def locate_points(
             self,
-            points: ndarray,
+            points: np.ndarray,
             aabb_tree=None,
             vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
-    ) -> Tuple[Faces, A]:
+    ) -> Tuple[Faces, np.ndarray]:
         """Given an array of points, locate the nearest corresponding points on the mesh
 
         `aabb_tree` is an optional axis-aligned bounding box from Mesh3.aabb_tree. If the tree was constructed with a
@@ -452,9 +438,9 @@ class Mesh3:
     def construct_points(
             self,
             faces: Faces,
-            bary_coords: A,
-            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
-    ) -> A:
+            bary_coords: np.ndarray,
+            vert_points: str | PropertyMap[sgm.mesh.Vertex, sgm.mesh.Point2 | sgm.mesh.Point3] | None = None,
+    ) -> np.ndarray:
         """Construct a set of points from face barycentric coordinates
 
         `bary_coords` must be of shape (len(faces), 3)
@@ -468,9 +454,9 @@ class Mesh3:
     def shortest_path(
             self,
             src_face: Face,
-            src_bc: A,
+            src_bc: np.ndarray,
             tgt_face: Face,
-            tgt_bc: A,
+            tgt_bc: np.ndarray,
     ):
         """Constructs the shortest path between the source and target locations
 
@@ -526,6 +512,9 @@ class Mesh3:
         is_border = self.edge_data.get_or_create_property(is_border, default=False)
         sgm.border.label_border_edges(self._mesh, is_border.pmap)
         return is_border
+
+    def extract_boundary_cycles(self) -> Halfedges:
+        return sgm.border.extract_boundary_cycles(self._mesh)
 
     def remesh_planar_patches(
             self,
@@ -616,8 +605,8 @@ class Mesh3:
 
     @staticmethod
     def from_poisson_surface_reconstruction(
-            points: ndarray,
-            normals: ndarray,
+            points: np.ndarray,
+            normals: np.ndarray,
             spacing: float,
     ) -> Mesh3:
         mesh = sgm.poisson_reconstruct.reconstruct_surface(points, normals, spacing)
@@ -640,7 +629,7 @@ class Mesh3:
 
     @staticmethod
     def from_alpha_wrapping(
-            points: ndarray,
+            points: np.ndarray,
             alpha: float | None,
             offset: float | None,
             relative_alpha: float = 20,
@@ -676,7 +665,7 @@ class Mesh3:
     ):
         sgm.border.regularize_face_selection_borders(self._mesh, is_selected, weight, prevent_unselection)
 
-    def vertex_degrees(self, vertices: Vertices | None = None) -> ndarray:
+    def vertex_degrees(self, vertices: Vertices | None = None) -> np.ndarray:
         vertices = self.vertices if vertices is None else vertices
         return sgm.mesh.vertex_degrees(vertices)
 
@@ -886,8 +875,6 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         locals()[dunder] = _dunder_impl
 
 
-VertexPrincipalCurvaturesMap = PropertyMap[Vertex, sgm.properties.PrincipalCurvaturesAndDirections]
-
 
 class MeshData(Generic[Key]):
     def __init__(self, mesh: sgm.mesh.Mesh3, add_fn, key_name: str, prefix: str):
@@ -1009,7 +996,7 @@ class MeshData(Generic[Key]):
             return
 
         # Implicit construction of a new property map with initial value(s) `value`
-        default = zeros_like(value, shape=()).item()
+        default = np.zeros_like(value, shape=()).item()
         pmap = self.get_or_create_property(key, default)
         pmap[self.mesh_keys] = value
 
@@ -1035,7 +1022,7 @@ def _copy_property_metadata(src_data: MeshData, dest_mesh: _Mesh3, dest_data: Me
 
 
 class TubeMesher:
-    def __init__(self, t0: float, theta0: ndarray, pts0: ndarray, closed=False):
+    def __init__(self, t0: float, theta0: np.ndarray, pts0: np.ndarray, closed=False):
         mesh = self.mesh = Mesh3()
         t_map = mesh.vertex_data.add_property('t', default=-1.0)
         theta_map = mesh.vertex_data.add_property('theta', default=-1.0)
@@ -1045,7 +1032,7 @@ class TubeMesher:
         if closed:
             self.tube_mesher.close_xs(False)
 
-    def add_xs(self, t: float, theta: ndarray, pts: ndarray):
+    def add_xs(self, t: float, theta: np.ndarray, pts: np.ndarray):
         self.tube_mesher.add_xs(t, theta, pts)
 
     def finish(self, reverse_orientation: bool):

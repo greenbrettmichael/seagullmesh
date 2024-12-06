@@ -34,8 +34,3 @@ PYBIND11_MAKE_OPAQUE(std::vector<V>);
 PYBIND11_MAKE_OPAQUE(std::vector<F>);
 PYBIND11_MAKE_OPAQUE(std::vector<H>);
 PYBIND11_MAKE_OPAQUE(std::vector<E>);
-
-//py::implicitly_convertible<py::list, std::vector<V>>();
-//py::implicitly_convertible<py::list, std::vector<F>>();
-//py::implicitly_convertible<py::list, std::vector<H>>();
-//py::implicitly_convertible<py::list, std::vector<E>>();
