@@ -17,9 +17,8 @@ namespace PMP = CGAL::Polygon_mesh_processing;
 typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
 
-typedef CGAL::dynamic_vertex_property_t<std::size_t>                            VertexIndex;
-typedef typename boost::property_map<PolygonMesh, VertexIndex>::const_type      VertexIndexMap;
-// VertexIndexMap vim = get(VertexIndex(), mesh);
+typedef CGAL::dynamic_vertex_property_t<size_t>                           VertexIndex;
+typedef typename boost::property_map<Mesh3, VertexIndex>::const_type      VertexIndexMap;
 
 
 Transform3 array_to_transform3(const py::array_t<double>& transform) {
@@ -271,24 +270,18 @@ void init_mesh(py::module &m) {
                 points[v] = t(points[v]);
             }
         })
-
-        .def("edge_vertices", [](const Mesh3& mesh, const std::vector<E>& edges) {
-            std::map<V, size_t> vert_idxs;
-            size_t vi = 0;
-            for (V v : mesh.vertices()) {
-                vert_idxs[v] = vi;
-                vi++;
-            }
-
-            const size_t ne = edges.size();
-            py::array_t<size_t, py::array::c_style> verts({ne, size_t(2)});
+        .def("edge_soup", [](const Mesh3& mesh) {
+            VertexIndexMap vim = get(VertexIndex(), mesh);
+            const size_t ne = mesh.number_of_edges();
+            py::array_t<size_t> verts({ne, size_t(2)});
             auto r = verts.mutable_unchecked<2>();
-            for (auto i = 0; i < ne; i++) {
-                for (auto j = 0; j < 2; j++) {
-                    r(i, j) = vert_idxs[mesh.vertex(edges[i], j)];
+            size_t i = 0;
+            for (E e : mesh.edges()) {
+                for (size_t j = 0; j < 2; ++j) {
+                    r(i, j) = get(vim, mesh.vertex(e, j));
                 }
+                ++i;
             }
-
             return verts;
         })
         .def("vertices_to_faces", [](const Mesh3& mesh, const std::vector<V>& verts) {
