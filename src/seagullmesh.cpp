@@ -21,8 +21,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
     init_properties(m);
-    init_locate(m);
-
+//    init_locate(m);
 //    init_connected(m);
 //    init_meshing(m);
 //    init_corefine(m);

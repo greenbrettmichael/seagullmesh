@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from numpy import full
+from numpy import full, arange, zeros, ones
 from numpy.testing import assert_array_equal
 
 from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3
@@ -9,6 +9,36 @@ from test.util import tetrahedron_mesh
 
 
 _halfedge = pytest.param('halfedge', marks=pytest.mark.skip(reason="halfedges are flaky"))
+
+
+def test_index_indexing():
+    mesh = Mesh3.icosahedron()
+    idxs = mesh.vertices
+    assert len(idxs) == mesh.n_vertices
+    n = len(idxs)
+    i = idxs[0]
+
+    assert i.to_int() != mesh.null_vertex.to_int()
+    assert i != mesh.null_vertex
+    assert i < mesh.null_vertex
+    assert i == i
+    assert not (i != i)
+
+    assert (idxs == idxs).all()
+    assert not (idxs != idxs).any()
+
+    assert (i == idxs).sum() == 1
+    assert (i != idxs).sum() == (n - 1)
+    assert (idxs == idxs[arange(n)]).all()
+    assert (idxs == idxs[ones(n, dtype=bool)]).all()
+
+    i0_repeated = idxs[zeros(n, dtype=int)]
+    assert len(i0_repeated) == n
+    assert (i == i0_repeated).all()
+
+    set_ = set(idxs)
+    assert len(set_) == n
+    assert i in set_
 
 
 @pytest.mark.parametrize(
@@ -93,11 +123,15 @@ def test_array_properties(key_type, val_type):
 
 def test_copy_mesh_copies_properties():
     mesh1 = Mesh3.icosahedron()
-    mesh1.vertex_data.add_property('foo', default=0)
-    mesh1.vertex_data['foo'][0] = 1
+    foo1 = mesh1.vertex_data.add_property('foo', default=0)
+    foo1[0] = 1
 
     mesh2 = mesh1.copy()
-    mesh2.vertex_data['foo'][0] = 2
+    foo2 = mesh2.vertex_data['foo']
+    assert foo1[0] == 1
+    assert foo2[0] == 1  # Should have been copied
 
-    assert mesh1.vertex_data['foo'] == 1  # Should be unchanged
+    foo2[0] = 2
+    assert foo1[0] == 1  # Should be unchanged
+    assert foo2[0] == 2
 

@@ -100,6 +100,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
     using size_type = typename Idx::size_type;
     using Idxs = typename std::vector<Idx>;
 
+    // Vertex, Face, Edge, Halfedge
     py::class_<Idx>(m, idx_name.c_str())
         .def(py::init<size_type>())
         .def(py::self == py::self)
@@ -113,7 +114,10 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         })
         .def("to_int", [](const Idx& idx) { return size_type(idx); })
     ;
+
+    // Vertices, Faces, Edges, Halfedges
     py::class_<Idxs>(m, idxs_name.c_str())
+        // .def(py::init<const Idxs&>())
         .def("__len__", [](const Idxs& idxs) { return idxs.size(); })
         .def("__iter__", [](Idxs& idxs) {
                 return py::make_iterator(idxs.begin(), idxs.end());

@@ -538,6 +538,12 @@ class Mesh3:
     def extract_boundary_cycles(self) -> Halfedges:
         return sgm.border.extract_boundary_cycles(self._mesh)
 
+    def has_boundary(self) -> bool:
+        return sgm.border.has_boundary(self._mesh)
+
+    def trace_boundary_from_vertex(self, vertex: Vertex) -> Vertices:
+        return sgm.border.trace_boundary_from_vertex(self._mesh, vertex)
+
     def remesh_planar_patches(
             self,
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
@@ -867,15 +873,15 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
 
     def get_objects(self, key) -> Sequence[Val]:
         try:
-            return self.pmap[key]
+            return self.pmap.get_objects(key)
         except TypeError:
-            return self.pmap[self._data.mesh_keys[key]]
+            return self.pmap.get_objects(self._data.mesh_keys[key])
 
     def set_objects(self, key, val):
         try:
-            self.pmap[key] = val
+            return self.pmap.set_objects(key)
         except TypeError:
-            self.pmap[self._data.mesh_keys[key]] = val
+            return self.pmap.set_objects(self._data.mesh_keys[key], val)
 
     def all_values(self):
         return self.pmap.get_array(self._data.mesh_keys)
@@ -1079,10 +1085,10 @@ class MeshData(Generic[Key]):
 
 def _copy_property_metadata(src_data: MeshData, dest_mesh: _Mesh3, dest_data: MeshData):
     for name, pmap_wrapper in src_data.items():
-        dest_pmap = type(pmap_wrapper.pmap)(dest_mesh, name)
+        dest_pmap = type(pmap_wrapper.pmap).get_property_map(dest_mesh, name)
         if dest_pmap is None:
             raise KeyError(f"Property map {name} doesn't exist in destination {type(dest_data)}")
-        dest_data.assign_property_map(name, dest_pmap, wrapper_cls=pmap_wrapper.__class__)
+        dest_data.assign_property_map(name, dest_pmap, wrapper_cls=type(pmap_wrapper))
 
 
 class TubeMesher:

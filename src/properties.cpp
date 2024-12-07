@@ -87,6 +87,25 @@ void define_array_property_map(py::module &m, std::string name) {
             }
             return vals;
         })
+        .def("get_objects", [](const PMap& pmap, const Key& key) {
+            return pmap[key];
+        })
+        .def("get_objects", [](const PMap& pmap, const std::vector<Key>& keys) {
+            std::vector<Val> vals;
+            vals.reserve(keys.size());
+            for (Key k : keys) {
+                vals.emplace_back(pmap[k]);
+            }
+            return vals;
+        })
+        .def("set_objects", [](PMap& pmap, const Key& key, const Val val) {
+            pmap[key] = val;
+        })
+        .def("set_objects", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
+            for (size_t i = 0; i < keys.size(); ++i) {
+                pmap[keys[i]] = vals[i];
+            }
+        })
         .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
             const size_t n_keys = keys.size();
             auto r = vals.unchecked<2>();
@@ -201,25 +220,25 @@ void init_properties(py::module &m) {
     define_property_map<E, double   >(sub, "E_double_PropertyMap");
     define_property_map<H, double   >(sub, "H_double_PropertyMap");
 
-    define_property_map<V, Point2   >(sub, "V_Point2_PropertyMap");
-    define_property_map<F, Point2   >(sub, "F_Point2_PropertyMap");
-    define_property_map<E, Point2   >(sub, "E_Point2_PropertyMap");
-    define_property_map<H, Point2   >(sub, "H_Point2_PropertyMap");
+    define_array_property_map<2, V, Point2 >(sub, "V_Point2_PropertyMap");
+    define_array_property_map<2, F, Point2 >(sub, "F_Point2_PropertyMap");
+    define_array_property_map<2, E, Point2 >(sub, "E_Point2_PropertyMap");
+    define_array_property_map<2, H, Point2 >(sub, "H_Point2_PropertyMap");
 
-    define_property_map<V, Point3   >(sub, "V_Point3_PropertyMap");
-    define_property_map<F, Point3   >(sub, "F_Point3_PropertyMap");
-    define_property_map<E, Point3   >(sub, "E_Point3_PropertyMap");
-    define_property_map<H, Point3   >(sub, "H_Point3_PropertyMap");
+    define_array_property_map<3, V, Point3 >(sub, "V_Point3_PropertyMap");
+    define_array_property_map<3, F, Point3 >(sub, "F_Point3_PropertyMap");
+    define_array_property_map<3, E, Point3 >(sub, "E_Point3_PropertyMap");
+    define_array_property_map<3, H, Point3 >(sub, "H_Point3_PropertyMap");
 
-    define_property_map<V, Vector2  >(sub, "V_Vector2_PropertyMap");
-    define_property_map<F, Vector2  >(sub, "F_Vector2_PropertyMap");
-    define_property_map<E, Vector2  >(sub, "E_Vector2_PropertyMap");
-    define_property_map<H, Vector2  >(sub, "H_Vector2_PropertyMap");
+    define_array_property_map<2, V, Vector2>(sub, "V_Vector2_PropertyMap");
+    define_array_property_map<2, F, Vector2>(sub, "F_Vector2_PropertyMap");
+    define_array_property_map<2, E, Vector2>(sub, "E_Vector2_PropertyMap");
+    define_array_property_map<2, H, Vector2>(sub, "H_Vector2_PropertyMap");
 
-    define_property_map<V, Vector3  >(sub, "V_Vector3_PropertyMap");
-    define_property_map<F, Vector3  >(sub, "F_Vector3_PropertyMap");
-    define_property_map<E, Vector3  >(sub, "E_Vector3_PropertyMap");
-    define_property_map<H, Vector3  >(sub, "H_Vector3_PropertyMap");
+    define_array_property_map<3, V, Vector3>(sub, "V_Vector3_PropertyMap");
+    define_array_property_map<3, F, Vector3>(sub, "F_Vector3_PropertyMap");
+    define_array_property_map<3, E, Vector3>(sub, "E_Vector3_PropertyMap");
+    define_array_property_map<3, H, Vector3>(sub, "H_Vector3_PropertyMap");
 
     define_princ_curv_dir_property_map<V>(sub, "V_PrincipalCurvaturesAndDirections_PropertyMap");
 }
