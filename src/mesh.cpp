@@ -79,10 +79,12 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Idx>(m, idx_name.c_str())
         .def(py::init<size_type>())
+//        .def("__eq__", [](const Idx& self, const Idx& other) {return self == other;})
+//        .def("__ne__", [](const Idx& self, const Idx& other) {return self == other;})
         .def("to_int", [](const Idx& idx) {return size_type(idx);})
     ;
     py::class_<Idxs>(m, idxs_name.c_str())
-        // Numpy-like indexing
+        // Numpy-like indexing with ints
         .def("__getitem__", [](const Idxs& idxs, const py::array_t<size_type>& sub) {
             if (sub.ndim() != 1) {
                 throw py::index_error();
@@ -97,6 +99,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             }
             return out;
         })
+        // Numpy-like indexing with bools
         .def("__getitem__", [](const Idxs& idxs, const py::array_t<bool>& sub) {
             py::ssize_t n = sub.size();
             if (sub.ndim() != 1 || n != idxs.size()) {
@@ -131,6 +134,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             }
             return out;
         })
+        // casting the descriptors to bare uint32s for debugging
         .def("to_ints", [](const Idxs& idxs) {
             const py::ssize_t n = idxs.size();
             py::template array_t<size_type> out({n});
