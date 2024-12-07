@@ -145,6 +145,15 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             }
             return true;
         })
+        .def("__eq__", [](const Idxs& idxs, const Idx& other) {
+            py::ssize_t n = idxs.size();
+            py::array_t<bool> out({n});
+            auto r = out.template mutable_unchecked<1>();
+            for (int i = 0; i < n; ++i) {
+                r(i) = idxs[i] == other;
+            }
+            return out;
+        })
         .def("to_ints", [](const Idxs& idxs) {
             const py::ssize_t n = idxs.size();
             py::template array_t<size_type> out({n});
@@ -407,7 +416,25 @@ void init_mesh(py::module &m) {
         })
         .def("icosahedron", [](Mesh3& mesh, double x, double y, double z, double r){
             CGAL::make_icosahedron(mesh, Point3(x, y, z), r);
-            return mesh;
+        })
+        .def("tetrahedron", [](Mesh3& mesh, const py::array_t<double>& points){
+            std::vector<Point3> pts = array_to_points_3(points);
+            CGAL::make_tetrahedron(pts.at(0), pts.at(1), pts.at(2), pts.at(3), mesh);
+        })
+        .def("triangle", [](Mesh3& mesh, const py::array_t<double>& points){
+            std::vector<Point3> pts = array_to_points_3(points);
+            CGAL::make_triangle(pts.at(0), pts.at(1), pts.at(2), mesh);
+        })
+        .def("pyramid", [](
+                Mesh3& mesh,
+                Mesh3::size_type n_base_verts,
+                const Point3 base_center,
+                double height,
+                double radius,
+                bool closed
+            ){
+
+            CGAL::make_pyramid(n_base_verts, mesh, base_center, height, radius, closed);
         })
     ;
 }

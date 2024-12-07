@@ -46,6 +46,17 @@ void init_border(py::module &m) {
             PMP::extract_boundary_cycles(mesh, std::back_inserter(out));
             return out.size() > 0;
         })
+        .def("trace_boundary_from_vertex", [](const Mesh3& mesh, V v) {
+            std::vector<V> verts;
+            for (H h0 : halfedges_around_source(v, mesh)) {
+                if mesh.is_border(h0) {
+                    for (H h1 : halfedges_around_face(h0)) {  // around the null face
+                        verts.emplace_back(mesh.source(h1));
+                    }
+                    return verts;
+                }
+            }
+        })
         .def("face_patch_border", [](const Mesh3& mesh, const std::vector<F>& faces) {
             std::vector<H> out;
             PMP::border_halfedges(faces, mesh, std::back_inserter(out));

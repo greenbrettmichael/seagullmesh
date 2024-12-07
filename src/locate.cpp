@@ -201,18 +201,18 @@ void init_locate(py::module &m) {
 
             return points_to_array(points);
         })
-        .def("shoot_rays_first_intersection", [](
+        .def("first_ray_intersections", [](
                 const Mesh3& mesh,
                 const AABB_Tree3& tree,
-                const py::array_t<double>& origins,
+                const py::array_t<double>& points,
                 const py::array_t<double>& directions
             ) {
 
             typedef Kernel::Ray_3 Ray3;
 
-            auto ro = origins.unchecked<2>();
-            auto rd = directions.unchecked<2>();
-            size_t n = ro.shape(0);
+            auto r_pts = points.unchecked<2>();
+            auto r_dirs = directions.unchecked<2>();
+            size_t n = r_pts.shape(0);
 
             py::array_t<double> bary_coords ({n, size_t(3)});
             auto rbc = bary_coords.mutable_unchecked<2>();
@@ -220,8 +220,8 @@ void init_locate(py::module &m) {
             faces.reserve(n);
 
             for (size_t i = 0; i < n; ++i) {
-                const Ray3 ray(Point3(ro(i, 0), ro(i, 1), ro(i, 1)),
-                         Vector3(rd(i, 0), rd(i, 1), rd(i, 2)));
+                const Ray3 ray( Point3(r_pts(i, 0), r_pts(i, 1), r_pts(i, 2)),
+                                Vector3(r_dirs(i, 0), r_dirs(i, 1), r_dirs(i, 2)));
                 FaceLocation loc = PMP::locate_with_AABB_tree(ray, tree, mesh);
 
                 faces.push_back(loc.first);

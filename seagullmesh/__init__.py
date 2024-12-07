@@ -42,16 +42,12 @@ class Mesh3:
         self._mesh = mesh
 
         if hasattr(sgm, 'properties'):
-            self.vertex_data = MeshData(mesh, sgm.properties.add_vertex_property, 'vertices', 'Vert')
-            self.face_data = MeshData(mesh, sgm.properties.add_face_property, 'faces', 'Face')
-            self.edge_data = MeshData(mesh, sgm.properties.add_edge_property, 'edges', 'Edge')
-            self.halfedge_data = MeshData(mesh, sgm.properties.add_halfedge_property, 'halfedges', 'HalfEdge')
+            self.vertex_data = MeshData(mesh, 'V', 'vertices')
+            self.face_data = MeshData(mesh, 'F', 'faces')
+            self.edge_data = MeshData(mesh, 'E', 'edges')
+            self.halfedge_data = MeshData(mesh, 'H', 'halfedges')
         else:
             warnings.warn("properties module not available")
-
-        # Mesh3 automatically constructs a vertex point 3 property, make it available
-        # from the python side
-        # self.vertex_data.assign_property_map('points', mesh.points)
 
     @property
     def vertices(self) -> sgm.mesh.Vertices:
@@ -77,6 +73,11 @@ class Mesh3:
     n_faces = property(lambda self: self._mesh.n_faces)
     n_edges = property(lambda self: self._mesh.n_edges)
     n_halfedges = property(lambda self: self._mesh.n_halfedges)
+
+    null_vertex = property(lambda self: self._mesh.null_vertex)
+    null_face = property(lambda self: self._mesh.null_face)
+    null_edge = property(lambda self: self._mesh.null_edge)
+    null_halfedge = property(lambda self: self._mesh.null_halfedge)
 
     is_valid = property(lambda self: self._mesh.is_valid)
 
@@ -279,9 +280,9 @@ class Mesh3:
         """
         faces = self.faces if faces is None else faces
         with (
-            self.vertex_data.temporary(vertex_constrained, temp_name='_vcm', default=False) as vcm,
-            self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
-            self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
+            self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
+            self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             args = [
                 self._mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
@@ -315,9 +316,9 @@ class Mesh3:
         """
         faces = self.faces if faces is None else faces
         with (
-            self.vertex_data.temporary(vertex_constrained, temp_name='_vcm', default=False) as vcm,
-            self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
-            self.vertex_data.temporary(touched, temp_name='_touched', default=False) as touched,
+            self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
+            self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             args = [self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
                n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
@@ -355,8 +356,8 @@ class Mesh3:
         (non-constrained) vertices.
         """
         with (
-            self.vertex_data.temporary(vertex_constrained, temp_name='_vcm', default=False) as vcm,
-            self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
+            self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.smooth_angle_and_area(
                 self._mesh, faces, n_iter, use_area_smoothing, use_angle_smoothing,
@@ -371,8 +372,8 @@ class Mesh3:
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
     ) -> None:
         with (
-            self.vertex_data.temporary(vertex_constrained, temp_name='_vcm', default=False) as vcm,
-            self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
+            self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.tangential_relaxation(
                 self._mesh, verts, n_iter, relax_constraints, vcm.pmap, ecm.pmap)
@@ -389,7 +390,7 @@ class Mesh3:
         A larger time step results in faster convergence but details may be distorted to a larger extent compared to
          more iterations with a smaller step. Typical values scale in the interval (1e-6, 1]
         """
-        with self.vertex_data.temporary(vertex_constrained, temp_name='_vcm', default=False) as vcm:
+        with self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm:
             sgm.meshing.smooth_shape(self._mesh, faces, time, n_iter, vcm.pmap)
 
     def does_self_intersect(self) -> bool:
@@ -409,7 +410,10 @@ class Mesh3:
         else:
             return self.vertex_data.get_property_map(vert_points).pmap
 
-    def aabb_tree(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
+    def aabb_tree(
+            self,
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
+    ) -> sgm.locate.AABB_Tree2 | sgm.locate.AABB_Tree3:
         """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
 
         By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
@@ -450,6 +454,24 @@ class Mesh3:
         """
         pmap = self._get_vertex_point_map(vert_points)
         return sgm.locate.construct_points(self._mesh, faces, bary_coords, pmap)
+
+    def first_ray_intersections(
+            self,
+            aabb_tree: sgm.locate.AABB_Tree3,
+            points: np.ndarray,
+            directions: np.ndarray,
+    ) -> Tuple[Faces, np.ndarray]:
+        """Find the first intersections of the rays with the mesh
+
+        The (n, 3) arrays `points` and `directions` define `n` rays.
+        Returns a `n` list of faces and a (n, 3) array of barycentric coordinates in the
+        corresponding faces.
+
+        If a ray doesn't intersect the mesh, the face is equal to `self.null_face` and the
+        barycentric coordinates are all zero.
+        """
+        surf_pts = sgm.locate.first_ray_intersections(self._mesh, aabb_tree, points, directions)
+        return surf_pts.faces, surf_pts.bary_coords
 
     def shortest_path(
             self,
@@ -522,7 +544,7 @@ class Mesh3:
             # face_patch_map: FaceMap = '_face_map',
             cosine_of_maximum_angle: float = 1.0,
     ) -> Mesh3:
-        with self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm:
+        with self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm:
             # fpm = self.face_data.get_or_create_property(face_patch_map, default=-1)
             # TODO see comments in c++ remesh_planar_patches regarding face_patch_map
             out = sgm.meshing.remesh_planar_patches(
@@ -569,7 +591,7 @@ class Mesh3:
         else:
             raise ValueError(f"Unsupported stop policy mode {stop_policy_mode}")
 
-        with self.edge_data.temporary(edge_constrained, temp_name='_ecm', default=False) as ecm:
+        with self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm:
             out = fn(self._mesh, stop_policy_thresh, ecm.pmap)
 
         return out
@@ -593,7 +615,7 @@ class Mesh3:
             ball_radius: float = -1,
             mean_curvature_map: str | PropertyMap[Vertex, float] = 'mean_curvature',
             gaussian_curvature_map: str | PropertyMap[Vertex, float] = 'gaussian_curvature',
-            principal_curvature_map: str | VertexPrincipalCurvaturesMap = 'principal_curvature',
+            principal_curvature_map: str | sgm.properties.V_PrincipalCurvaturesAndDirections_PropertyMap = 'principal_curvature',
     ):
         mcm = self.vertex_data.get_or_create_property(mean_curvature_map, 0.0)
         gcm = self.vertex_data.get_or_create_property(gaussian_curvature_map, 0.0)
@@ -683,7 +705,7 @@ class Mesh3:
 
     def connected_component(
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
-        with self.face_data.temporary(edge_is_constrained, tempname='_ecm', default=False) as ecm:
+        with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
 
     def edge_soup(self) -> np.ndarray:
@@ -694,15 +716,15 @@ class Mesh3:
 
     @staticmethod
     def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
-        out = Mesh3()
-        sgm.mesh.icosahedron(out._mesh, *center, radius)
+        out = Mesh3(sgm.mesh.Mesh3())
+        out._mesh.icosahedron(*center, radius)
         return out
 
 
 def _bbox_diagonal(points: np.ndarray):
     x0, y0, z0 = points.min(axis=0)
     x1, y1, z1 = points.max(axis=0)
-    return sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
+    return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
 
 
 class Skeleton:
@@ -715,11 +737,11 @@ class Skeleton:
         self._skeleton = skeleton
 
     @cached_property
-    def points(self) -> ndarray:
+    def points(self) -> np.ndarray:
         return self._skeleton.points
 
     @cached_property
-    def edges(self) -> ndarray:
+    def edges(self) -> np.ndarray:
         return self._skeleton.edges
 
     @cached_property
@@ -727,7 +749,7 @@ class Skeleton:
         return self._skeleton.vertex_map
 
     @cached_property
-    def radii(self) -> ndarray:
+    def radii(self) -> np.ndarray:
         return self._skeleton.compute_radii(self._mesh.mesh)
 
     def to_pyvista(self):
@@ -811,7 +833,7 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
     def __getitem__(self, key: Union[int, Key]) -> Val: ...
 
     @overload
-    def __getitem__(self, key: Union[A, Sequence[Key], slice]) -> Sequence[Val]: ...
+    def __getitem__(self, key: Union[np.ndarray, Sequence[Key], slice]) -> Sequence[Val]: ...
 
     def __getitem__(self, key):
         try:
@@ -831,13 +853,13 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
-    def __getitem__(self, key) -> A:
+    def __getitem__(self, key) -> np.ndarray:
         try:
             return self.pmap.get_array(key)
         except TypeError:
             return self.pmap.get_array(self._data.mesh_keys[key])
 
-    def __setitem__(self, key, val: A):
+    def __setitem__(self, key, val: np.ndarray):
         try:
             self.pmap.set_array(key, val)
         except TypeError:
@@ -881,18 +903,27 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         locals()[dunder] = _dunder_impl
 
 
+_PMapDType = str | np.dtype | type
+
+
 class MeshData(Generic[Key]):
-    def __init__(self, mesh: sgm.mesh.Mesh3, add_fn, key_name: str, prefix: str):
+    def __init__(
+            self,
+            mesh: sgm.mesh.Mesh3,
+            prefix: Literal['V', 'F', 'E', 'H'],
+            key_name: Literal['vertices', 'faces', 'edges', 'halfedges'],
+    ):
         self._data: Dict[str, PropertyMap[Key]] = {}
         self._mesh = mesh  # the c++ mesh
-        self._key_name = key_name  # e.g. 'vertices', 'faces', etc
+        self._prefix = prefix
+        self._key_name = key_name
 
     _dtype_mappings: dict[type, str] = {
         float: 'double',
         int: 'int64',
     }
 
-    def _dtype_name(self, dtype: str | np.dtype | type) -> str:
+    def _dtype_name(self, dtype: _PMapDType) -> str:
         if isinstance(dtype, str):
             return dtype
         elif isinstance(dtype, np.dtype):
@@ -900,26 +931,40 @@ class MeshData(Generic[Key]):
         elif mapped := self._dtype_mappings.get(dtype):
             return mapped
         else:
-            return type(dtype)._name__
+            return dtype.__name__
 
     def _pmap_class_name(self, dtype_name: str) -> str:
         return f'{self._key_name[0].upper()}_{dtype_name}_PropertyMap'
 
     @property
     def mesh_keys(self) -> List[Key]:
+        # e.g. mesh.faces
         return getattr(self._mesh, self._key_name)
 
     @property
     def n_mesh_keys(self) -> int:
+        # e.g. mesh.n_faces
         return getattr(self._mesh, f'n_{self._key_name}')
 
     @contextmanager
-    def temporary(
+    def temp(
+            self,
+            name: str,
+            default: Val,
+            dtype: _PMapDType | None = None,
+    ) -> Iterator[PropertyMap[Key, Val]]:
+        """Create a temporary property map and remove it after exiting the contextmanager"""
+        pmap = self.add_property(name=name, default=default, dtype=dtype)
+        yield pmap
+        self.remove_property(name)
+
+    @contextmanager
+    def get_or_temp(
             self,
             pmap: str | PropertyMap[Key, Val] | None,
             temp_name: str,
             default: Val,
-            signed: bool | None = None,
+            dtype: _PMapDType | None = None,
     ) -> Iterator[PropertyMap[Key, Val]]:
         """Construct a placeholder property map
 
@@ -927,7 +972,7 @@ class MeshData(Generic[Key]):
         pre-existing property map, it's not removed.
         """
         remove_after = isinstance(pmap, str) and pmap == temp_name
-        pmap = self.get_or_create_property(pmap, default=default, signed=signed)
+        pmap = self.get_or_create_property(pmap, default=default, dtype=dtype)
         yield pmap
         if remove_after:
             self.remove_property(temp_name)
@@ -989,8 +1034,7 @@ class MeshData(Generic[Key]):
             self,
             key: str | PropertyMap[Key, Val],
             default: Val,
-            signed: bool | None = None,
-            is_index: bool | None = None,
+            dtype: _PMapDType | None = None,
     ) -> PropertyMap[Key, Val]:
         if isinstance(key, PropertyMap):
             return key
@@ -998,7 +1042,7 @@ class MeshData(Generic[Key]):
         if key in self._data:
             return self._data[key]
         else:
-            return self.add_property(key, default, signed=signed, is_index=is_index)
+            return self.add_property(name=key, default=default, dtype=dtype)
 
     def __getitem__(self, item: str) -> PropertyMap[Key, Any]:
         return self._data[item]
@@ -1011,6 +1055,9 @@ class MeshData(Generic[Key]):
             # Assigning the bare C++ property map
             self.assign_property_map(name=key, pmap=value)
             return
+
+        if isinstance(value, PropertyMap):
+            self._data[key] = value
 
         # Implicit construction of a new property map with initial value(s) `value`
         default = np.zeros_like(value, shape=()).item()
