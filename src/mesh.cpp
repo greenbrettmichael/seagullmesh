@@ -82,30 +82,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         .def("to_int", [](const Idx& idx) {return size_type(idx);})
     ;
     py::class_<Idxs>(m, idxs_name.c_str())
-        .def("__len__", [](const Idxs& idxs) { return idxs.size(); })
-        .def("__iter__", [](Idxs& idxs) {
-                return py::make_iterator(idxs.begin(), idxs.end());
-            }, py::keep_alive<0, 1>()  /* Keep vector alive while iterator is used */
-        )
-        .def("__getitem__", [](const Idxs& idxs, size_t i) {
-            if (i >= idxs.size()) {
-                throw py::index_error();
-            }
-            return idxs[i];
-        })
-        .def("__getitem__", [](const Idxs& idxs, py::slice slice) {
-            py::ssize_t start, stop, step, slicelength;
-            if (!slice.compute(idxs.size(), &start, &stop, &step, &slicelength)) {
-                throw py::error_already_set();
-            }
-            Idxs out;
-            out.reserve(slicelength);
-            for (int i = 0; i < slicelength; ++i) {
-                out.emplace_back(idxs[start]);
-                start += step;
-            }
-            return out;
-        })
+        // Numpy-like indexing
         .def("__getitem__", [](const Idxs& idxs, const py::array_t<size_type>& sub) {
             if (sub.ndim() != 1) {
                 throw py::index_error();
@@ -177,6 +154,8 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             return out;
         })
     ;
+
+    py::implicitly_convertible<py::list, Idxs>();
 }
 
 template<typename Idx, typename IdxRange>
