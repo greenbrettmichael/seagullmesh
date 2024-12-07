@@ -117,7 +117,11 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     // Vertices, Faces, Edges, Halfedges
     py::class_<Idxs>(m, idxs_name.c_str())
-        // .def(py::init<const Idxs&>())
+        .def(py::init<const std::vector< Idx >& >())
+        .def(py::init([](py::list list) {
+            Idxs idxs = list.cast<Idxs>();
+            return idxs;
+        }))
         .def("__len__", [](const Idxs& idxs) { return idxs.size(); })
         .def("__iter__", [](Idxs& idxs) {
                 return py::make_iterator(idxs.begin(), idxs.end());
@@ -203,8 +207,6 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
             return out;
         })
     ;
-
-    py::implicitly_convertible<py::list, Idxs>();
 }
 
 template<typename Idx, typename IdxRange>
@@ -229,7 +231,7 @@ void init_mesh(py::module &m) {
     define_indices<V>(sub, "Vertex", "Vertices");
     define_indices<F>(sub, "Face", "Faces");
     define_indices<E>(sub, "Edge", "Edges");
-    define_indices<H>(sub, "Halfedge", "Halfedges");
+    // define_indices<H>(sub, "Halfedge", "Halfedges");
 
     sub.def("polygon_soup_to_mesh3", [](
                 py::array_t<double> &points,
@@ -303,9 +305,9 @@ void init_mesh(py::module &m) {
         .def_property_readonly("edges", [](const Mesh3& mesh) {
             return indices_from_range<E, Mesh3::Edge_range>(mesh.number_of_edges(), mesh.edges());
         })
-        .def_property_readonly("halfedges", [](const Mesh3& mesh) {
-            return indices_from_range<H, Mesh3::Halfedge_range>(mesh.number_of_halfedges(), mesh.halfedges());
-        })
+//        .def_property_readonly("halfedges", [](const Mesh3& mesh) {
+//            return indices_from_range<H, Mesh3::Halfedge_range>(mesh.number_of_halfedges(), mesh.halfedges());
+//        })
 
         .def("bounding_box", [](const Mesh3& mesh) {
             return PMP::bbox(mesh);

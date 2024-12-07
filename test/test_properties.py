@@ -8,7 +8,10 @@ from test.test_mesh import props
 from test.util import tetrahedron_mesh
 
 
-_halfedge = pytest.param('halfedge', marks=pytest.mark.skip(reason="halfedges are flaky"))
+_halfedge = pytest.param(
+    'halfedge',
+    marks=pytest.mark.skip(reason="halfedges are flaky"),
+)
 
 
 def test_index_indexing():
