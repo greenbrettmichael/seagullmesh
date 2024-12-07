@@ -686,14 +686,20 @@ class Mesh3:
         with self.face_data.temporary(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
 
-    def edge_soup(self) -> ndarray:
+    def edge_soup(self) -> np.ndarray:
         return self._mesh.edge_soup()
 
-    def triangle_soup(self) -> ndarray:
+    def triangle_soup(self) -> np.ndarray:
         return self._mesh.triangle_soup()
 
+    @staticmethod
+    def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
+        out = Mesh3()
+        sgm.mesh.icosahedron(out._mesh, *center, radius)
+        return out
 
-def _bbox_diagonal(points: ndarray):
+
+def _bbox_diagonal(points: np.ndarray):
     x0, y0, z0 = points.min(axis=0)
     x1, y1, z1 = points.max(axis=0)
     return sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)

@@ -11,6 +11,7 @@
 #include <CGAL/Polygon_mesh_processing/measure.h>
 #include <CGAL/Bbox_3.h>
 #include <CGAL/Polygon_mesh_processing/bbox.h>
+#include <CGAL/boost/graph/generators.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -399,17 +400,14 @@ void init_mesh(py::module &m) {
                 throw std::runtime_error("writing failed");
             }
         })
-
-        //template<typename Idx, typename Val>
-        //py::array_t<Val> map_indices_to_scalar(const std::vector<Idx>& idxs, const std::function<Val (Idx)> fn) {
-//        return map_indices_to_vector<3, F, Vector3>(
-//            faces, [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
-//        );
         .def("face_areas", [](const Mesh3& mesh, const std::vector<F>& faces) {
             return map_indices_to_scalar<F, double>(
                 faces, [&mesh](F f){ return PMP::face_area(f, mesh);}
             );
         })
-
+        .def("icosahedron", [](Mesh3& mesh, double x, double y, double z, double r){
+            CGAL::make_icosahedron(mesh, Point3(x, y, z), r);
+            return mesh;
+        })
     ;
 }
