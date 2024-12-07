@@ -226,7 +226,7 @@ class BuildExt(build_ext):
 
 here = os.path.dirname(os.path.abspath(__file__))
 version_ns = {}
-with open(os.path.join(here, 'seagullmesh', '_version.py')) as f:
+with open(os.path.join(here, 'src', 'seagullmesh', '_version.py')) as f:
     exec(f.read(), {}, version_ns)
 
 setup(
@@ -243,4 +243,5 @@ setup(
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
     packages=['seagullmesh'],
+    package_dir={'seagullmesh': 'src/seagullmesh'}
 )
