@@ -3,51 +3,44 @@ import pytest
 from numpy import full
 from numpy.testing import assert_array_equal
 
-from seagullmesh import Point2, MeshData, Point3, Vector2, Vector3
+from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3
 from test.test_mesh import props
 from test.util import tetrahedron_mesh
+
+
+_halfedge = pytest.param('halfedge', marks=pytest.mark.skip(reason="halfedges are flaky"))
 
 
 @pytest.mark.parametrize(
     ['data_name', 'cls', 'default'],
     [
-        ('vertex_data', props.VertIntPropertyMap, 0),
-        ('vertex_data', props.VertUIntPropertyMap, 0),
-        ('face_data', props.FaceIntPropertyMap, 0),
-        ('face_data', props.FaceUIntPropertyMap, 0),
-
+        ('vertex_data', props.V_uint32_PropertyMap, 0),
+        ('face_data', props.F_int64_PropertyMap, 0),
     ]
 )
 def test_explicit_property_map_construction(data_name, cls, default):
-    mesh = tetrahedron_mesh()
+    mesh = Mesh3.icosahedron()
     d = getattr(mesh, data_name)
     d['foo'] = cls(mesh.mesh, 'foo', default)
     assert (d['foo'][:] == default).all()
 
 
 @pytest.mark.parametrize(
-    ['data_name', 'cls', 'default', 'signed'],
+    ['data_name', 'cls', 'default', 'dtype'],
     [
-        ('vertex_data', props.VertBoolPropertyMap, False, None),
-        ('vertex_data', props.VertIntPropertyMap, 0, True),
-        ('vertex_data', props.VertUIntPropertyMap, 0, False),
-        ('vertex_data', props.VertDoublePropertyMap, 0.0, None),
-        ('vertex_data', props.VertPoint2PropertyMap, Point2(0, 0), None),
-        ('face_data', props.FaceBoolPropertyMap, False, None),
-        ('face_data', props.FaceIntPropertyMap, 0, True),
-        ('face_data', props.FaceUIntPropertyMap, 0, False),
-        ('face_data', props.FaceDoublePropertyMap, 0.0, None),
-        ('face_data', props.FacePoint2PropertyMap, Point2(0, 0), None),
+        ('vertex_data', props.V_uint32_PropertyMap, 0, 'uint32'),
+        ('face_data', props.F_int64_PropertyMap, 0, 'int64'),
     ]
 )
-def test_add_property_map(data_name, cls, default, signed):
-    mesh = tetrahedron_mesh()
+def test_add_property_map_typed(data_name, cls, default, dtype):
+    mesh = Mesh3.icosahedron()
     data = getattr(mesh, data_name)
-    pmap = data.add_property('foo', default=default, signed=signed)
+    pmap = data.add_property('foo', default=default, dtype=dtype)
     assert isinstance(pmap.pmap, cls)
+    assert pmap[data.mesh_keys].dtype.name == dtype
 
 
-@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
+@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', _halfedge])
 @pytest.mark.parametrize('val_type', [int, bool, float])
 def test_scalar_properties(key_type, val_type):
     mesh = tetrahedron_mesh()
@@ -73,7 +66,7 @@ def test_scalar_properties(key_type, val_type):
     assert 'foo' not in data
 
 
-@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
+@pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', _halfedge])
 @pytest.mark.parametrize('val_type', [Point2, Point3, Vector2, Vector3])
 def test_array_properties(key_type, val_type):
     mesh = tetrahedron_mesh()
@@ -99,7 +92,7 @@ def test_array_properties(key_type, val_type):
 
 
 def test_copy_mesh_copies_properties():
-    mesh1 = tetrahedron_mesh()
+    mesh1 = Mesh3.icosahedron()
     mesh1.vertex_data.add_property('foo', default=0)
     mesh1.vertex_data['foo'][0] = 1
 

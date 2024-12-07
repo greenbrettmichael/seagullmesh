@@ -17,17 +17,7 @@ auto add_property_map(Mesh3& mesh, std::string name, const Val default_val) {
 
 template <typename Key, typename Val>
 auto define_property_map(py::module &m, std::string name, bool is_scalar = true) {
-    // https://stackoverflow.com/a/47749076/7519203
     using PMap = typename Mesh3::Property_map<Key, Val>;
-
-//#include <string>
-//#include <sstream>
-//    std::stringstream pmap_name;
-//    pmap_name << vname << "_" << kname << "_PropertyMap";
-//
-//    std::stringstream add_pmap_name
-//    sub.def("add_vertex_property",   &add_property_map<V, bool>)
-
     m.def("remove_property_map", [](Mesh3& mesh, PMap& pmap) {
         mesh.remove_property_map(pmap);
     });

@@ -46,13 +46,19 @@ def test_pyvista_roundtrip():
 
 
 def test_indices_indexing():
-    mesh = tetrahedron_mesh()
+    mesh = Mesh3.icosahedron()
     idxs = mesh.vertices
-    assert idxs[0].to_int() == 0
     assert len(idxs) == mesh.n_vertices
-    assert idxs == idxs[:]
-    assert idxs == idxs[arange(len(idxs))]
-    assert idxs == idxs[ones(len(idxs), dtype=bool)]
+    n = len(idxs)
+
+    assert idxs[0].to_int() != mesh.null_vertex.to_int()
+    assert idxs[0] == idxs[0]
+    assert (idxs == idxs).all()
+    assert not (idxs != idxs).any()
+
+    assert (idxs == idxs[arange(n)]).all()
+    assert (idxs == idxs[ones(n, dtype=bool)]).all()
+    assert (idxs == idxs[ones(n, dtype=int)]).sum() == 1
 
 
 @pytest.fixture()
