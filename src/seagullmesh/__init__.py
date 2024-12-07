@@ -13,7 +13,7 @@ import numpy as np
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
-    Vertex, Face, Edge, Halfedge,
+    Vertex, Face, Edge
 )
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
@@ -21,7 +21,12 @@ from ._version import version_info, __version__  # noqa
 Vertices = Sequence[Vertex]
 Faces = Sequence[Face]
 Edges = Sequence[Edge]
-Halfedges = Sequence[Halfedge]
+
+if hasattr(sgm.mesh, 'Halfedge'):
+    from sgm.mesh import Halfedge
+    Halfedges = Sequence[Halfedge]
+else:
+    Halfedge = Halfedges = None
 
 if TYPE_CHECKING:
     try:
@@ -45,7 +50,8 @@ class Mesh3:
             self.vertex_data = MeshData(mesh, 'V', 'vertices')
             self.face_data = MeshData(mesh, 'F', 'faces')
             self.edge_data = MeshData(mesh, 'E', 'edges')
-            self.halfedge_data = MeshData(mesh, 'H', 'halfedges')
+            if Halfedge:
+                self.halfedge_data = MeshData(mesh, 'H', 'halfedges')
         else:
             warnings.warn("properties module not available")
 

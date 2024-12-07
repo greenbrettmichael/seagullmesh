@@ -60,6 +60,9 @@ def test_indices_indexing():
     assert (idxs == idxs[ones(n, dtype=bool)]).all()
     assert (idxs == idxs[ones(n, dtype=int)]).sum() == 1
 
+    assert (idxs == sgm.mesh.Vertices(list(idxs))).all()
+
+
 
 # @pytest.fixture()
 # def armadillo():

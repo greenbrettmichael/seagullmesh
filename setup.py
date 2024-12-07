@@ -119,7 +119,7 @@ ext_modules = [
             'src/util.cpp',
             'src/seagullmesh.cpp',
             'src/mesh.cpp',
-            'src/properties.cpp',
+            # 'src/properties.cpp',
             # 'src/locate.cpp',
             # 'src/connected.cpp',
             # 'src/meshing.cpp',
