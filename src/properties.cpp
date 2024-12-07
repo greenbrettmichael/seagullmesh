@@ -20,6 +20,14 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
     // https://stackoverflow.com/a/47749076/7519203
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
+//#include <string>
+//#include <sstream>
+//    std::stringstream pmap_name;
+//    pmap_name << vname << "_" << kname << "_PropertyMap";
+//
+//    std::stringstream add_pmap_name
+//    sub.def("add_vertex_property",   &add_property_map<V, bool>)
+
     m.def("remove_property_map", [](Mesh3& mesh, PMap& pmap) {
         mesh.remove_property_map(pmap);
     });
@@ -178,82 +186,50 @@ void init_properties(py::module &m) {
         .def_readonly("max_direction", &ExpandedPrincipalCurvaturesAndDirections::max_direction)
     ;
 
-    define_property_map<V, bool             >(sub, "VertBoolPropertyMap");
-    define_property_map<V, int              >(sub, "VertIntPropertyMap");
-    define_property_map<V, size_t           >(sub, "VertUIntPropertyMap");
-    define_property_map<V, double           >(sub, "VertDoublePropertyMap");
+    define_property_map<V, bool     >(sub, "V_bool_PropertyMap");
+    define_property_map<F, bool     >(sub, "F_bool_PropertyMap");
+    define_property_map<E, bool     >(sub, "E_bool_PropertyMap");
+    define_property_map<H, bool     >(sub, "H_bool_PropertyMap");
 
-    define_property_map<F, bool    >(sub, "FaceBoolPropertyMap");
-    define_property_map<F, int     >(sub, "FaceIntPropertyMap");
-    define_property_map<F, size_t  >(sub, "FaceUIntPropertyMap");
-    define_property_map<F, double  >(sub, "FaceDoublePropertyMap");
-    define_property_map<F, F::size_type >(sub, "FaceIndexPropertyMap");
+    define_property_map<V, int32_t  >(sub, "V_int32_PropertyMap");
+    define_property_map<F, int32_t  >(sub, "F_int32_PropertyMap");
+    define_property_map<E, int32_t  >(sub, "E_int32_PropertyMap");
+    define_property_map<H, int32_t  >(sub, "H_int32_PropertyMap");
 
-    define_property_map<E, bool    >(sub, "EdgeBoolPropertyMap");
-    define_property_map<E, int     >(sub, "EdgeIntPropertyMap");
-    define_property_map<E, double  >(sub, "EdgeDoublePropertyMap");
+    define_property_map<V, int64_t  >(sub, "V_int64_PropertyMap");
+    define_property_map<F, int64_t  >(sub, "F_int64_PropertyMap");
+    define_property_map<E, int64_t  >(sub, "E_int64_PropertyMap");
+    define_property_map<H, int64_t  >(sub, "H_int64_PropertyMap");
 
-    define_property_map<H, bool    >(sub, "HalfedgeBoolPropertyMap");
-    define_property_map<H, int     >(sub, "HalfedgeIntPropertyMap");
-    define_property_map<H, double  >(sub, "HalfedgeDoublePropertyMap");
+    define_property_map<V, uint32_t >(sub, "V_uint32_PropertyMap");
+    define_property_map<F, uint32_t >(sub, "F_uint32_PropertyMap");
+    define_property_map<E, uint32_t >(sub, "E_uint32_PropertyMap");
+    define_property_map<H, uint32_t >(sub, "H_uint32_PropertyMap");
 
-    define_array_property_map<3, V, Point3  >(sub, "VertPoint3PropertyMap");
-    define_array_property_map<3, V, Vector3 >(sub, "VertVector3PropertyMap");
-    define_array_property_map<2, V, Point2  >(sub, "VertPoint2PropertyMap");
-    define_array_property_map<2, V, Vector2 >(sub, "VertVector2PropertyMap");
+    define_property_map<V, double   >(sub, "V_double_PropertyMap");
+    define_property_map<F, double   >(sub, "F_double_PropertyMap");
+    define_property_map<E, double   >(sub, "E_double_PropertyMap");
+    define_property_map<H, double   >(sub, "H_double_PropertyMap");
 
-    define_array_property_map<3, F, Point3  >(sub, "FacePoint3PropertyMap");
-    define_array_property_map<3, F, Vector3 >(sub, "FaceVector3PropertyMap");
-    define_array_property_map<2, F, Point2  >(sub, "FacePoint2PropertyMap");
-    define_array_property_map<2, F, Vector2 >(sub, "FaceVector2PropertyMap");
+    define_property_map<V, Point2   >(sub, "V_Point2_PropertyMap");
+    define_property_map<F, Point2   >(sub, "F_Point2_PropertyMap");
+    define_property_map<E, Point2   >(sub, "E_Point2_PropertyMap");
+    define_property_map<H, Point2   >(sub, "H_Point2_PropertyMap");
 
-    define_array_property_map<3, E, Point3  >(sub, "EdgePoint3PropertyMap");
-    define_array_property_map<3, E, Vector3 >(sub, "EdgeVector3PropertyMap");
-    define_array_property_map<2, E, Point2  >(sub, "EdgePoint2PropertyMap");
-    define_array_property_map<2, E, Vector2 >(sub, "EdgeVector2PropertyMap");
+    define_property_map<V, Point3   >(sub, "V_Point3_PropertyMap");
+    define_property_map<F, Point3   >(sub, "F_Point3_PropertyMap");
+    define_property_map<E, Point3   >(sub, "E_Point3_PropertyMap");
+    define_property_map<H, Point3   >(sub, "H_Point3_PropertyMap");
 
-    define_array_property_map<3, H, Point3  >(sub, "HalfedgePoint3PropertyMap");
-    define_array_property_map<3, H, Vector3 >(sub, "HalfedgeVector3PropertyMap");
-    define_array_property_map<2, H, Point2  >(sub, "HalfedgePoint2PropertyMap");
-    define_array_property_map<2, H, Vector2 >(sub, "HalfedgeVector2PropertyMap");
+    define_property_map<V, Vector2  >(sub, "V_Vector2_PropertyMap");
+    define_property_map<F, Vector2  >(sub, "F_Vector2_PropertyMap");
+    define_property_map<E, Vector2  >(sub, "E_Vector2_PropertyMap");
+    define_property_map<H, Vector2  >(sub, "H_Vector2_PropertyMap");
 
-    define_princ_curv_dir_property_map<V>(sub, "VertPrincipalCurvDirMap");
+    define_property_map<V, Vector3  >(sub, "V_Vector3_PropertyMap");
+    define_property_map<F, Vector3  >(sub, "F_Vector3_PropertyMap");
+    define_property_map<E, Vector3  >(sub, "E_Vector3_PropertyMap");
+    define_property_map<H, Vector3  >(sub, "H_Vector3_PropertyMap");
 
-    sub
-     .def("add_vertex_property",   &add_property_map<V, bool>)
-     .def("add_vertex_property",   &add_property_map<V, size_t>, py::arg(), py::arg(), py::arg().noconvert())
-     .def("add_vertex_property",   &add_property_map<V, int>)
-     .def("add_vertex_property",   &add_property_map<V, double>)
-     .def("add_vertex_property",   &add_property_map<V, Point3>)
-     .def("add_vertex_property",   &add_property_map<V, Vector3>)
-     .def("add_vertex_property",   &add_property_map<V, Point2>)
-     .def("add_vertex_property",   &add_property_map<V, Vector2>)
-     .def("add_vertex_property",   &add_property_map<V, PrincipalCurvDir>)
-
-     .def("add_face_property",     &add_property_map<F, bool>)
-     .def("add_face_property",     &add_property_map<F, size_t>, py::arg(), py::arg(), py::arg().noconvert())
-     .def("add_face_property",     &add_property_map<F, int>)
-     .def("add_face_property",     &add_property_map<F, F::size_type>, py::arg(), py::arg(), py::arg().noconvert())
-     .def("add_face_property",     &add_property_map<F, double>)
-     .def("add_face_property",     &add_property_map<F, Point3>)
-     .def("add_face_property",     &add_property_map<F, Vector3>)
-     .def("add_face_property",     &add_property_map<F, Point2>)
-     .def("add_face_property",     &add_property_map<F, Vector2>)
-
-     .def("add_edge_property",     &add_property_map<E, bool>)
-     .def("add_edge_property",     &add_property_map<E, int>)
-     .def("add_edge_property",     &add_property_map<E, double>)
-     .def("add_edge_property",     &add_property_map<E, Point3>)
-     .def("add_edge_property",     &add_property_map<E, Vector3>)
-     .def("add_edge_property",     &add_property_map<E, Point2>)
-     .def("add_edge_property",     &add_property_map<E, Vector2>)
-
-     .def("add_halfedge_property", &add_property_map<H, bool>)
-     .def("add_halfedge_property", &add_property_map<H, int>)
-     .def("add_halfedge_property", &add_property_map<H, double>)
-     .def("add_halfedge_property", &add_property_map<H, Point3>)
-     .def("add_halfedge_property", &add_property_map<H, Vector3>)
-     .def("add_halfedge_property", &add_property_map<H, Point2>)
-     .def("add_halfedge_property", &add_property_map<H, Vector2>)
-    ;
+    define_princ_curv_dir_property_map<V>(sub, "V_PrincipalCurvaturesAndDirections_PropertyMap");
 }

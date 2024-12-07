@@ -875,14 +875,29 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         locals()[dunder] = _dunder_impl
 
 
-
 class MeshData(Generic[Key]):
     def __init__(self, mesh: sgm.mesh.Mesh3, add_fn, key_name: str, prefix: str):
         self._data: Dict[str, PropertyMap[Key]] = {}
         self._mesh = mesh  # the c++ mesh
-        self._add_fn = add_fn  # e.g. sgm.properties.add_vertex_property, etc
         self._key_name = key_name  # e.g. 'vertices', 'faces', etc
-        self._cpp_cls_prefix = prefix  # e.g. 'Vert', 'Face', etc
+
+    _dtype_mappings: dict[type, str] = {
+        float: 'double',
+        int: 'int64',
+    }
+
+    def _dtype_name(self, dtype: str | np.dtype | type) -> str:
+        if isinstance(dtype, str):
+            return dtype
+        elif isinstance(dtype, np.dtype):
+            return dtype.name
+        elif mapped := self._dtype_mappings.get(dtype):
+            return mapped
+        else:
+            return type(dtype)._name__
+
+    def _pmap_class_name(self, dtype_name: str) -> str:
+        return f'{self._key_name[0].upper()}_{dtype_name}_PropertyMap'
 
     @property
     def mesh_keys(self) -> List[Key]:
@@ -913,39 +928,35 @@ class MeshData(Generic[Key]):
 
     def add_property(
             self,
-            key: str,
+            name: str,
             default: Val,
-            signed: Optional[bool] = None,
-            is_index: Optional[bool] = None,
+            dtype: str | np.dtype | None = None,
     ) -> PropertyMap[Key, Val]:
         """Add a property map
 
         The type of the map's value is inferred from the default value. E.g.
-        `mesh.vertex_data.add_property('foo', 0.0)` constructs a VertDoublePropertyMap named 'foo'
+        `mesh.vertex_data.add_property('foo', 0.0)` constructs a property map named 'foo'
         storing doubles on vertices and `mesh.face_data.add_property('bar', Point2(0, 0))` stores
         2d points on mesh faces.
 
-        There is an ambiguity when constructing int-valued property maps where some CGAL routines
-        require either signed or unsigned ints, so the optional `signed` parameter can make it
-        explicit whether signed or unsigned ints are required.
+        Mapping int-values to C++ types is inherently ambiguous, so it's preferred to explicitly
+        specify a dtype, either as a string like 'uint32' or a numpy dtype.
         """
-        if signed is is_index is None:
-            # Infer C++ property map type from the default
-            pmap = self._add_fn(self._mesh, key, default)
-        elif isinstance(default, int):
-            if is_index:
-                # Specify e.g. "FaceIndexPropertyMap"
-                pmap_cls = f"{self._cpp_cls_prefix}IndexPropertyMap"
-            else:
-                assert signed is not None
-                # Specify e.g. "VertIntPropertyMap", "VertUIntPropertyMap"
-                pmap_cls = f"{self._cpp_cls_prefix}{'' if signed else 'U'}IntPropertyMap"
-            pmap = getattr(sgm.properties, pmap_cls)(self._mesh, key, default)
-        else:
-            raise TypeError(
-                f"Can only specify signed for int values, got default={type(default)}({default})")
+        dtype_name = self._dtype_name(dtype or type(default))
+        cls_name = self._pmap_class_name(dtype_name)
 
-        return self.assign_property_map(name=key, pmap=pmap)  # The wrapped map
+        try:
+            pmap_class: type = getattr(sgm.properties, cls_name)
+        except AttributeError:
+            msg = (
+                f"Property map class {cls_name} does not exist for default = "
+                f"{type(default)}({default}) with supplied {dtype=} and inferred {dtype_name=} "
+                f"during attempted construction of property name {name=}"
+            )
+            raise TypeError(msg)
+
+        pmap = pmap_class(self._mesh, name, default)
+        return self.assign_property_map(name=name, pmap=pmap)  # The wrapped map
 
     def remove_property(self, key: str):
         pmap = self._data.pop(key)
