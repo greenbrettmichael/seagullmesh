@@ -34,34 +34,27 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def_property_readonly_static("is_scalar", [is_scalar](py::object /* self */) { return is_scalar; })
 
         .def("__getitem__", [](const PMap& pmap, const Key& key) { return pmap[key]; })
-        .def("__getitem__", [](const PMap& pmap, const Indices<Key>&) {
-            size_t nk = keys.size();
-            py::array_t<Val, py::array::c_style> vals({int(nk)});
-            auto r = vals.template mutable_unchecked<1>();
-
-            for (size_t i = 0; i < nk; i++) {
-                r(i) = pmap[keys[i]];
-            }
-            return vals;
+        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
+            return indices.map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
         })
         .def("__setitem__", [](PMap& pmap, const Key& key, const Val val) {
             pmap[key] = val;
         })
-        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const Val val) {
-            for (Key key : keys) {
-                pmap[key] = val;
-            }
-        })
-        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
-            size_t nk = keys.size();
-            size_t nv = vals.size();
-            if (nk != nv) {
-                throw std::runtime_error("Key and value array sizes do not match");
-            }
-            for (size_t i = 0; i < nk; i++) {
-                pmap[keys[i]] = vals[i];
-            }
-        })
+//        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const Val val) {
+//            for (Key key : keys) {
+//                pmap[key] = val;
+//            }
+//        })
+//        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
+//            size_t nk = keys.size();
+//            size_t nv = vals.size();
+//            if (nk != nv) {
+//                throw std::runtime_error("Key and value array sizes do not match");
+//            }
+//            for (size_t i = 0; i < nk; i++) {
+//                pmap[keys[i]] = vals[i];
+//            }
+//        })
     ;
 }
 
