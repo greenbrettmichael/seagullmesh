@@ -40,11 +40,12 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def("__setitem__", [](PMap& pmap, const Key& key, const Val val) {
             pmap[key] = val;
         })
-//        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const Val val) {
-//            for (Key key : keys) {
-//                pmap[key] = val;
-//            }
-//        })
+        .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const Val val) {
+            // TODO need a custom iterator
+            for (Key key : indices.to_vector()) {
+                pmap[key] = val;
+            }
+        })
 //        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
 //            size_t nk = keys.size();
 //            size_t nv = vals.size();

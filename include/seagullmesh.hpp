@@ -51,17 +51,9 @@ struct Indices {
         return Indices(indices);
     }
 
-    // Convert ints back into descriptors
-    // TODO this can just self.map_to_vector
-//    std::vector<T> to_vector() {
-//        std::vector<T> out;
-//        size_t n = indices.size();
-//        auto r = indices.unchecked<1>();
-//        for (size_t i = 0; i < n; ++i) {
-//            out.emplace_back(T(r(i)));
-//        }
-//        return out;
-//    }
+    std::vector<T> to_vector() const {
+        return map_to_vector<T>([](T idx) { return idx; } );
+    }
 
     template<typename U>
     std::vector<U> map_to_vector(const std::function<U (T)> fn) const {
