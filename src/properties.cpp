@@ -46,49 +46,34 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
                 pmap[key] = val;
             }
         })
-//        .def("__setitem__", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
-//            size_t nk = keys.size();
-//            size_t nv = vals.size();
-//            if (nk != nv) {
-//                throw std::runtime_error("Key and value array sizes do not match");
-//            }
-//            for (size_t i = 0; i < nk; i++) {
-//                pmap[keys[i]] = vals[i];
-//            }
-//        })
+        .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const std::vector<Val>& vals) {
+            // TODO Iterator? or apply/map or something?
+            // TODO vals could also be py::array_t, more efficient to iter over that?
+            std::vector<Key> keys = indices.to_vector();
+            size_t nk = keys.size();
+            size_t nv = vals.size();
+            if (nk != nv) {
+                throw std::runtime_error("Key and value array sizes do not match");
+            }
+            for (size_t i = 0; i < nk; i++) {
+                pmap[keys[i]] = vals[i];
+            }
+        })
     ;
 }
 
-//
-//// For Point2/3 and Vector2/3
-//template <unsigned int N, typename Key, typename Val>
-//void define_array_property_map(py::module &m, std::string name) {
-//    using PMap = typename Mesh3::Property_map<Key, Val>;
-//
-//    define_property_map<Key, Val>(m, name, false)
-//        .def("get_array", [](const PMap& pmap, const std::vector<Key>& keys) {
-//            const size_t n_keys = keys.size();
-//            py::array_t<double, py::array::c_style> vals({n_keys, size_t(N)});
-//            auto r = vals.mutable_unchecked<2>();
-//
-//            for (auto i = 0; i < n_keys; i++) {
-//                auto val = pmap[keys[i]];
-//                for (auto j = 0; j < N; j++) {
-//                    r(i, j) = val[j];
-//                }
-//            }
-//            return vals;
-//        })
-//        .def("get_objects", [](const PMap& pmap, const Key& key) {
-//            return pmap[key];
-//        })
-//        .def("get_objects", [](const PMap& pmap, const std::vector<Key>& keys) {
-//            std::vector<Val> vals;
-//            vals.reserve(keys.size());
-//            for (Key k : keys) {
-//                vals.emplace_back(pmap[k]);
-//            }
-//            return vals;
+
+// For Point2/3 and Vector2/3
+template <typename Key, typename Val, size_t N, typename U>
+void define_array_property_map(py::module &m, std::string name) {
+    using PMap = typename Mesh3::Property_map<Key, Val>;
+
+    define_property_map<Key, Val>(m, name, false)
+        .def("get_array", [](const PMap& pmap, const Indices<Key>& indices) {
+            return indices.map_to_array_of_vectors<Val, N, U>( [&pmap](Key k) { return pmap[k]; });
+        })
+//        .def("get_objects", [](const PMap& pmap, const Indices<Key>& indices) {
+//            return indices.map_to_vector<Val>( [&pmap](Key k) { return pmap[k]; } );
 //        })
 //        .def("set_objects", [](PMap& pmap, const Key& key, const Val val) {
 //            pmap[key] = val;
@@ -115,10 +100,10 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
 //                }
 //            }
 //        })
-//    ;
-//}
-//
-//
+    ;
+}
+
+
 //struct ExpandedPrincipalCurvaturesAndDirections {
 //    py::array_t<double> min_curvature;
 //    py::array_t<double> max_curvature;
@@ -195,7 +180,7 @@ void init_properties(py::module &m) {
 //    define_property_map<E, double   >(sub, "E_double_PropertyMap");
 //    define_property_map<H, double   >(sub, "H_double_PropertyMap");
 //
-//    define_array_property_map<2, V, Point2 >(sub, "V_Point2_PropertyMap");
+    define_array_property_map<V, Point2, 2, double >(sub, "V_Point2_PropertyMap");
 //    define_array_property_map<2, F, Point2 >(sub, "F_Point2_PropertyMap");
 //    define_array_property_map<2, E, Point2 >(sub, "E_Point2_PropertyMap");
 //    define_array_property_map<2, H, Point2 >(sub, "H_Point2_PropertyMap");

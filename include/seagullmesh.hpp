@@ -71,28 +71,28 @@ struct Indices {
     template<typename U>
     py::array_t<U> map_to_array_of_scalars(const std::function<U (T)> fn) const {
         size_t n = indices.size();
-        py::array_t<U> out({py::ssize_t(n)});
-        //py::array_t<U> out(indices.shape());   // How to do this?
+        py::array_t<U> out({ py::ssize_t(n) });
         auto rout = out.mutable_unchecked<1>();
         auto ridxs = indices.unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
-            T idx = T(ridxs(i));
+            T idx = T( ridxs(i) );
             rout(i) = fn(idx);
         }
-
     }
 
-//    template<size_t N, typename U>
-//    py::array_t<double> map_to_array(const std::function<U (T)> fn) {
-//        const size_t n = indices.size();
-//        py::array_t<double> vals({n_idxs, N});
-//        auto r = vals.template mutable_unchecked<2>();
-//        for (auto i = 0; i < n_idxs; ++i) {
-//            U val = fn(T());
-//            for (auto j = 0; j < N; ++j) {
-//                r(i, j) = CGAL::to_double(val[j]);
-//            }
-//        }
-//        return vals;
-//    }
+    template <typename Vec, size_t Dim, typename U>
+    py::array_t<U> map_to_array_of_vectors(const std::function<Vec (T)> fn) const {
+        size_t n = indices.size();
+        py::array_t<U> out( {n, Dim} );
+        auto rout = out.mutable_unchecked<2>();
+        auto ridxs = indices.unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            T idx = T( ridxs(i) );
+            Vec vec = fn(idx);
+            for (size_t j = 0; j < Dim; ++j) {
+                rout(i, j) = vec[j];
+            }
+        }
+        return out;
+    }
 };
