@@ -61,4 +61,9 @@ struct Indices {
         }
         return out;
     }
+
+    template<typename U>
+    std::vector<U> map_to_vector() {
+
+    }
 };
