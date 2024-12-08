@@ -31,7 +31,34 @@ typedef Mesh3::Halfedge_index           H;
 typedef Mesh3::Edge_index               E;
 
 
-PYBIND11_MAKE_OPAQUE(std::vector<V>);
-PYBIND11_MAKE_OPAQUE(std::vector<F>);
-PYBIND11_MAKE_OPAQUE(std::vector<H>);
-PYBIND11_MAKE_OPAQUE(std::vector<E>);
+template<typename T>
+struct Indices {
+    using size_type = uint32_t;
+
+    py::array_t<size_type> indices;
+
+    Indices() {}
+    Indices(py::array_t<size_type> indices) : indices(indices) {}
+
+    // Convert a vector of e.g. vertex_descriptors into uint32s
+    static Indices from_vector(std::vector<T> idxs) {
+        size_t n = idxs.size();
+        py::array_t<size_type> indices({py::ssize_t(n)});
+        auto r = indices.mutable_unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            r(i) = size_type(idxs[i]);
+        }
+        return Indices(indices);
+    }
+
+    // Convert ints back into descriptors
+    std::vector<T> to_vector() {
+        std::vector<T> out;
+        size_t n = self.size();
+        auto r = indices.unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            out.emplace_back(T(r(i)));
+        }
+        return out;
+    }
+};
