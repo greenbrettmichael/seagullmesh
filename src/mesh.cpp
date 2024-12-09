@@ -42,6 +42,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
+        .def("from_vector", &Indices<T>::from_vector)
         .def_readonly("indices", &Indices<T>::indices)
     ;
 }

@@ -33,58 +33,55 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def_property_readonly_static("is_sgm_property_map", [](py::object /* self */) { return true; })
         .def_property_readonly_static("is_scalar", [is_scalar](py::object /* self */) { return is_scalar; })
 
+        // single key, single value
         .def("__getitem__", [](const PMap& pmap, const Key& key) { return pmap[key]; })
-        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
-        })
-        .def("__setitem__", [](PMap& pmap, const Key& key, const Val val) {
-            pmap[key] = val;
-        })
+        .def("__setitem__", [](PMap& pmap, const Key& key, const Val val) { pmap[key] = val; })
+
+        // array of keys, single value
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const Val val) {
-            // TODO need a custom iterator
-            for (Key key : indices.to_vector()) {
-                pmap[key] = val;
-            }
+            indices.map([&pmap, val] (size_t i, Key k) { pmap[k] = val; });
         })
+        // array of keys, vector of values
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const std::vector<Val>& vals) {
-            // TODO Iterator? or apply/map or something?
-            // TODO vals could also be py::array_t, more efficient to iter over that?
-            std::vector<Key> keys = indices.to_vector();
-            size_t nk = keys.size();
-            size_t nv = vals.size();
-            if (nk != nv) {
-                throw std::runtime_error("Key and value array sizes do not match");
-            }
-            for (size_t i = 0; i < nk; i++) {
-                pmap[keys[i]] = vals[i];
-            }
+            indices.map([&pmap, &vals](size_t i, Key k) { pmap[k] = vals[i]; });
+        })
+        // array of keys, return vector<Val>
+        .def("get_vector", [](const PMap& pmap, const Indices<Key>& indices) {
+            return indices.map_to_vector<Val>([&pmap](Key k) { return pmap[k]; });
         })
     ;
 }
 
+template <typename Key, typename Val>
+void define_scalar_property_map(py::module &m, std::string name) {
+    using PMap = typename Mesh3::Property_map<Key, Val>;
+    define_property_map<Key, Val>(m, name, true)
+        // get array of keys, return array of values
+        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
+            return indices.map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
+        })
+        // set array of keys from array of values
+        .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<Val>& vals) {
+            auto r = vals.unchecked<1>();
+            indices.map<Val>([&pmap, &r](size_t i, Key k) { pmap[i] = r(i); });
+        })
+    ;
+}
 
 // For Point2/3 and Vector2/3
+// template variable U here could be hardcoded to double but left generic for future int-valued vectors
 template <typename Key, typename Val, size_t Dim, typename U>
 void define_array_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
     define_property_map<Key, Val>(m, name, false)
-        .def("get_array", [](const PMap& pmap, const Indices<Key>& indices) {
+        // Get array of indices, return 2d array of values
+        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
             return indices.map_to_array_of_vectors<Val, Dim, U>( [&pmap](Key k) { return pmap[k]; });
         })
-//        .def("get_objects", [](const PMap& pmap, const Indices<Key>& indices) {
-//            return indices.map_to_vector<Val>( [&pmap](Key k) { return pmap[k]; } );
-//        })
-//        .def("set_objects", [](PMap& pmap, const Key& key, const Val val) {
-//            pmap[key] = val;
-//        })
-        .def("set_objects", [](PMap& pmap, const Indices<Key>& indices, const std::vector<Val>& vals) {
-            indices.map([&pmap, &vals](size_t i, Key k) { pmap[k] = vals[i]; });
-        })
-        .def("set_array", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<double>& vals) {
-            const size_t n = indices.indices.size();
-            py::array_t<U> out({n, Dim});
-            auto r = out.unchecked<2>();
+        // Set array of indices from array of values
+        .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<U>& vals) {
+            auto r = vals.unchecked<2>();
             indices.map([&pmap, &r](size_t i, Key k) {
                 if constexpr ( Dim == 3 ) {
                     pmap[k] = Val(r(i, 0), r(i, 1), r(i, 2));

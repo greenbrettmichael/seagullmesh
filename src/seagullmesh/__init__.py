@@ -1,27 +1,23 @@
 from __future__ import annotations
 
 import warnings
-from abc import ABC, abstractmethod
+from abc import ABC
 from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overload, Tuple, \
-    Generic, List, Iterator, Type, Dict, Literal
+    Generic, List, Iterator, Type, Dict, Literal, TypeAlias
 
 import numpy as np
-
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
     Vertex, Face, Edge, Halfedge,
 )
+from typing_extensions import Self
+
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
-
-Vertices = Sequence[Vertex]
-Faces = Sequence[Face]
-Edges = Sequence[Edge]
-Halfedges = Sequence[Halfedge]
 
 if TYPE_CHECKING:
     try:
@@ -29,20 +25,85 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
+_IndexTypes = (Vertex, Face, Edge, Halfedge)
+Index = TypeVar('Index', bound=_IndexTypes)
 
-class ParametrizationError(RuntimeError):
-    pass
+_Indices = TypeVar(
+    '_Indices',
+    bound=(sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges),
+)
+
+
+class Indices(Generic[Index]):
+    def __init__(self, indices: _Indices, idx_t: Type[Index]):
+        self.indices = indices  # The C++ Indices<Index> object: Vertices, Faces, Edges, Halfedges
+        self.idx_t = idx_t  # Vertex, Face, Edge, Halfedge
+
+    def __eq__(self, other: Index | Indices[Index]) -> np.ndarray:
+        if isinstance(other, self.idx_t):
+            return self._array == other.to_int()
+        elif isinstance(other, Indices) and (other.idx_t is self.idx_t):
+            return self._array == other._array
+        else:
+            raise TypeError("Can only compare indices of the same type")
+
+    def __iter__(self) -> Iterator[Index]:
+        for i in self._array:
+            yield self.idx_t(i)
+
+    def _with_array(self, arr: np.NDArray[np.uint32]):
+        return Indices(_Indices(arr), idx_t=self.idx_t)
+
+    @property
+    def _array(self) -> np.ndarray:  # array of ints
+        return self.indices.indices
+
+    def copy(self, deep=True) -> Self:  # TODO does this matter
+        return self._with_array(self._array.copy() if deep else self._array)
+
+    @overload
+    def __getitem__(self, item: int) -> Index: ...  # Vertex, Face, Edge, Halfedge
+
+    @overload
+    def __getitem__(self, item: Sequence) -> Self: ...  # slice self to get another Self
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self.idx_t(self._array[item])  # Convert int to descriptor
+        else:
+            # As long as it can slice an array we're happy
+            return self._with_array(self._array[item])
+
+    @overload
+    def __setitem__(self, item: int, value: Index): ...  # self.idxs[8] = some_vertex
+
+    @overload
+    def __setitem__(self, item: Sequence, value: Self): ...  # self.idxs[1:]] = self.idxs[1:][::-1]
+
+    def __setitem__(self, item, value):
+        if isinstance(item, int) and isinstance(value, self.idx_t):
+            self._array[item] = value.to_int()
+        elif isinstance(value, Indices) and value.idx_t is self.idx_t:
+            self._array[item] = value._array
+        else:
+            raise TypeError("Can only assign indices of the same type")
+
+    def unique(self) -> Self:
+        return self._with_array(np.unique(self._array))
+
+
+Vertices: TypeAlias = Indices[Vertex]
+Faces: TypeAlias = Indices[Face]
+Edges: TypeAlias = Indices[Edge]
+Halfedges: TypeAlias = Indices[Halfedge]
 
 
 class Mesh3:
     def __init__(self, mesh: _Mesh3 | None = None):
-        if mesh is None:
-            mesh = _Mesh3()
-
-        self._mesh = mesh
+        self._mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
-            self.vertex_data = MeshData(mesh, 'V', 'vertices')
+            self.vertex_data = MeshData(mesh, Vertex, Vertices)
             self.face_data = MeshData(mesh, 'F', 'faces')
             self.edge_data = MeshData(mesh, 'E', 'edges')
             self.halfedge_data = MeshData(mesh, 'H', 'halfedges')
@@ -52,33 +113,24 @@ class Mesh3:
         self._vertex_point_map: PropertyMap[Vertex, Point3] | None = None
 
     @property
-    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
-        if self._vertex_point_map is None:
-            self._vertex_point_map = self.vertex_data.find_property_map(
-                sgm.properties.V_Point3_PropertyMap,
-                name='v:point',
-            )
-        return self._vertex_point_map
-
-    @property
-    def vertices(self) -> sgm.mesh.Vertices:
+    def vertices(self) -> Vertices:
         """Vector of vertex indices"""
-        return self._mesh.vertices
+        return Indices(self._mesh.vertices, idx_t=Vertex)
 
     @property
-    def faces(self) -> sgm.mesh.Faces:
+    def faces(self) -> Faces:
         """Vector of face indices"""
-        return self._mesh.faces
+        return Indices(self._mesh.faces, idx_t=Face)
 
     @property
-    def edges(self) -> sgm.mesh.Edges:
+    def edges(self) -> Edges:
         """Vector of edge indices"""
-        return self._mesh.edges
+        return Indices(self._mesh.edges, idx_t=Edge)
 
     @property
-    def halfedges(self) -> sgm.mesh.Halfedges:
+    def halfedges(self) -> Halfedges:
         """Vector of halfedge indices"""
-        return self._mesh.halfedges
+        return Indices(self._mesh.halfedges, idx_t=Halfedge)
 
     n_vertices = property(lambda self: self._mesh.n_vertices)
     n_faces = property(lambda self: self._mesh.n_faces)
@@ -107,13 +159,24 @@ class Mesh3:
 
         return out
 
+    @property
+    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
+        if self._vertex_point_map is None:
+            self._vertex_point_map = self.vertex_data.find_property_map(
+                sgm.properties.V_Point3_PropertyMap,
+                name='v:point',
+            )
+        return self._vertex_point_map
+
     def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
         out._mesh.transform(transform)
         return out
 
-    def add(self, other: Mesh3, check_properties=True):
-        pass
+    def add(self, other: Mesh3, check_properties=True, inplace=False) -> Mesh3:
+        out = self if inplace else self.copy()
+        out._mesh += other._mesh
+        return out
 
     @property
     def has_garbage(self) -> bool:
@@ -738,6 +801,10 @@ class Mesh3:
         return out
 
 
+class ParametrizationError(RuntimeError):
+    pass
+
+
 def _bbox_diagonal(points: np.ndarray):
     x0, y0, z0 = points.min(axis=0)
     x1, y1, z1 = points.max(axis=0)
@@ -808,19 +875,65 @@ Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
 Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
 
 
+IntoIndices = np.ndarray | Sequence[Key] | slice | Indices[Key]
+
+
 class PropertyMap(Generic[Key, Val], ABC):
     def __init__(self, pmap, data: MeshData[Key]):
         self.pmap = pmap  # the C++ object
         self._data = data
 
-    @abstractmethod
-    def all_values(self): ...
+    @property
+    def key_t(self) -> type:
+        return self._data.key_t
 
-    @abstractmethod
-    def __getitem__(self, key): ...
+    @property
+    def indices_t(self) -> type:
+        return self._data.indices_t
 
-    @abstractmethod
-    def __setitem__(self, key, val): ...
+    def _to_indices(self, key: IntoIndices[Key]) -> Indices[Key]:
+        if isinstance(key, _IndexTypes):
+            if key.idx_t is self.key_t:
+                return key
+            else:
+                msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
+                raise TypeError(msg)
+
+    @overload
+    def __getitem__(self, key: int | Key) -> Val: ...
+
+    @overload
+    def __getitem__(self, key: IntoIndices[Key]) -> np.ndarray: ...
+
+    def __getitem__(self, key):
+        if isinstance(key, int):  # pmap[0] -> value for the first face
+            return self.pmap(self._data.mesh_keys[key])
+        elif isinstance(key, _IndexTypes):  # pmap[Face] -> scalar value
+            if isinstance(key, self.key_t):
+                return self.pmap[key]
+            else:
+                msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
+                raise TypeError(msg)
+        else:
+            return self.pmap[self._to_indices(key)]
+
+    @overload
+    def __setitem__(self, key: int | Key, val: Val) -> None: ...
+
+    @overload
+    def __setitem__(self, key: IntoIndices[Key], val: np.ndarray | Sequence[Val]) -> None: ...
+
+    def __setitem__(self, key, val) -> None:
+        if isinstance(key, int):  # pmap[0] -> value for the first face
+            self.pmap[self._data.mesh_keys[key]] = val
+        elif isinstance(key, _IndexTypes):
+            if isinstance(key, self.key_t):
+                self.pmap[key] = val
+            else:
+                msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
+                raise TypeError(msg)
+        else:
+            self.pmap[self._to_indices(key)] = val
 
     for dunder in (
             '__add__',
@@ -838,86 +951,21 @@ class PropertyMap(Generic[Key, Val], ABC):
     ):
         def _dunder_impl(self, other, _dunder=dunder):
             if isinstance(other, PropertyMap):
-                other = other.all_values()
-            fn = getattr(self.all_values(), _dunder)
+                other = other[:]
+            fn = getattr(self[:], _dunder)
             return fn(other)
 
         locals()[dunder] = _dunder_impl
 
 
 class ScalarPropertyMap(PropertyMap[Key, Val]):
-    @overload
-    def __getitem__(self, key: Union[int, Key]) -> Val: ...
-
-    @overload
-    def __getitem__(self, key: Union[np.ndarray, Sequence[Key], slice]) -> Sequence[Val]: ...
-
-    def __getitem__(self, key):
-        try:
-            return self.pmap[key]
-        except TypeError:
-            # Could be some sort of subscripting indexing vector
-            return self.pmap[self._data.mesh_keys[key]]
-
-    def __setitem__(self, key, val):
-        try:
-            self.pmap[key] = val
-        except TypeError:
-            self.pmap[self._data.mesh_keys[key]] = val
-
-    def all_values(self):
-        return self.pmap[self._data.mesh_keys]
+    pass
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
-    def __getitem__(self, key) -> np.ndarray:
-        try:
-            return self.pmap.get_array(key)
-        except TypeError:
-            return self.pmap.get_array(self._data.mesh_keys[key])
-
-    def __setitem__(self, key, val: np.ndarray):
-        try:
-            self.pmap.set_array(key, val)
-        except TypeError:
-            self.pmap.set_array(self._data.mesh_keys[key], val)
-
     def get_objects(self, key) -> Sequence[Val]:
-        try:
-            return self.pmap.get_objects(key)
-        except TypeError:
-            return self.pmap.get_objects(self._data.mesh_keys[key])
-
-    def set_objects(self, key, val):
-        try:
-            return self.pmap.set_objects(key)
-        except TypeError:
-            return self.pmap.set_objects(self._data.mesh_keys[key], val)
-
-    def all_values(self):
-        return self.pmap.get_array(self._data.mesh_keys)
-
-    for dunder in (
-            '__add__',
-            '__eq__',
-            '__ge__',
-            '__gt__',
-            '__le__',
-            '__lt__',
-            '__mul__',
-            '__ne__',
-            '__neg__',
-            '__pos__',
-            '__pow__',
-            '__mod__',
-    ):
-        def _dunder_impl(self, other, _dunder=dunder):
-            if isinstance(other, ScalarPropertyMap):
-                other = other.all_values()
-            fn = getattr(self.all_values(), _dunder)
-            return fn(other)
-
-        locals()[dunder] = _dunder_impl
+        # __getitem__ defaults to returning array(nk, ndim), also allow returning list[Point2]
+        return self.pmap.get_vector(key)
 
 
 _PMapDType = str | np.dtype | type
@@ -927,13 +975,15 @@ class MeshData(Generic[Key]):
     def __init__(
             self,
             mesh: sgm.mesh.Mesh3,
-            prefix: Literal['V', 'F', 'E', 'H'],
-            key_name: Literal['vertices', 'faces', 'edges', 'halfedges'],
+            key_t: type,
+            indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
         self._mesh = mesh  # the c++ mesh
-        self._prefix = prefix
-        self._key_name = key_name
+        self._key_name = str(indices_t).lower()  # 'vertices', 'faces', 'edges', 'halfedges'
+        self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
+        self.indices_t = indices_t
+        self.key_t = key_t
 
     _dtype_mappings: dict[type, str] = {
         float: 'double',
@@ -954,7 +1004,7 @@ class MeshData(Generic[Key]):
         return f'{self._key_name[0].upper()}_{dtype_name}_PropertyMap'
 
     @property
-    def mesh_keys(self) -> List[Key]:
+    def mesh_keys(self) -> Indices[Key]:
         # e.g. mesh.faces
         return getattr(self._mesh, self._key_name)
 
