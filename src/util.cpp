@@ -29,9 +29,9 @@ std::vector<Point2> array_to_points_2(const py::array_t<double> &verts) {
 }
 
 template<typename Point>
-py::array_t<double, py::array::c_style> points_d_to_array(const std::vector<Point>& points, const size_t ndims) {
+py::array_t<double> points_d_to_array(const std::vector<Point>& points, const size_t ndims) {
     const size_t np = points.size();
-    py::array_t<double, py::array::c_style> points_out({np, ndims});
+    py::array_t<double> points_out({np, ndims});
     auto r = points_out.mutable_unchecked<2>();
     for (auto i = 0; i < np; i++) {
         for (auto j = 0; j < ndims; j++) {
@@ -41,10 +41,10 @@ py::array_t<double, py::array::c_style> points_d_to_array(const std::vector<Poin
     return points_out;
 }
 
-py::array_t<double, py::array::c_style> points_to_array(const std::vector<Point3>& points) {
+py::array_t<double> points_to_array(const std::vector<Point3>& points) {
     return points_d_to_array<Point3>(points, 3);
 }
 
-py::array_t<double, py::array::c_style> points_to_array(const std::vector<Point2>& points) {
+py::array_t<double> points_to_array(const std::vector<Point2>& points) {
     return points_d_to_array<Point2>(points, 2);
 }

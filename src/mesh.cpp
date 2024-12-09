@@ -42,7 +42,9 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
-        .def(py::init< const std::vector<T>& >() )
+        // .def(py::init< const std::vector<T>& >() )
+        // Expose the alternative constructor as an associated method
+        .def("from_vector", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
         .def_readonly("indices", &Indices<T>::indices)
     ;
 }

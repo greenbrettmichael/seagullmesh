@@ -26,11 +26,11 @@ if TYPE_CHECKING:
         pv = None
 
 _IndexTypes = (Vertex, Face, Edge, Halfedge)
-Index = TypeVar('Index', bound=_IndexTypes)
+Index = TypeVar('Index', Vertex, Face, Edge, Halfedge)
 
 _Indices = TypeVar(
     '_Indices',
-    bound=(sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges),
+    sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges,
 )
 
 
@@ -52,7 +52,7 @@ class Indices(Generic[Index]):
             yield self.idx_t(i)
 
     def _with_array(self, arr: np.NDArray[np.uint32]):
-        return Indices(_Indices(arr), idx_t=self.idx_t)
+        return Indices(type(self.indices)(arr), idx_t=self.idx_t)
 
     @property
     def _array(self) -> np.ndarray:  # array of ints
@@ -892,12 +892,18 @@ class PropertyMap(Generic[Key, Val], ABC):
         return self._data.indices_t
 
     def _to_indices(self, key: IntoIndices[Key]) -> Indices[Key]:
-        if isinstance(key, _IndexTypes):
+        if isinstance(key, Indices):
             if key.idx_t is self.key_t:
                 return key
             else:
                 msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
                 raise TypeError(msg)
+
+        try:
+            # Could have passed in list[Key]
+            return self.indices_t.from_vector(key)
+        except TypeError:
+            return self._data.mesh_keys[key]
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...

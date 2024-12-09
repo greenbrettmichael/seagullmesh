@@ -168,11 +168,14 @@ void init_triangulate(py::module &m) {
             std::vector<Point3> q = array_to_points_3(q_in);
             return constrained_contour_pair_mesh(p, q, pidx, qidx, np0, nq0);
         })
-        .def("triangulate_faces", [](Mesh3& mesh, const std::vector<F>& faces) {
-            PMP::triangulate_faces(faces, mesh);
+        .def("triangulate_faces", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::triangulate_faces(faces.to_vector(), mesh);
         })
-        .def("reverse_face_orientations", [](Mesh3& mesh, const std::vector<F>& faces) {
-            PMP::reverse_face_orientations(faces, mesh);
+        .def("reverse_face_orientations", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::reverse_face_orientations(faces.to_vector(), mesh);
+        })
+        .def("reverse_face_orientations", [](Mesh3& mesh) {
+            PMP::reverse_face_orientations(mesh);
         })
         .def("does_bound_a_volume", [](const Mesh3& mesh) {
             return PMP::does_bound_a_volume(mesh);

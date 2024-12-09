@@ -136,9 +136,9 @@ void init_mesh(py::module &m) {
             }
             return verts;
         })
-        .def("vertices_to_faces", [](const Mesh3& mesh, const std::vector<V>& verts) {
+        .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
-            for (V v : verts) {
+            for (V v : verts.to_vector()) {
                 // mesh.halfedge(v) returns an incoming halfedge of vertex v
                 for (F f : faces_around_target(mesh.halfedge(v), mesh)) {
                     if (f != mesh.null_face()) {
@@ -146,34 +146,29 @@ void init_mesh(py::module &m) {
                     }
                 }
             }
-            return std::vector<F>(faces.begin(), faces.end());
+            return Indices<F>(std::vector<F>(faces.begin(), faces.end()));
         })
-        .def("vertices_to_edges", [](const Mesh3& mesh, const std::vector<V>& verts) {
+        .def("vertices_to_edges", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<E> edges;
-            for (V v : verts) {
+            for (V v : verts.to_vector()) {
                 for (H h : halfedges_around_source(v, mesh)) {
                     edges.insert(mesh.edge(h));
                 }
             }
-            return std::vector<E>(edges.begin(), edges.end());
+            return Indices<E>(std::vector<E>(edges.begin(), edges.end()));
         })
-        .def("faces_to_edges", [](const Mesh3& mesh, const std::vector<F>& faces) {
+        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
             std::set<E> edges;
-            for (F f : faces) {
+            for (F f : faces.to_vector()) {
                 for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
                     edges.insert(mesh.edge(h));
                 }
             }
-            return std::vector<E>(edges.begin(), edges.end());
+            return Indices<E>(std::vector<E>(edges.begin(), edges.end()));
         })
-        .def("vertex_degrees", [](const Mesh3& mesh, const std::vector<V>& verts) {
-            size_t n = verts.size();
-            py::array_t<Mesh3::size_type> degrees({py::ssize_t(n)});
-            auto r = degrees.mutable_unchecked<1>();
-            for (size_t i = 0; i < n; ++i) {
-                r(i) = mesh.degree(verts[i]);
-            }
-            return degrees;
+        .def("vertex_degrees", [](const Mesh3& mesh, const Indices<V>& verts) {
+            return verts.map_to_array_of_scalars<Mesh3::size_type>(
+                [&mesh](V v) { return mesh.degree(v); });
         })
         .def("to_polygon_soup", [](const Mesh3& mesh) {
             std::vector<Point3> verts;
@@ -192,14 +187,19 @@ void init_mesh(py::module &m) {
             }
             return std::make_tuple(points, faces_out);
         })
-        .def("face_normals", [](const Mesh3& mesh, const std::vector<F>& faces) {
-            return map_indices_to_vector<3, F, Vector3>(
-                faces, [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
+        .def("face_normals", [](const Mesh3& mesh, const Indices<F>& faces) {
+            return faces.map_to_array_of_vectors<3, F, Vector3>(
+                [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
             );
         })
-        .def("vertex_normals", [](const Mesh3& mesh, const std::vector<V>& verts) {
-            return map_indices_to_vector<3, V, Vector3>(
-                verts, [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
+        .def("vertex_normals", [](const Mesh3& mesh, const Indices<V>& verts) {
+            return verts.map_to_array_of_vectors<3, V, Vector3>(
+                [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
+            );
+        })
+        .def("face_areas", [](const Mesh3& mesh, const Indices<F>& faces) {
+            return faces.map_to_array_of_scalars<F, double>(
+                [&mesh](F f){ return PMP::face_area(f, mesh);}
             );
         })
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
@@ -208,8 +208,8 @@ void init_mesh(py::module &m) {
             CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, source);
         })
         .def("estimate_geodesic_distances", [](
-                const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, const std::vector<V>& sources) {
-            CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, sources);
+                const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, const Indices<V>& sources) {
+            CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, sources.to_vector());
         })
         .def("write_ply", [](Mesh3& mesh, std::string file) {
             std::ofstream out(file, std::ios::binary);
@@ -225,11 +225,6 @@ void init_mesh(py::module &m) {
             if (!success) {
                 throw std::runtime_error("writing failed");
             }
-        })
-        .def("face_areas", [](const Mesh3& mesh, const std::vector<F>& faces) {
-            return map_indices_to_scalar<F, double>(
-                faces, [&mesh](F f){ return PMP::face_area(f, mesh);}
-            );
         })
     ;
 }

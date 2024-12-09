@@ -78,6 +78,7 @@ struct Indices {
             T idx = T( ridxs(i) );
             rout(i) = fn(idx);
         }
+        return out;
     }
 
     template <typename Vec, size_t Dim, typename U>
