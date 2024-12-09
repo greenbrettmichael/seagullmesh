@@ -1,6 +1,11 @@
 #include "seagullmesh.hpp"
 #include "util.hpp"
+
 #include <CGAL/boost/graph/generators.h>
+#include <CGAL/Surface_mesh/IO/PLY.h>
+#include <CGAL/Surface_mesh/IO/OFF.h>
+#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
+#include <CGAL/Polygon_mesh_processing/polygon_mesh_to_polygon_soup.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -42,10 +47,8 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
-        // .def(py::init< const std::vector<T>& >() )
-        // Expose the alternative constructor as an associated method
         .def("from_vector", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
-        .def_readonly("indices", &Indices<T>::indices)
+        .def_property_readonly("indices", [](const Indices<T>& idxs) { return idxs.get_indices(); })
     ;
 }
 

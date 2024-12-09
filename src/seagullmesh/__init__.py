@@ -9,6 +9,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overl
     Generic, List, Iterator, Type, Dict, Literal, TypeAlias
 
 import numpy as np
+from seagullmesh import _seagullmesh as sgm
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
@@ -16,7 +17,6 @@ from seagullmesh._seagullmesh.mesh import (
 )
 from typing_extensions import Self
 
-from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
 
 if TYPE_CHECKING:
@@ -38,6 +38,12 @@ class Indices(Generic[Index]):
     def __init__(self, indices: _Indices, idx_t: Type[Index]):
         self.indices = indices  # The C++ Indices<Index> object: Vertices, Faces, Edges, Halfedges
         self.idx_t = idx_t  # Vertex, Face, Edge, Halfedge
+
+    def __str__(self) -> str:
+        return f'Indices<{self.idx_t.__name__}>(n={len(self)})'
+
+    def __len__(self) -> int:
+        return len(self._array)
 
     def __eq__(self, other: Index | Indices[Index]) -> np.ndarray:
         if isinstance(other, self.idx_t):
@@ -103,10 +109,10 @@ class Mesh3:
         self._mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
-            self.vertex_data = MeshData(mesh, Vertex, Vertices)
-            self.face_data = MeshData(mesh, 'F', 'faces')
-            self.edge_data = MeshData(mesh, 'E', 'edges')
-            self.halfedge_data = MeshData(mesh, 'H', 'halfedges')
+            self.vertex_data = MeshData(mesh, Vertex, sgm.mesh.Vertices)
+            self.face_data = MeshData(mesh, Face, sgm.mesh.Faces)
+            self.edge_data = MeshData(mesh, Edge, sgm.mesh.Edges)
+            self.halfedge_data = MeshData(mesh, Halfedge, sgm.mesh.Halfedges)
         else:
             warnings.warn("properties module not available")
 
@@ -159,20 +165,6 @@ class Mesh3:
 
         return out
 
-    @property
-    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
-        if self._vertex_point_map is None:
-            self._vertex_point_map = self.vertex_data.find_property_map(
-                sgm.properties.V_Point3_PropertyMap,
-                name='v:point',
-            )
-        return self._vertex_point_map
-
-    def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
-        out = self if inplace else self.copy()
-        out._mesh.transform(transform)
-        return out
-
     def add(self, other: Mesh3, check_properties=True, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
         out._mesh += other._mesh
@@ -185,19 +177,67 @@ class Mesh3:
     def collect_garbage(self) -> None:
         self._mesh.collect_garbage()
 
-    def volume(self) -> float:
-        return self._mesh.volume()
+    @staticmethod
+    def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True) -> Mesh3:
+        """Constructs a surface mesh from vertices (nv * 3) and faces (nf * 3) arrays
 
-    def expand_selection(self, selection: Sequence[Key]) -> Sequence[Key]:
-        """Given a list of vertices or faces, returns a sequence containing the original and adjacent elements"""
-        return self._mesh.expand_selection(selection)
-
-    def vertices_to_faces(self, verts: Vertices) -> Faces:
-        return self._mesh.vertices_to_faces(verts)
+        If `orient` is True (default), the faces are reindexed to represent a consistent manifold surface.
+        """
+        mesh = sgm.io.polygon_soup_to_mesh3(verts, faces, orient)
+        return Mesh3(mesh)
 
     def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
-        return self._mesh.to_polygon_soup()
+        return sgm.io.mesh3_to_polygon_soup(self._mesh)
+
+    @staticmethod
+    def from_file(filename: str) -> Mesh3:
+        mesh = sgm.io.load_mesh_from_file(filename)
+        return Mesh3(mesh)
+
+    def to_file(self, filename: str):
+        ext = Path(filename).suffix
+        if ext == '.ply':
+            sgm.io.write_ply(self._mesh, filename)
+        elif ext == '.off':
+            sgm.io.write_off(self._mesh, filename)
+        else:
+            raise ValueError(f"Unsupported format '{ext}'")
+
+    @staticmethod
+    def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
+        out = Mesh3(sgm.mesh.Mesh3())
+        out._mesh.icosahedron(*center, radius)
+        return out
+
+    @property
+    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
+        if self._vertex_point_map is None:
+            self._vertex_point_map = self.vertex_data.find_property_map(
+                sgm.properties.V_Point3_PropertyMap,
+                name='v:point',
+            )
+        return self._vertex_point_map
+
+    def edge_soup(self) -> np.ndarray:
+        return sgm.io.edge_soup(self._mesh)
+
+    def triangle_soup(self) -> np.ndarray:
+        return sgm.io.triangle_soup(self._mesh)
+
+
+
+    def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
+        out = self if inplace else self.copy()
+        out._mesh.transform(transform)
+        return out
+
+
+    def volume(self) -> float:
+        return self._mesh.volume()
+
+    def vertices_to_faces(self, verts: Vertices) -> Faces:
+        return self._mesh.vertices_to_faces(verts)
 
     def face_normals(self, faces: Faces) -> np.ndarray:
         """Returns a (len(faces) * 3) array of face normal vectors"""
@@ -206,28 +246,9 @@ class Mesh3:
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return self._mesh.bounding_box()
 
-    @staticmethod
-    def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True) -> Mesh3:
-        """Constructs a surface mesh from vertices (nv * 3) and faces (nf * 3) arrays
 
-        If `orient` is True (default), the faces are reindexed to represent a consistent manifold surface.
-        """
-        mesh = sgm.mesh.polygon_soup_to_mesh3(verts, faces, orient)
-        return Mesh3(mesh)
 
-    @staticmethod
-    def from_file(filename: str) -> Mesh3:
-        mesh = sgm.mesh.load_mesh_from_file(filename)
-        return Mesh3(mesh)
 
-    def to_file(self, filename: str):
-        ext = Path(filename).suffix
-        if ext == '.ply':
-            self._mesh.write_ply(filename)
-        elif ext == '.off':
-            self._mesh.write_off(filename)
-        else:
-            raise ValueError(f"Unsupported format '{ext}'")
 
     @staticmethod
     def from_pyvista(
@@ -268,7 +289,7 @@ class Mesh3:
         naming property maps to copy, or the string 'all' for all of them.
         """
         import pyvista as pv
-        verts, faces = self._mesh.to_polygon_soup()
+        verts, faces = sgm.io.mesh3_to_polygon_soup(self._mesh)
         mesh = pv.PolyData.from_regular_faces(verts, faces)
 
         if vertex_data:
@@ -788,17 +809,6 @@ class Mesh3:
         with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
 
-    def edge_soup(self) -> np.ndarray:
-        return self._mesh.edge_soup()
-
-    def triangle_soup(self) -> np.ndarray:
-        return self._mesh.triangle_soup()
-
-    @staticmethod
-    def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
-        out = Mesh3(sgm.mesh.Mesh3())
-        out._mesh.icosahedron(*center, radius)
-        return out
 
 
 class ParametrizationError(RuntimeError):
@@ -879,9 +889,13 @@ IntoIndices = np.ndarray | Sequence[Key] | slice | Indices[Key]
 
 
 class PropertyMap(Generic[Key, Val], ABC):
-    def __init__(self, pmap, data: MeshData[Key]):
+    def __init__(self, pmap, data: MeshData[Key], dtype: str):
         self.pmap = pmap  # the C++ object
         self._data = data
+        self._dtype = dtype
+
+    def __str__(self) -> str:
+        return f'PropertyMap[{self._data.key_t.__name__}, {self._dtype}]'
 
     @property
     def key_t(self) -> type:
@@ -899,11 +913,11 @@ class PropertyMap(Generic[Key, Val], ABC):
                 msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
                 raise TypeError(msg)
 
-        try:
-            # Could have passed in list[Key]
-            return self.indices_t.from_vector(key)
-        except TypeError:
-            return self._data.mesh_keys[key]
+        # try:
+        # Could have passed in list[Key]
+        return self.indices_t.from_vector(key)
+        # except TypeError:
+        #     return self._data.mesh_keys[key]
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...
@@ -912,9 +926,9 @@ class PropertyMap(Generic[Key, Val], ABC):
     def __getitem__(self, key: IntoIndices[Key]) -> np.ndarray: ...
 
     def __getitem__(self, key):
-        if isinstance(key, int):  # pmap[0] -> value for the first face
+        if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
             return self.pmap(self._data.mesh_keys[key])
-        elif isinstance(key, _IndexTypes):  # pmap[Face] -> scalar value
+        elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
             if isinstance(key, self.key_t):
                 return self.pmap[key]
             else:
@@ -986,7 +1000,7 @@ class MeshData(Generic[Key]):
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
         self._mesh = mesh  # the c++ mesh
-        self._key_name = str(indices_t).lower()  # 'vertices', 'faces', 'edges', 'halfedges'
+        self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
         self.indices_t = indices_t
         self.key_t = key_t
@@ -1080,7 +1094,7 @@ class MeshData(Generic[Key]):
             raise TypeError(msg)
 
         pmap = pmap_class(self._mesh, name, default)
-        return self.assign_property_map(name=name, pmap=pmap)  # The wrapped map
+        return self.assign_property_map(name=name, pmap=pmap, dtype=dtype_name)  # The wrapped map
 
     def remove_property(self, key: str):
         pmap = self._data.pop(key)
@@ -1102,18 +1116,20 @@ class MeshData(Generic[Key]):
             self,
             pmap,  # the c++ class,
             wrapper_cls: Type[PropertyMap] | None = None,
+            dtype: str = 'unknown',
     ) -> PropertyMap[Key]:
         if wrapper_cls is None:
-            wrapper_cls = ScalarPropertyMap if pmap._is_scalar else ArrayPropertyMap
-        return wrapper_cls(pmap=pmap, data=self)
+            wrapper_cls = ScalarPropertyMap if pmap.is_scalar else ArrayPropertyMap
+        return wrapper_cls(pmap=pmap, data=self, dtype=dtype)
 
     def assign_property_map(
             self,
             name: str,
             pmap,  # The C++ property map
-            wrapper_cls: Type[PropertyMap] | None = None
+            wrapper_cls: Type[PropertyMap] | None = None,
+            dtype: str = 'unknown',
     ) -> PropertyMap:
-        wrapped_pmap = self._data[name] = self.wrap_property_map(pmap, wrapper_cls)
+        wrapped_pmap = self._data[name] = self.wrap_property_map(pmap, wrapper_cls, dtype=dtype)
         return wrapped_pmap
 
     def get_property_map(self, key: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
@@ -1143,7 +1159,7 @@ class MeshData(Generic[Key]):
         self.remove_property(item)
 
     def __setitem__(self, key: str, value: Any):
-        if hasattr(value, "_is_sgm_property_map"):
+        if hasattr(value, "is_sgm_property_map"):
             # Assigning the bare C++ property map
             self.assign_property_map(name=key, pmap=value)
             return

@@ -142,52 +142,51 @@ void define_princ_curv_dir_property_map(py::module &m, std::string name) {
 void init_properties(py::module &m) {
     py::module sub = m.def_submodule("properties");
     define_scalar_property_map<V, bool     >(sub, "V_bool_PropertyMap");
+    define_scalar_property_map<F, bool     >(sub, "F_bool_PropertyMap");
+    define_scalar_property_map<E, bool     >(sub, "E_bool_PropertyMap");
+    define_scalar_property_map<H, bool     >(sub, "H_bool_PropertyMap");
 
-//    define_property_map<F, bool     >(sub, "F_bool_PropertyMap");
-//    define_property_map<E, bool     >(sub, "E_bool_PropertyMap");
-//    define_property_map<H, bool     >(sub, "H_bool_PropertyMap");
-//
-//    define_property_map<V, int32_t  >(sub, "V_int32_PropertyMap");
-//    define_property_map<F, int32_t  >(sub, "F_int32_PropertyMap");
-//    define_property_map<E, int32_t  >(sub, "E_int32_PropertyMap");
-//    define_property_map<H, int32_t  >(sub, "H_int32_PropertyMap");
-//
-//    define_property_map<V, int64_t  >(sub, "V_int64_PropertyMap");
-//    define_property_map<F, int64_t  >(sub, "F_int64_PropertyMap");
-//    define_property_map<E, int64_t  >(sub, "E_int64_PropertyMap");
-//    define_property_map<H, int64_t  >(sub, "H_int64_PropertyMap");
-//
-//    define_property_map<V, uint32_t >(sub, "V_uint32_PropertyMap");
-//    define_property_map<F, uint32_t >(sub, "F_uint32_PropertyMap");
-//    define_property_map<E, uint32_t >(sub, "E_uint32_PropertyMap");
-//    define_property_map<H, uint32_t >(sub, "H_uint32_PropertyMap");
-//
-//    define_property_map<V, double   >(sub, "V_double_PropertyMap");
-//    define_property_map<F, double   >(sub, "F_double_PropertyMap");
-//    define_property_map<E, double   >(sub, "E_double_PropertyMap");
-//    define_property_map<H, double   >(sub, "H_double_PropertyMap");
-//
+    define_scalar_property_map<V, int32_t  >(sub, "V_int32_PropertyMap");
+    define_scalar_property_map<F, int32_t  >(sub, "F_int32_PropertyMap");
+    define_scalar_property_map<E, int32_t  >(sub, "E_int32_PropertyMap");
+    define_scalar_property_map<H, int32_t  >(sub, "H_int32_PropertyMap");
+
+    define_scalar_property_map<V, int64_t  >(sub, "V_int64_PropertyMap");
+    define_scalar_property_map<F, int64_t  >(sub, "F_int64_PropertyMap");
+    define_scalar_property_map<E, int64_t  >(sub, "E_int64_PropertyMap");
+    define_scalar_property_map<H, int64_t  >(sub, "H_int64_PropertyMap");
+
+    define_scalar_property_map<V, uint32_t >(sub, "V_uint32_PropertyMap");
+    define_scalar_property_map<F, uint32_t >(sub, "F_uint32_PropertyMap");
+    define_scalar_property_map<E, uint32_t >(sub, "E_uint32_PropertyMap");
+    define_scalar_property_map<H, uint32_t >(sub, "H_uint32_PropertyMap");
+
+    define_scalar_property_map<V, double   >(sub, "V_double_PropertyMap");
+    define_scalar_property_map<F, double   >(sub, "F_double_PropertyMap");
+    define_scalar_property_map<E, double   >(sub, "E_double_PropertyMap");
+    define_scalar_property_map<H, double   >(sub, "H_double_PropertyMap");
+
     define_array_property_map<V, Point2, 2, double >(sub, "V_Point2_PropertyMap");
-//    define_array_property_map<2, F, Point2 >(sub, "F_Point2_PropertyMap");
-//    define_array_property_map<2, E, Point2 >(sub, "E_Point2_PropertyMap");
-//    define_array_property_map<2, H, Point2 >(sub, "H_Point2_PropertyMap");
-//
-//    define_array_property_map<3, V, Point3 >(sub, "V_Point3_PropertyMap");
-//    define_array_property_map<3, F, Point3 >(sub, "F_Point3_PropertyMap");
-//    define_array_property_map<3, E, Point3 >(sub, "E_Point3_PropertyMap");
-//    define_array_property_map<3, H, Point3 >(sub, "H_Point3_PropertyMap");
-//
-//    define_array_property_map<2, V, Vector2>(sub, "V_Vector2_PropertyMap");
-//    define_array_property_map<2, F, Vector2>(sub, "F_Vector2_PropertyMap");
-//    define_array_property_map<2, E, Vector2>(sub, "E_Vector2_PropertyMap");
-//    define_array_property_map<2, H, Vector2>(sub, "H_Vector2_PropertyMap");
-//
-//    define_array_property_map<3, V, Vector3>(sub, "V_Vector3_PropertyMap");
-//    define_array_property_map<3, F, Vector3>(sub, "F_Vector3_PropertyMap");
-//    define_array_property_map<3, E, Vector3>(sub, "E_Vector3_PropertyMap");
-//    define_array_property_map<3, H, Vector3>(sub, "H_Vector3_PropertyMap");
-//
-//
+    define_array_property_map<F, Point2, 2, double >(sub, "F_Point2_PropertyMap");
+    define_array_property_map<E, Point2, 2, double >(sub, "E_Point2_PropertyMap");
+    define_array_property_map<H, Point2, 2, double >(sub, "H_Point2_PropertyMap");
+
+    define_array_property_map<V, Point3, 3, double >(sub, "V_Point3_PropertyMap");
+    define_array_property_map<F, Point3, 3, double >(sub, "F_Point3_PropertyMap");
+    define_array_property_map<E, Point3, 3, double >(sub, "E_Point3_PropertyMap");
+    define_array_property_map<H, Point3, 3, double >(sub, "H_Point3_PropertyMap");
+
+    define_array_property_map<V, Vector2, 2, double >(sub, "V_Vector2_PropertyMap");
+    define_array_property_map<F, Vector2, 2, double >(sub, "F_Vector2_PropertyMap");
+    define_array_property_map<E, Vector2, 2, double >(sub, "E_Vector2_PropertyMap");
+    define_array_property_map<H, Vector2, 2, double >(sub, "H_Vector2_PropertyMap");
+
+    define_array_property_map<V, Vector3, 3, double >(sub, "V_Vector3_PropertyMap");
+    define_array_property_map<F, Vector3, 3, double >(sub, "F_Vector3_PropertyMap");
+    define_array_property_map<E, Vector3, 3, double >(sub, "E_Vector3_PropertyMap");
+    define_array_property_map<H, Vector3, 3, double >(sub, "H_Vector3_PropertyMap");
+
+
     py::class_<PrincipalCurvDir>(sub, "PrincipalCurvaturesAndDirections")
         .def(py::init<double, double, Vector3, Vector3>())
         .def(py::init<>())  // default (0, 0, Vec3(0, 0, 0), Vec3(0, 0, 0))
@@ -204,5 +203,4 @@ void init_properties(py::module &m) {
     ;
 
     define_princ_curv_dir_property_map<V>(sub, "V_PrincipalCurvaturesAndDirections_PropertyMap");
-
 }

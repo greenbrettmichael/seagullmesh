@@ -32,15 +32,15 @@ typedef Mesh3::Edge_index               E;
 
 
 template<typename T>
-struct Indices {
+class Indices {
+    public:
     using size_type = uint32_t;
-
-    py::array_t<size_type> indices;
 
     Indices() {}
     Indices(py::array_t<size_type> indices) : indices(indices) {}
+    const py::array_t<size_type>& get_indices() const { return indices; }
 
-    Indices(const std::vector<T>& idxs) {
+    explicit Indices(const std::vector<T>& idxs) {
         size_t n = idxs.size();
         indices = py::array_t<size_type>({py::ssize_t(n)});
         auto r = indices.mutable_unchecked<1>();
@@ -51,8 +51,25 @@ struct Indices {
 
     size_t size() const { return indices.size(); }
 
-    std::vector<T> to_vector() const {
-        return map_to_vector<T>([](T idx) { return idx; } );
+    auto range() const {
+        // Create a Boost iterator_range using transform_iterator
+        auto transform_fn = [](size_type i) { return T(i); };
+        auto begin = boost::make_transform_iterator(indices.begin(), transform_fn);
+        auto end = boost::make_transform_iterator(indices.end(), transform_fn);
+        return boost::iterator_range<decltype(begin)>(begin, end);
+    }
+
+//    std::vector<T> to_vector() const {
+//        auto r = range();
+//        return std::vector<T>(r.begin(), r.end());
+//    }
+
+    size_type add_up() {
+        size_type ttl = 0;
+        for (size_type const& i : indices) {
+            ttl += i;
+        }
+        return ttl;
     }
 
     template<typename U>
@@ -105,4 +122,7 @@ struct Indices {
             fn(i, idx);
         }
     }
+
+    private:
+    py::array_t<size_type> indices;
 };
