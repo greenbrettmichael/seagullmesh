@@ -39,8 +39,8 @@ class Indices(Generic[Index]):
         self.indices = indices  # The C++ Indices<Index> object: Vertices, Faces, Edges, Halfedges
         self.idx_t = idx_t  # Vertex, Face, Edge, Halfedge
 
-    def __str__(self) -> str:
-        return f'Indices<{self.idx_t.__name__}>(n={len(self)})'
+    def __repr__(self) -> str:
+        return f'Indices[{self.idx_t.__name__}](n={len(self)})'
 
     def __len__(self) -> int:
         return len(self._array)
@@ -52,6 +52,9 @@ class Indices(Generic[Index]):
             return self._array == other._array
         else:
             raise TypeError("Can only compare indices of the same type")
+
+    def __ne__(self, other: Index | Indices[Index]) -> np.ndarray:
+        return ~(self == other)
 
     def __iter__(self) -> Iterator[Index]:
         for i in self._array:

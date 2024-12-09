@@ -34,8 +34,11 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def_property_readonly_static("is_scalar", [is_scalar](py::object /* self */) { return is_scalar; })
 
         // single key, single value
-        .def("__getitem__", [](const PMap& pmap, const Key& key) { return pmap[key]; })
-        .def("__setitem__", [](PMap& pmap, const Key& key, const Val val) { pmap[key] = val; })
+        .def("__getitem__", [](const PMap& pmap, const Key key) {
+            Val val = pmap[key];
+            return val;
+        })
+        .def("__setitem__", [](PMap& pmap, const Key key, const Val val) { pmap[key] = val; })
 
         // array of keys, single value
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const Val val) {
