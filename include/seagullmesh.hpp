@@ -95,4 +95,13 @@ struct Indices {
         }
         return out;
     }
+
+    void map(const std::function<void (size_t, T)> fn) const {
+        size_t n = indices.size();
+        auto ridxs = indices.unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            T idx = T( ridxs(i) );
+            fn(i, idx);
+        }
+    }
 };

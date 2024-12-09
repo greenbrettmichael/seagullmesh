@@ -64,13 +64,13 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
 
 
 // For Point2/3 and Vector2/3
-template <typename Key, typename Val, size_t N, typename U>
+template <typename Key, typename Val, size_t Dim, typename U>
 void define_array_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
     define_property_map<Key, Val>(m, name, false)
         .def("get_array", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_array_of_vectors<Val, N, U>( [&pmap](Key k) { return pmap[k]; });
+            return indices.map_to_array_of_vectors<Val, Dim, U>( [&pmap](Key k) { return pmap[k]; });
         })
 //        .def("get_objects", [](const PMap& pmap, const Indices<Key>& indices) {
 //            return indices.map_to_vector<Val>( [&pmap](Key k) { return pmap[k]; } );
@@ -78,28 +78,21 @@ void define_array_property_map(py::module &m, std::string name) {
 //        .def("set_objects", [](PMap& pmap, const Key& key, const Val val) {
 //            pmap[key] = val;
 //        })
-//        .def("set_objects", [](PMap& pmap, const std::vector<Key>& keys, const std::vector<Val>& vals) {
-//            for (size_t i = 0; i < keys.size(); ++i) {
-//                pmap[keys[i]] = vals[i];
-//            }
-//        })
-//        .def("set_array", [](PMap& pmap, const std::vector<Key>& keys, const py::array_t<double>& vals) {
-//            const size_t n_keys = keys.size();
-//            auto r = vals.unchecked<2>();
-//            if (n_keys != r.shape(0)) {
-//                throw std::runtime_error("Key and value array sizes do not match");
-//            }
-//            if (N != r.shape(1)) {
-//                throw std::runtime_error("Array has wrong number of columns");
-//            }
-//            for (auto i = 0; i < n_keys; i++) {
-//                if constexpr ( N == 3 ) {
-//                    pmap[keys[i]] = Val(r(i, 0), r(i, 1), r(i, 2));
-//                } else {
-//                    pmap[keys[i]] = Val(r(i, 0), r(i, 1));
-//                }
-//            }
-//        })
+        .def("set_objects", [](PMap& pmap, const Indices<Key>& indices, const std::vector<Val>& vals) {
+            indices.map([&pmap, &vals](size_t i, Key k) { pmap[k] = vals[i]; });
+        })
+        .def("set_array", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<double>& vals) {
+            const size_t n = indices.indices.size();
+            py::array_t<U> out({n, Dim});
+            auto r = out.unchecked<2>();
+            indices.map([&pmap, &r](size_t i, Key k) {
+                if constexpr ( Dim == 3 ) {
+                    pmap[k] = Val(r(i, 0), r(i, 1), r(i, 2));
+                } else {
+                    pmap[k] = Val(r(i, 0), r(i, 1));
+                }
+            });
+        })
     ;
 }
 
