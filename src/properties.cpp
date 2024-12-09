@@ -63,7 +63,7 @@ void define_scalar_property_map(py::module &m, std::string name) {
         // set array of keys from array of values
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<Val>& vals) {
             auto r = vals.unchecked<1>();
-            indices.map<Val>([&pmap, &r](size_t i, Key k) { pmap[i] = r(i); });
+            indices.map([&pmap, &r](size_t i, Key k) { pmap[k] = r(i); });
         })
     ;
 }
@@ -94,58 +94,55 @@ void define_array_property_map(py::module &m, std::string name) {
 }
 
 
-//struct ExpandedPrincipalCurvaturesAndDirections {
-//    py::array_t<double> min_curvature;
-//    py::array_t<double> max_curvature;
-//    py::array_t<double> min_direction;
-//    py::array_t<double> max_direction;
-//};
-//
-//
-//template <typename Key>
-//void define_princ_curv_dir_property_map(py::module &m, std::string name) {
-//    using PMap = typename Mesh3::Property_map<Key, PrincipalCurvDir>;
-//
-//    define_property_map<Key, PrincipalCurvDir>(m, name, false)
-//        .def("get_array", [](const PMap& pmap, const std::vector<Key>& keys) {
-//            const size_t nk = keys.size();
-//            std::vector<PrincipalCurvDir> vals;
-//            vals.reserve(nk);
-//            for (auto i = 0; i < nk; i++) {
-//                vals.emplace_back(pmap[keys[i]]);
-//            }
-//            return vals;
-//        })
-//        .def("get_expanded", [](const PMap& pmap, const std::vector<Key>& keys) {
-//            const size_t nk = keys.size();
-//            py::array_t<double, py::array::c_style> min_curvature({int(nk)});
-//            py::array_t<double, py::array::c_style> max_curvature({int(nk)});
-//            py::array_t<double, py::array::c_style> min_direction({nk, size_t(3)});
-//            py::array_t<double, py::array::c_style> max_direction({nk, size_t(3)});
-//
-//            auto r_min_curvature = min_curvature.mutable_unchecked<1>();
-//            auto r_max_curvature = max_curvature.mutable_unchecked<1>();
-//            auto r_min_direction = min_direction.mutable_unchecked<2>();
-//            auto r_max_direction = max_direction.mutable_unchecked<2>();
-//
-//            for (auto i = 0; i < nk; i++) {
-//                PrincipalCurvDir x = pmap[keys[i]];
-//                r_min_curvature(i) = x.min_curvature;
-//                r_max_curvature(i) = x.max_curvature;
-//                for (auto j = 0; j < 3; j++) {
-//                    r_min_direction(i, j) = x.min_direction[j];
-//                    r_max_direction(i, j) = x.max_direction[j];
-//                }
-//            }
-//            return ExpandedPrincipalCurvaturesAndDirections{min_curvature, max_curvature, min_direction, max_direction};
-//        })
-//    ;
-//}
-//
+struct ExpandedPrincipalCurvaturesAndDirections {
+    py::array_t<double> min_curvature;
+    py::array_t<double> max_curvature;
+    py::array_t<double> min_direction;
+    py::array_t<double> max_direction;
+};
+
+
+template <typename Key>
+void define_princ_curv_dir_property_map(py::module &m, std::string name) {
+    using PMap = typename Mesh3::Property_map<Key, PrincipalCurvDir>;
+
+    define_property_map<Key, PrincipalCurvDir>(m, name, false)
+        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
+            return indices.map_to_vector<PrincipalCurvDir>([&pmap] (Key k) { return pmap[k]; });
+        })
+        .def("get_expanded", [](const PMap& pmap, const Indices<Key>& indices) {
+            const size_t n = indices.size();
+            py::array_t<double> min_curvature({int(n)});
+            py::array_t<double> max_curvature({int(n)});
+            py::array_t<double> min_direction({n, size_t(3)});
+            py::array_t<double> max_direction({n, size_t(3)});
+
+            auto r_min_cur = min_curvature.mutable_unchecked<1>();
+            auto r_max_cur = max_curvature.mutable_unchecked<1>();
+            auto r_min_dir = min_direction.mutable_unchecked<2>();
+            auto r_max_dir = max_direction.mutable_unchecked<2>();
+
+            indices.map([&pmap, &r_min_cur, &r_max_cur, &r_min_dir, &r_max_dir] (size_t i, Key k){
+                PrincipalCurvDir x = pmap[k];
+                r_min_cur(i) = x.min_curvature;
+                r_max_cur(i) = x.max_curvature;
+                for (size_t j = 0; j < 3; ++j) {
+                    r_min_dir(i, j) = x.min_direction[j];
+                    r_max_dir(i, j) = x.max_direction[j];
+                }
+            });
+
+            return ExpandedPrincipalCurvaturesAndDirections{
+                min_curvature, max_curvature, min_direction, max_direction};
+        })
+    ;
+}
+
 
 void init_properties(py::module &m) {
     py::module sub = m.def_submodule("properties");
-    define_property_map<V, bool     >(sub, "V_bool_PropertyMap");
+    define_scalar_property_map<V, bool     >(sub, "V_bool_PropertyMap");
+
 //    define_property_map<F, bool     >(sub, "F_bool_PropertyMap");
 //    define_property_map<E, bool     >(sub, "E_bool_PropertyMap");
 //    define_property_map<H, bool     >(sub, "H_bool_PropertyMap");
@@ -191,21 +188,21 @@ void init_properties(py::module &m) {
 //    define_array_property_map<3, H, Vector3>(sub, "H_Vector3_PropertyMap");
 //
 //
-//    py::class_<PrincipalCurvDir>(sub, "PrincipalCurvaturesAndDirections")
-//        .def(py::init<double, double, Vector3, Vector3>())
-//        .def(py::init<>())  // default (0, 0, Vec3(0, 0, 0), Vec3(0, 0, 0))
-//        .def_property_readonly("min_curvature", [](const PrincipalCurvDir& p) {return p.min_curvature;})
-//        .def_property_readonly("max_curvature", [](const PrincipalCurvDir& p) {return p.max_curvature;})
-//        .def_property_readonly("min_direction", [](const PrincipalCurvDir& p) {return p.min_direction;})
-//        .def_property_readonly("max_direction", [](const PrincipalCurvDir& p) {return p.max_direction;})
-//    ;
-//    py::class_<ExpandedPrincipalCurvaturesAndDirections>(sub, "ExpandedPrincipalCurvaturesAndDirections")
-//        .def_readonly("min_curvature", &ExpandedPrincipalCurvaturesAndDirections::min_curvature)
-//        .def_readonly("max_curvature", &ExpandedPrincipalCurvaturesAndDirections::max_curvature)
-//        .def_readonly("min_direction", &ExpandedPrincipalCurvaturesAndDirections::min_direction)
-//        .def_readonly("max_direction", &ExpandedPrincipalCurvaturesAndDirections::max_direction)
-//    ;
-//
-//    define_princ_curv_dir_property_map<V>(sub, "V_PrincipalCurvaturesAndDirections_PropertyMap");
+    py::class_<PrincipalCurvDir>(sub, "PrincipalCurvaturesAndDirections")
+        .def(py::init<double, double, Vector3, Vector3>())
+        .def(py::init<>())  // default (0, 0, Vec3(0, 0, 0), Vec3(0, 0, 0))
+        .def_property_readonly("min_curvature", [](const PrincipalCurvDir& p) {return p.min_curvature;})
+        .def_property_readonly("max_curvature", [](const PrincipalCurvDir& p) {return p.max_curvature;})
+        .def_property_readonly("min_direction", [](const PrincipalCurvDir& p) {return p.min_direction;})
+        .def_property_readonly("max_direction", [](const PrincipalCurvDir& p) {return p.max_direction;})
+    ;
+    py::class_<ExpandedPrincipalCurvaturesAndDirections>(sub, "ExpandedPrincipalCurvaturesAndDirections")
+        .def_readonly("min_curvature", &ExpandedPrincipalCurvaturesAndDirections::min_curvature)
+        .def_readonly("max_curvature", &ExpandedPrincipalCurvaturesAndDirections::max_curvature)
+        .def_readonly("min_direction", &ExpandedPrincipalCurvaturesAndDirections::min_direction)
+        .def_readonly("max_direction", &ExpandedPrincipalCurvaturesAndDirections::max_direction)
+    ;
+
+    define_princ_curv_dir_property_map<V>(sub, "V_PrincipalCurvaturesAndDirections_PropertyMap");
 
 }

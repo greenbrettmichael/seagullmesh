@@ -39,7 +39,7 @@ void init_border(py::module &m) {
         .def("extract_boundary_cycles", [](const Mesh3& mesh) {
             std::vector<H> out;
             PMP::extract_boundary_cycles(mesh, std::back_inserter(out));
-            return out;  // returns one halfedge per boundary cycle
+            return Indices<H>::from_vector(out);  // returns one halfedge per boundary cycle
         })
         .def("has_boundary", [](const Mesh3& mesh) {
             std::vector<H> out;
@@ -53,7 +53,7 @@ void init_border(py::module &m) {
                     for (H h1 : halfedges_around_face(h0, mesh)) {  // around the null face
                         verts.emplace_back(mesh.source(h1));
                     }
-                    return verts;
+                    return Indices<V>::from_vector(verts);
                 }
             }
         })

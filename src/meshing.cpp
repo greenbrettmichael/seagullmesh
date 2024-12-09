@@ -20,11 +20,6 @@
 #include <CGAL/Polygon_mesh_processing/repair_self_intersections.h>
 #include <CGAL/Polygon_mesh_processing/surface_Delaunay_remeshing.h>
 
-
-typedef std::vector<V>                                      Verts;
-typedef std::vector<F>                                      Faces;
-typedef std::vector<E>                                      Edges;
-
 typedef Mesh3::Property_map<V, Point3>                      VertPoint;
 typedef Mesh3::Property_map<V, double>                      VertDouble;
 typedef Mesh3::Property_map<V, bool>                        VertBool;
@@ -64,7 +59,7 @@ void init_meshing(py::module &m) {
     m.def_submodule("meshing")
         .def("uniform_isotropic_remeshing", [](
                 Mesh3& mesh,
-                const Faces& faces,
+                const Indices<F>& faces,
                 const double target_edge_length,
                 unsigned int n_iter,
                 bool protect_constraints,
@@ -83,11 +78,11 @@ void init_meshing(py::module &m) {
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
             ;
-            PMP::isotropic_remeshing(faces, sizing_field, mesh, params);
+            PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
         .def("uniform_isotropic_remeshing2", [](
                 Mesh3& mesh,
-                const Faces& faces,
+                const Indices<F>& faces,
                 const double target_edge_length,
                 unsigned int n_iter,
                 bool protect_constraints,
@@ -108,11 +103,11 @@ void init_meshing(py::module &m) {
                 .edge_is_constrained_map(edge_is_constrained_map)
                 .face_patch_map(face_idx)
             ;
-            PMP::isotropic_remeshing(faces, sizing_field, mesh, params);
+            PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
         .def("adaptive_isotropic_remeshing", [](
                 Mesh3& mesh,
-                const Faces& faces,
+                const Indices<F>& faces,
                 const double tolerance,
                 const double ball_radius,
                 const std::pair<double, double>& edge_len_min_max,
@@ -122,10 +117,11 @@ void init_meshing(py::module &m) {
                 EdgeBool& edge_is_constrained_map,
                 VertBool& touched
             ) {
+            const std::vector<F> fs = faces.to_vector();
 
             TouchedVertPoint vertex_point_map(mesh.points(), touched);
             PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, faces, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
 
             auto params = PMP::parameters::
                 number_of_iterations(n_iter)
@@ -134,11 +130,11 @@ void init_meshing(py::module &m) {
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
             ;
-            PMP::isotropic_remeshing(faces, sizing_field, mesh, params);
+            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
         })
         .def("adaptive_isotropic_remeshing2", [](
                 Mesh3& mesh,
-                const Faces& faces,
+                const Indices<F>& faces,
                 const double tolerance,
                 const double ball_radius,
                 const std::pair<double, double>& edge_len_min_max,
@@ -149,10 +145,11 @@ void init_meshing(py::module &m) {
                 VertBool& touched,
                 FaceIndex& face_idx
             ) {
+            const std::vector<F> fs = faces.to_vector();
 
             TouchedVertPoint vertex_point_map(mesh.points(), touched);
             PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, faces, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
 
             auto params = PMP::parameters::
                 number_of_iterations(n_iter)
@@ -162,32 +159,32 @@ void init_meshing(py::module &m) {
                 .edge_is_constrained_map(edge_is_constrained_map)
                 .face_patch_map(face_idx)
             ;
-            PMP::isotropic_remeshing(faces, sizing_field, mesh, params);
+            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
         })
         .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
             return PMP::surface_Delaunay_remeshing(mesh, params);
 
         })
-        .def("fair", [](Mesh3& mesh, const Verts& verts, const unsigned int fairing_continuity) {
+        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
             // A value controling the tangential continuity of the output surface patch.
             // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
             auto params = PMP::parameters::fairing_continuity(fairing_continuity);
-            bool success = PMP::fair(mesh, verts, params);
+            bool success = PMP::fair(mesh, verts.to_vector(), params);
             if (!success) {
                 throw std::runtime_error("Fairing failed");
             }
         })
-        .def("refine", [](Mesh3& mesh, const Faces& faces, double density) {
+        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
             std::vector<V> new_verts;
             std::vector<F> new_faces;
             auto params = PMP::parameters::density_control_factor(density);
             PMP::refine(mesh, faces, std::back_inserter(new_faces), std::back_inserter(new_verts), params);
-            return std::make_tuple(new_verts, new_faces);
+            return std::make_tuple(Indices<V>::from_vector(new_verts), Indices<F>::from_vector(new_faces));
         })
         .def("smooth_angle_and_area", [](
             Mesh3& mesh, 
-            const std::vector<F>& faces, 
+            const Indices<F>& faces,
             unsigned int n_iter,
             bool use_area_smoothing,
             bool use_angle_smoothing,
@@ -205,11 +202,11 @@ void init_meshing(py::module &m) {
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
             ;
-            PMP::angle_and_area_smoothing(faces, mesh, params);
+            PMP::angle_and_area_smoothing(faces.to_vector(), mesh, params);
         })
         .def("tangential_relaxation", [](
             Mesh3& mesh,
-            const std::vector<V>& verts,
+            const Indices<V>& verts,
             unsigned int n_iter,
             bool relax_constraints,
             VertBool& vertex_is_constrained_map,
@@ -221,11 +218,11 @@ void init_meshing(py::module &m) {
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
             ;
-            PMP::tangential_relaxation(verts, mesh, params);
+            PMP::tangential_relaxation(verts.to_vector(), mesh, params);
         })
         .def("smooth_shape", [](
             Mesh3& mesh, 
-            const std::vector<F>& faces, 
+            const Indices<F>& faces,
             const double time, 
             unsigned int n_iter,
             VertBool& vertex_is_constrained_map
@@ -234,7 +231,7 @@ void init_meshing(py::module &m) {
                 number_of_iterations(n_iter)
                 .vertex_is_constrained_map(vertex_is_constrained_map)
             ;
-            PMP::smooth_shape(faces, mesh, time, params);
+            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
         })
         .def("does_self_intersect", [](const Mesh3& mesh) {
             return PMP::does_self_intersect(mesh);
@@ -247,7 +244,7 @@ void init_meshing(py::module &m) {
             boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
             boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
 
-            return std::make_tuple(first, second);
+            return std::make_tuple(Indices<F>::from_vector(first), Indices<F>::from_vector(second));
         })
         .def("remove_self_intersections", [](Mesh3& mesh) {
             // returns a bool, presumably success
@@ -259,12 +256,9 @@ void init_meshing(py::module &m) {
                 FaceMap& face_patch_map,
                 float cosine_of_maximum_angle
             ) {
-            // TODO parameters.face_patch_map wants propertymap<F, std::size_t>
-            // But we've only exposed pmap<F, int>
-            // Will doing both signed and unsigned ints be too complicated?
             auto params = PMP::parameters::
                 edge_is_constrained_map(edge_is_constrained_map)
-                // .face_patch_map(face_patch_map)
+                .face_patch_map(face_patch_map)
                 .cosine_of_maximum_angle(cosine_of_maximum_angle)
             ;
 

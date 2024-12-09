@@ -40,6 +40,8 @@ struct Indices {
     Indices() {}
     Indices(py::array_t<size_type> indices) : indices(indices) {}
 
+    size_t size() const { return indices.size(); }
+
     // Convert a vector of e.g. vertex_descriptors into uint32s
     static Indices from_vector(std::vector<T> idxs) {
         size_t n = idxs.size();
