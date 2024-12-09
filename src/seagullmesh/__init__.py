@@ -10,6 +10,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overl
 
 import numpy as np
 from seagullmesh import _seagullmesh as sgm
+
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
@@ -33,6 +34,20 @@ _Indices = TypeVar(
     sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges,
 )
 
+_index_to_indices = {
+    Vertex: sgm.mesh.Vertices,
+    Face: sgm.mesh.Faces,
+    Edge: sgm.mesh.Edges,
+    Halfedge: sgm.mesh.Halfedges,
+}
+
+_indices_to_index = {
+    sgm.mesh.Vertices: Vertex,
+    sgm.mesh.Faces: Face,
+    sgm.mesh.Edges: Edge,
+    sgm.mesh.Halfedges: Halfedge,
+}
+
 
 class Indices(Generic[Index]):
     def __init__(self, indices: _Indices, idx_t: Type[Index]):
@@ -51,7 +66,8 @@ class Indices(Generic[Index]):
         elif isinstance(other, Indices) and (other.idx_t is self.idx_t):
             return self._array == other._array
         else:
-            raise TypeError("Can only compare indices of the same type")
+            msg = f"Can only compare indices of the same type, got {self=} and {other=}"
+            raise TypeError(msg)
 
     def __ne__(self, other: Index | Indices[Index]) -> np.ndarray:
         return ~(self == other)
@@ -74,7 +90,7 @@ class Indices(Generic[Index]):
     def __getitem__(self, item: int) -> Index: ...  # Vertex, Face, Edge, Halfedge
 
     @overload
-    def __getitem__(self, item: Sequence) -> Self: ...  # slice self to get another Self
+    def __getitem__(self, item: slice | Sequence[int] | np.ndarray) -> Self: ...  # slice self to get another Self
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -99,6 +115,10 @@ class Indices(Generic[Index]):
 
     def unique(self) -> Self:
         return self._with_array(np.unique(self._array))
+
+    @staticmethod
+    def collect(idx_t: Type[Index], indices: list[Index]) -> Indices:
+        return Indices(indices=_index_to_indices[idx_t](indices), idx_t=idx_t)
 
 
 Vertices: TypeAlias = Indices[Vertex]
@@ -918,7 +938,7 @@ class PropertyMap(Generic[Key, Val], ABC):
 
         # try:
         # Could have passed in list[Key]
-        return self.indices_t.from_vector(key)
+        return self.indices_t(key)
         # except TypeError:
         #     return self._data.mesh_keys[key]
 

@@ -47,7 +47,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
-        .def("from_vector", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
+        .def(py::init< const std::vector<T>& >() )
         .def_property_readonly("indices", [](const Indices<T>& idxs) { return idxs.get_indices(); })
     ;
 }

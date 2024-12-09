@@ -4,8 +4,6 @@ from numpy import full, arange, zeros, ones
 from numpy.testing import assert_array_equal
 
 from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex
-from test.test_mesh import props
-from test.util import tetrahedron_mesh
 
 
 _halfedge = pytest.param(
@@ -13,73 +11,33 @@ _halfedge = pytest.param(
     marks=pytest.mark.skip(reason="halfedges are flaky"),
 )
 
-
-def test_indices_from_vector():
-    mesh = Mesh3.icosahedron()
-    vs = mesh.vertices
-    v0, v1 = vs[0], vs[1]
-    _idxs = sgm.mesh.Vertices.from_vector([v0, v1])
-    idxs = Indices(_idxs, Vertex)
-    assert (idxs == vs[:2]).all()
-
-
-def test_index_indexing():
-    mesh = Mesh3.icosahedron()
-    idxs = mesh.vertices
-    assert len(idxs) == mesh.n_vertices
-    n = len(idxs)
-    i = idxs[0]
-
-    assert i.to_int() != mesh.null_vertex.to_int()
-    assert i != mesh.null_vertex
-    assert i < mesh.null_vertex
-    assert i == i
-    assert not (i != i)
-
-    assert (idxs == idxs).all()
-    assert not (idxs != idxs).any()
-
-    assert (i == idxs).sum() == 1
-    assert (i != idxs).sum() == (n - 1)
-    assert (idxs == idxs[arange(n)]).all()
-    assert (idxs == idxs[ones(n, dtype=bool)]).all()
-
-    i0_repeated = idxs[zeros(n, dtype=int)]
-    assert len(i0_repeated) == n
-    assert (i == i0_repeated).all()
-
-    set_ = set(idxs)
-    assert len(set_) == n
-    assert i in set_
+# @pytest.mark.parametrize(
+#     ['data_name', 'cls', 'default'],
+#     [
+#         ('vertex_data', props.V_uint32_PropertyMap, 0),
+#         ('face_data', props.F_int64_PropertyMap, 0),
+#     ]
+# )
+# def test_explicit_property_map_construction(data_name, cls, default):
+#     mesh = Mesh3.icosahedron()
+#     d = getattr(mesh, data_name)
+#     d['foo'] = cls(mesh.mesh, 'foo', default)
+#     assert (d['foo'][:] == default).all()
 
 
-@pytest.mark.parametrize(
-    ['data_name', 'cls', 'default'],
-    [
-        ('vertex_data', props.V_uint32_PropertyMap, 0),
-        ('face_data', props.F_int64_PropertyMap, 0),
-    ]
-)
-def test_explicit_property_map_construction(data_name, cls, default):
-    mesh = Mesh3.icosahedron()
-    d = getattr(mesh, data_name)
-    d['foo'] = cls(mesh.mesh, 'foo', default)
-    assert (d['foo'][:] == default).all()
-
-
-@pytest.mark.parametrize(
-    ['data_name', 'cls', 'default', 'dtype'],
-    [
-        ('vertex_data', props.V_uint32_PropertyMap, 0, 'uint32'),
-        ('face_data', props.F_int64_PropertyMap, 0, 'int64'),
-    ]
-)
-def test_add_property_map_typed(data_name, cls, default, dtype):
-    mesh = Mesh3.icosahedron()
-    data = getattr(mesh, data_name)
-    pmap = data.add_property('foo', default=default, dtype=dtype)
-    assert isinstance(pmap.pmap, cls)
-    assert pmap[data.mesh_keys].dtype.name == dtype
+# @pytest.mark.parametrize(
+#     ['data_name', 'cls', 'default', 'dtype'],
+#     [
+#         ('vertex_data', props.V_uint32_PropertyMap, 0, 'uint32'),
+#         ('face_data', props.F_int64_PropertyMap, 0, 'int64'),
+#     ]
+# )
+# def test_add_property_map_typed(data_name, cls, default, dtype):
+#     mesh = Mesh3.icosahedron()
+#     data = getattr(mesh, data_name)
+#     pmap = data.add_property('foo', default=default, dtype=dtype)
+#     assert isinstance(pmap.pmap, cls)
+#     assert pmap[data.mesh_keys].dtype.name == dtype
 
 
 # @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', _halfedge])

@@ -51,27 +51,6 @@ class Indices {
 
     size_t size() const { return indices.size(); }
 
-    auto range() const {
-        // Create a Boost iterator_range using transform_iterator
-        auto transform_fn = [](size_type i) { return T(i); };
-        auto begin = boost::make_transform_iterator(indices.begin(), transform_fn);
-        auto end = boost::make_transform_iterator(indices.end(), transform_fn);
-        return boost::iterator_range<decltype(begin)>(begin, end);
-    }
-
-//    std::vector<T> to_vector() const {
-//        auto r = range();
-//        return std::vector<T>(r.begin(), r.end());
-//    }
-
-    size_type add_up() {
-        size_type ttl = 0;
-        for (size_type const& i : indices) {
-            ttl += i;
-        }
-        return ttl;
-    }
-
     template<typename U>
     std::vector<U> map_to_vector(const std::function<U (T)> fn) const {
         size_t n = indices.size();
