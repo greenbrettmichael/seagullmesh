@@ -42,7 +42,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
-        .def("from_vector", &Indices<T>::from_vector)
+        .def(py::init< const std::vector<T>& >() )
         .def_readonly("indices", &Indices<T>::indices)
     ;
 }
@@ -83,23 +83,23 @@ void init_mesh(py::module &m) {
 
         .def_property_readonly("vertices", [](const Mesh3& mesh) {
             auto vs = mesh.vertices();
-            std::vector<V> idxs(vs.begin(), vs.end());
-            return Indices<V>::from_vector(idxs);
+            const std::vector<V> idxs(vs.begin(), vs.end());
+            return Indices<V>(idxs);
         })
         .def_property_readonly("faces", [](const Mesh3& mesh) {
             auto fs = mesh.faces();
-            std::vector<F> idxs(fs.begin(), fs.end());
-            return Indices<F>::from_vector(idxs);
+            const std::vector<F> idxs(fs.begin(), fs.end());
+            return Indices<F>(idxs);
         })
         .def_property_readonly("edges", [](const Mesh3& mesh) {
             auto es = mesh.edges();
-            std::vector<E> idxs(es.begin(), es.end());
-            return Indices<E>::from_vector(idxs);
+            const std::vector<E> idxs(es.begin(), es.end());
+            return Indices<E>(idxs);
         })
         .def_property_readonly("halfedges", [](const Mesh3& mesh) {
             auto hs = mesh.halfedges();
-            std::vector<H> idxs(hs.begin(), hs.end());
-            return Indices<H>::from_vector(idxs);
+            const std::vector<H> idxs(hs.begin(), hs.end());
+            return Indices<H>(idxs);
         })
         .def("icosahedron", [](Mesh3& mesh, double x, double y, double z, double r){
             CGAL::make_icosahedron(mesh, Point3(x, y, z), r);

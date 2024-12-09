@@ -25,8 +25,8 @@ void init_connected(py::module &m) {
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
             return PMP::connected_components(mesh, face_patch, params);
         })
-        .def("label_selected_face_patches", [](Mesh3& mesh, const std::vector<F> faces, FacePatchMap& face_patch) {
-            FilteredMesh filtered(mesh, faces);
+        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FacePatchMap& face_patch) {
+            FilteredMesh filtered(mesh, faces.to_vector());
 
             std::map<F, F::size_type> filtered_face_patch;
             boost::associative_property_map< std::map<F, F::size_type> > filtered_face_patch_map(filtered_face_patch);
@@ -44,10 +44,10 @@ void init_connected(py::module &m) {
             std::vector<F> out;
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
             PMP::connected_component(seed_face, mesh, std::back_inserter(out), params);
-            return out;
+            return Indices<F>(out);
         })
-        .def("remove_connected_faces", [](Mesh3& mesh, const std::vector<F>& faces) {
-            PMP::remove_connected_components(mesh, faces);
+        .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::remove_connected_components(mesh, faces.to_vector());
         })
         .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
             PMP::remove_connected_components(mesh, components_to_remove, components);

@@ -180,7 +180,7 @@ void init_meshing(py::module &m) {
             std::vector<F> new_faces;
             auto params = PMP::parameters::density_control_factor(density);
             PMP::refine(mesh, faces, std::back_inserter(new_faces), std::back_inserter(new_verts), params);
-            return std::make_tuple(Indices<V>::from_vector(new_verts), Indices<F>::from_vector(new_faces));
+            return std::make_tuple(Indices<V>(new_verts), Indices<F>(new_faces));
         })
         .def("smooth_angle_and_area", [](
             Mesh3& mesh, 
@@ -244,7 +244,7 @@ void init_meshing(py::module &m) {
             boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
             boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
 
-            return std::make_tuple(Indices<F>::from_vector(first), Indices<F>::from_vector(second));
+            return std::make_tuple(Indices<F>(first), Indices<F>(second));
         })
         .def("remove_self_intersections", [](Mesh3& mesh) {
             // returns a bool, presumably success

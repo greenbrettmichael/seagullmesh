@@ -118,12 +118,10 @@ void init_corefine(py::module &m) {
     .def("clip", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexTracker& tracker){
         auto params1 = PMP::parameters::visitor(tracker);
         PMP::clip(mesh1, mesh2, params1);
-        mesh1.collect_garbage();
     })
     .def("clip", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexFaceTracker& tracker){
         auto params1 = PMP::parameters::visitor(tracker);
         PMP::clip(mesh1, mesh2, params1);
-        mesh1.collect_garbage();
     })
     .def("split", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexTracker& tracker){
         auto params1 = PMP::parameters::visitor(tracker);
