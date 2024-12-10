@@ -1010,9 +1010,13 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
-    def get_objects(self, key) -> Sequence[Val]:
+    def get_objects(self, key: IntoIndices[Key]) -> Sequence[Val]:
         # __getitem__ defaults to returning array(nk, ndim), also allow returning list[Point2]
-        return self.pmap.get_vector(key)
+        return self.pmap.get_vector(self._to_indices(key))
+
+    def set_objects(self, key: IntoIndices[Key], val: Sequence[Val]) -> None:
+        # handled by the general case
+        self[key] = val
 
 
 _PMapDType = str | np.dtype | type
@@ -1041,6 +1045,8 @@ class MeshData(Generic[Key]):
         if isinstance(dtype, str):
             return dtype
         elif isinstance(dtype, np.dtype):
+            if dtype.name == 'float64':
+                return 'double'
             return dtype.name
         elif mapped := self._dtype_mappings.get(dtype):
             return mapped
