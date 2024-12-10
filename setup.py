@@ -127,14 +127,14 @@ ext_modules = [
             # 'src/border.cpp',
             # 'src/skeletonization.cpp',
             # 'src/simplification.cpp',
-            'src/parametrize.cpp',
-
+            # 'src/parametrize.cpp',
+            'src/poisson_reconstruct.cpp',
             # 'src/meshing.cpp',
             # 'src/corefine.cpp',
 
             # 'src/triangulate.cpp',
 
-            # 'src/poisson_reconstruct.cpp',
+
             # 'src/alpha_wrapping.cpp',
         ],
         include_dirs=include_dirs,
