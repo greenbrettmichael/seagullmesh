@@ -166,15 +166,15 @@ void init_meshing(py::module &m) {
             return PMP::surface_Delaunay_remeshing(mesh, params);
 
         })
-//        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
-//            // A value controling the tangential continuity of the output surface patch.
-//            // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
-//            auto params = PMP::parameters::fairing_continuity(fairing_continuity);
-//            bool success = PMP::fair(mesh, verts.to_vector(), params);
-//            if (!success) {
-//                throw std::runtime_error("Fairing failed");
-//            }
-//        })
+        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
+            // A value controling the tangential continuity of the output surface patch.
+            // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
+            auto params = PMP::parameters::fairing_continuity(fairing_continuity);
+            bool success = PMP::fair(mesh, verts.to_vector(), params);
+            if (!success) {
+                throw std::runtime_error("Fairing failed");
+            }
+        })
 //        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
 //            std::vector<V> new_verts;
 //            std::vector<F> new_faces;
