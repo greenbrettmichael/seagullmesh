@@ -38,15 +38,15 @@ void init_connected(py::module &m) {
             }
             return Indices<E>(edges);
         })
-//        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
-//            std::set<E> edges;
-//            for (F f : faces.to_vector()) {
-//                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-//                    edges.insert(mesh.edge(h));
-//                }
-//            }
-//            return Indices<E>(edges);
-//        })
+        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
+            std::set<E> edges;
+            for (F f : faces.to_vector()) {
+                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+                    edges.insert(mesh.edge(h));
+                }
+            }
+            return Indices<E>(edges);
+        })
 //        .def("faces_to_vertices", [](const Mesh3& mesh, const Indices<F>& faces) {
 //            std::set<V> verts;
 //            for (F f : faces.to_vector()) {
