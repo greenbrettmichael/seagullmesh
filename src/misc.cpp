@@ -3,7 +3,7 @@
 
 #include <CGAL/Polygon_mesh_processing/compute_normal.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
-#include <CGAL/Heat_method_3/Surface_mesh_geodesic_distances_3.h>
+
 #include <CGAL/Polygon_mesh_processing/measure.h>
 #include <CGAL/Bbox_3.h>
 #include <CGAL/Polygon_mesh_processing/bbox.h>
@@ -117,12 +117,5 @@ void init_mesh(py::module &m) {
         })
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
         .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
-        .def("estimate_geodesic_distances", [](const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, V source) {
-            CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, source);
-        })
-        .def("estimate_geodesic_distances", [](
-                const Mesh3& mesh, Mesh3::Property_map<V, double>& distances, const Indices<V>& sources) {
-            CGAL::Heat_method_3::estimate_geodesic_distances(mesh, distances, sources.to_vector());
-        })
     ;
 }

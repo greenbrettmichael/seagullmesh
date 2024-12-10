@@ -248,7 +248,18 @@ class Mesh3:
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self._mesh)
 
+    def estimate_geodesic_distances(
+            self,
+            src: Union[Vertex, Vertices],
+            distance_prop: str | PropertyMap[Vertex, float],
+    ) -> PropertyMap[Vertex, float]:
+        """Estimates the geodesic distance from the source vertex/vertices to all vertices in the mesh
 
+        Estimated distances are stored in the supplied vertex property map.
+        """
+        distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
+        self._mesh.estimate_geodesic_distances(distances.pmap, src)
+        return distances
 
     def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
@@ -630,18 +641,6 @@ class Mesh3:
         msg = sgm.parametrize.arap(self._mesh, uv_map.pmap)
         if msg != "Success":
             raise ParametrizationError(msg)
-
-    def estimate_geodesic_distances(
-            self,
-            src: Union[Vertex, Vertices],
-            distance_prop: str | PropertyMap[Vertex, float],
-    ):
-        """Estimates the geodesic distance from the source vertex/vertices to all vertices in the mesh
-
-        Estimated distances are stored in the supplied vertex property map.
-        """
-        distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
-        self._mesh.estimate_geodesic_distances(distances.pmap, src)
 
     def label_border_vertices(self, is_border: str | PropertyMap[Vertex, bool]):
         is_border = self.vertex_data.get_or_create_property(is_border, default=False)

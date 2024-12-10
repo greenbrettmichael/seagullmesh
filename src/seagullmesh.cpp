@@ -4,6 +4,7 @@ namespace py = pybind11;
 void init_mesh(py::module&);
 void init_properties(py::module&);
 void init_io(py::module&);
+void init_geodesic_distances(py::module&);
 
 void init_connected(py::module&);
 void init_meshing(py::module&);
@@ -22,6 +23,8 @@ PYBIND11_MODULE(_seagullmesh, m) {
     init_mesh(m);
     init_properties(m);
     init_io(m);
+//    init_geodesic_distances(m);
+    
 //    init_locate(m);
 //    init_connected(m);
 //    init_meshing(m);

@@ -121,6 +121,7 @@ ext_modules = [
             'src/mesh.cpp',
             'src/properties.cpp',
             'src/io.cpp',
+            # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',
             # 'src/connected.cpp',
             # 'src/meshing.cpp',

@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+import numpy as np
 
 try:
     import pyvista
@@ -11,10 +12,11 @@ except ImportError:
 from seagullmesh import Mesh3
 
 
-# def test_from_polygon_soup():
-#     verts, faces = Mesh3.icosahedron()
-#     mesh = Mesh3.from_polygon_soup(verts, faces)
-#     assert mesh.n_vertices == 4 and mesh.n_faces == 4
+def test_from_polygon_soup():
+    verts = np.array([[1, 1, 1], [-1, 1, -1], [1, -1, -1], [-1, -1, 1]], dtype='float')
+    faces = np.array([[2, 1, 0], [2, 3, 1], [3, 2, 0], [1, 3, 0]], dtype='int')
+    mesh = Mesh3.from_polygon_soup(verts, faces)
+    assert mesh.n_vertices == 4 and mesh.n_faces == 4
 
 
 @pytest.mark.parametrize('file', ['armadillo.off', 'sphere.ply'])

@@ -5,24 +5,26 @@ from numpy.testing import assert_array_equal
 
 from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex
 
+props = pytest.importorskip("seagullmesh.properties")
 
 _halfedge = pytest.param(
     'halfedge',
     marks=pytest.mark.skip(reason="halfedges are flaky"),
 )
 
-# @pytest.mark.parametrize(
-#     ['data_name', 'cls', 'default'],
-#     [
-#         ('vertex_data', props.V_uint32_PropertyMap, 0),
-#         ('face_data', props.F_int64_PropertyMap, 0),
-#     ]
-# )
-# def test_explicit_property_map_construction(data_name, cls, default):
-#     mesh = Mesh3.icosahedron()
-#     d = getattr(mesh, data_name)
-#     d['foo'] = cls(mesh.mesh, 'foo', default)
-#     assert (d['foo'][:] == default).all()
+
+@pytest.mark.parametrize(
+    ['data_name', 'cls', 'default'],
+    [
+        ('vertex_data', props.V_uint32_PropertyMap, 0),
+        ('face_data', props.F_int64_PropertyMap, 0),
+    ]
+)
+def test_explicit_property_map_construction(data_name, cls, default):
+    mesh = Mesh3.icosahedron()
+    d = getattr(mesh, data_name)
+    d['foo'] = cls(mesh.mesh, 'foo', default)
+    assert (d['foo'][:] == default).all()
 
 
 # @pytest.mark.parametrize(
