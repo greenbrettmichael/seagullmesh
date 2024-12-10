@@ -78,15 +78,15 @@ void init_connected(py::module &m) {
             }
             return n_components;
         })
-//        .def("keep_connected_components", [](Mesh3& mesh, const std::vector<F::size_type>& components_to_keep, const FacePatchMap& components) {
-//            PMP::keep_connected_components(mesh, components_to_keep, components);
-//        })
-//        .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
-//            std::vector<F> out;
-//            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
-//            PMP::connected_component(seed_face, mesh, std::back_inserter(out), params);
-//            return Indices<F>(out);
-//        })
+        .def("keep_connected_components", [](Mesh3& mesh, const std::vector<F::size_type>& components_to_keep, const FacePatchMap& components) {
+            PMP::keep_connected_components(mesh, components_to_keep, components);
+        })
+        .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
+            std::vector<F> out;
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
+            PMP::connected_component(seed_face, mesh, std::back_inserter(out), params);
+            return Indices<F>(out);
+        })
 //        .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
 //            PMP::remove_connected_components(mesh, faces.to_vector());
 //        })
