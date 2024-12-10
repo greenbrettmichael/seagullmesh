@@ -57,27 +57,27 @@ void init_connected(py::module &m) {
             }
             return Indices<V>(verts);
         })
-//        .def("vertex_degrees", [](const Mesh3& mesh, const Indices<V>& verts) {
-//            return verts.map_to_array_of_scalars<Mesh3::size_type>(
-//                [&mesh](V v) { return mesh.degree(v); });
-//        })
-//        .def("label_connected_components", [](const Mesh3& mesh, FacePatchMap& face_patch, EdgeBool& edge_is_constrained) {
-//            // Returns the number of connected components
-//            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
-//            return PMP::connected_components(mesh, face_patch, params);
-//        })
-//        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FacePatchMap& face_patch) {
-//            FilteredMesh filtered(mesh, faces.to_vector());
-//
-//            std::map<F, F::size_type> filtered_face_patch;
-//            boost::associative_property_map< std::map<F, F::size_type> > filtered_face_patch_map(filtered_face_patch);
-//            auto n_components = PMP::connected_components(filtered, filtered_face_patch_map);
-//
-//            for (auto const& [f, i] : filtered_face_patch) {
-//                face_patch[f] = i + 1;
-//            }
-//            return n_components;
-//        })
+        .def("vertex_degrees", [](const Mesh3& mesh, const Indices<V>& verts) {
+            return verts.map_to_array_of_scalars<Mesh3::size_type>(
+                [&mesh](V v) { return mesh.degree(v); });
+        })
+        .def("label_connected_components", [](const Mesh3& mesh, FacePatchMap& face_patch, EdgeBool& edge_is_constrained) {
+            // Returns the number of connected components
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
+            return PMP::connected_components(mesh, face_patch, params);
+        })
+        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FacePatchMap& face_patch) {
+            FilteredMesh filtered(mesh, faces.to_vector());
+
+            std::map<F, F::size_type> filtered_face_patch;
+            boost::associative_property_map< std::map<F, F::size_type> > filtered_face_patch_map(filtered_face_patch);
+            auto n_components = PMP::connected_components(filtered, filtered_face_patch_map);
+
+            for (auto const& [f, i] : filtered_face_patch) {
+                face_patch[f] = i + 1;
+            }
+            return n_components;
+        })
 //        .def("keep_connected_components", [](Mesh3& mesh, const std::vector<F::size_type>& components_to_keep, const FacePatchMap& components) {
 //            PMP::keep_connected_components(mesh, components_to_keep, components);
 //        })
