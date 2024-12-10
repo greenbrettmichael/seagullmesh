@@ -118,7 +118,9 @@ class Indices(Generic[Index]):
 
     @staticmethod
     def collect(idx_t: Type[Index], indices: list[Index]) -> Indices:
-        return Indices(indices=_index_to_indices[idx_t](indices), idx_t=idx_t)
+        cls = _index_to_indices[idx_t]
+        _indices = cls.from_indices(indices)  # static constructor
+        return Indices(indices=_indices, idx_t=idx_t)
 
 
 Vertices: TypeAlias = Indices[Vertex]
@@ -132,10 +134,10 @@ class Mesh3:
         self._mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
-            self.vertex_data = MeshData(mesh, Vertex, sgm.mesh.Vertices)
-            self.face_data = MeshData(mesh, Face, sgm.mesh.Faces)
-            self.edge_data = MeshData(mesh, Edge, sgm.mesh.Edges)
-            self.halfedge_data = MeshData(mesh, Halfedge, sgm.mesh.Halfedges)
+            self.vertex_data = MeshData(self, Vertex, sgm.mesh.Vertices)
+            self.face_data = MeshData(self, Face, sgm.mesh.Faces)
+            self.edge_data = MeshData(self, Edge, sgm.mesh.Edges)
+            self.halfedge_data = MeshData(self, Halfedge, sgm.mesh.Halfedges)
         else:
             warnings.warn("properties module not available")
 
@@ -920,26 +922,29 @@ class PropertyMap(Generic[Key, Val], ABC):
         return f'PropertyMap[{self._data.key_t.__name__}, {self._dtype}]'
 
     @property
-    def key_t(self) -> type:
+    def key_t(self) -> Type[Index]:
         return self._data.key_t
 
     @property
     def indices_t(self) -> type:
         return self._data.indices_t
 
-    def _to_indices(self, key: IntoIndices[Key]) -> Indices[Key]:
-        if isinstance(key, Indices):
-            if key.idx_t is self.key_t:
-                return key
-            else:
-                msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
-                raise TypeError(msg)
+    def _to_indices(self, key: IntoIndices[Key]) -> _Indices:
+        # Returns the C++ indexer -- sgm.mesh.Vertices, sgm.mesh.Faces, etc
+        if not isinstance(key, Indices):
+            # Two possibilities:
+            try:
+                # 1) list[key]
+                key = Indices.collect(self.key_t, key)
+            except TypeError:
+                # 2) index into indices, like a ndarray[bool]
+                key = self._data.mesh_keys[key]
 
-        # try:
-        # Could have passed in list[Key]
-        return self.indices_t(key)
-        # except TypeError:
-        #     return self._data.mesh_keys[key]
+        if key.idx_t is self.key_t:
+            return key.indices
+        else:
+            msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
+            raise TypeError(msg)
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...
@@ -1016,12 +1021,12 @@ _PMapDType = str | np.dtype | type
 class MeshData(Generic[Key]):
     def __init__(
             self,
-            mesh: sgm.mesh.Mesh3,
-            key_t: type,
+            mesh: Mesh3,
+            key_t: Type[Index],
             indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
-        self._mesh = mesh  # the c++ mesh
+        self._mesh = mesh  # python wrapped mesh
         self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
         self.indices_t = indices_t
@@ -1115,12 +1120,12 @@ class MeshData(Generic[Key]):
             )
             raise TypeError(msg)
 
-        pmap = pmap_class(self._mesh, name, default)
+        pmap = pmap_class(self._mesh.mesh, name, default)
         return self.assign_property_map(name=name, pmap=pmap, dtype=dtype_name)  # The wrapped map
 
     def remove_property(self, key: str):
         pmap = self._data.pop(key)
-        sgm.properties.remove_property_map(self._mesh, pmap.pmap)
+        sgm.properties.remove_property_map(self._mesh.mesh, pmap.pmap)
 
     def find_property_map(
             self,
@@ -1129,7 +1134,7 @@ class MeshData(Generic[Key]):
             wrapper_cls: Type[PropertyMap] | None = None,
     ) -> PropertyMap[Key]:
         # Finds a pre-existing pmap, wraps it, and returns it without adding it to self
-        pmap = pmap_cls.get_property_map(self._mesh, name)  # noqa
+        pmap = pmap_cls.get_property_map(self._mesh.mesh, name)  # noqa
         if pmap is None:
             raise KeyError(f"Property map {pmap_cls} {name} doesn't exist")
         return self.wrap_property_map(pmap, wrapper_cls=wrapper_cls)

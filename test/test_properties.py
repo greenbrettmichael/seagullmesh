@@ -5,7 +5,7 @@ from numpy.testing import assert_array_equal
 
 from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex
 
-props = pytest.importorskip("seagullmesh.properties")
+props = pytest.importorskip("seagullmesh._seagullmesh.properties")
 
 _halfedge = pytest.param(
     'halfedge',
@@ -32,6 +32,8 @@ def test_explicit_property_map_construction(data_name, cls, default):
 #     [
 #         ('vertex_data', props.V_uint32_PropertyMap, 0, 'uint32'),
 #         ('face_data', props.F_int64_PropertyMap, 0, 'int64'),
+#         ('edge_data', props.E_bool_PropertyMap, False, 'bool'),
+#         ('halfedge_data', props.H_double_PropertyMap, -1.0, 'double'),
 #     ]
 # )
 # def test_add_property_map_typed(data_name, cls, default, dtype):
@@ -40,12 +42,12 @@ def test_explicit_property_map_construction(data_name, cls, default):
 #     pmap = data.add_property('foo', default=default, dtype=dtype)
 #     assert isinstance(pmap.pmap, cls)
 #     assert pmap[data.mesh_keys].dtype.name == dtype
-
-
-# @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', _halfedge])
+#
+#
+# @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
 # @pytest.mark.parametrize('val_type', [int, bool, float])
 # def test_scalar_properties(key_type, val_type):
-#     mesh = tetrahedron_mesh()
+#     mesh = Mesh3.icosahedron()
 #     data: MeshData = getattr(mesh, key_type + '_data')
 #
 #     data['foo'] = full(data.n_mesh_keys, val_type(0))
@@ -66,12 +68,12 @@ def test_explicit_property_map_construction(data_name, cls, default):
 #     data.remove_property('foo')
 #     assert 'foo' not in data.keys()
 #     assert 'foo' not in data
-
-
-# @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', _halfedge])
+#
+#
+# @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])
 # @pytest.mark.parametrize('val_type', [Point2, Point3, Vector2, Vector3])
 # def test_array_properties(key_type, val_type):
-#     mesh = tetrahedron_mesh()
+#     mesh = Mesh3.icosahedron()
 #     d: MeshData = getattr(mesh, key_type + '_data')
 #
 #     ndims = int(val_type.__name__[-1])
@@ -91,7 +93,7 @@ def test_explicit_property_map_construction(data_name, cls, default):
 #
 #     for (o1, o2) in zip(objs, objs2):
 #         assert o1 == o2
-
+#
 
 # def test_copy_mesh_copies_properties():
 #     mesh1 = Mesh3.icosahedron()

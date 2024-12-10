@@ -10,6 +10,7 @@ except ImportError:
     pyvista = None
 
 from seagullmesh import Mesh3
+_ = pytest.importorskip("seagullmesh.io")
 
 
 def test_from_polygon_soup():
