@@ -2,11 +2,13 @@
 #include "util.hpp"
 #include <boost/property_map/property_map.hpp>
 
+#include <CGAL/boost/graph/selection.h>
 #include <CGAL/boost/graph/Face_filtered_graph.h>
 #include <CGAL/Polygon_mesh_processing/connected_components.h>
 
 typedef CGAL::Face_filtered_graph<Mesh3>        FilteredMesh;
 
+typedef Mesh3::Property_map<V, bool>            VertBool;
 typedef Mesh3::Property_map<F, bool>            FaceBool;
 typedef Mesh3::Property_map<E, bool>            EdgeBool;
 
@@ -93,7 +95,23 @@ void init_connected(py::module &m) {
         .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
             PMP::remove_connected_components(mesh, components_to_remove, components);
         })
-
+        .def("regularize_face_selection_borders", [](Mesh3& mesh, FaceBool& is_selected, double weight, bool prevent_unselection) {
+            auto params = CGAL::parameters::prevent_unselection(prevent_unselection);
+            CGAL::regularize_face_selection_borders(mesh, is_selected, weight, params);
+        })
+        .def("expand_face_selection_for_removal", [](Mesh3& mesh, std::vector<F>& faces, FaceBool& is_selected) {
+            CGAL::expand_face_selection_for_removal(faces, mesh, is_selected);
+        })
+        .def("expand_vertex_selection", [](Mesh3& mesh, std::vector<V>& verts, unsigned int k, VertBool& is_selected) {
+            std::vector<V> added;
+            CGAL::expand_vertex_selection(verts, mesh, k, is_selected, std::back_inserter(added));
+            return added;
+        })
+        .def("expand_face_selection", [](Mesh3& mesh, std::vector<F>& faces, unsigned int k, FaceBool& is_selected) {
+            std::vector<F> added;
+            CGAL::expand_face_selection(faces, mesh, k, is_selected, std::back_inserter(added));
+            return added;
+        })
 //      TODO: maybe I actually want make_hole?
 //      #include <CGAL/boost/graph/Euler_operations.h>
 //        .def("remove_faces", [](Mesh3& mesh, const Indices<F>& faces) {
