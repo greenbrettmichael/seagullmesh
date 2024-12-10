@@ -53,8 +53,9 @@ class Indices {
         size_t n = idxs.size();
         indices = py::array_t<size_type>({py::ssize_t(n)});
         auto r = indices.mutable_unchecked<1>();
-        for (size_t i = 0; i < n; ++i) {
-            r(i) = size_type(idxs[i]);
+        py::ssize_t i = 0;
+        for (T idx : idxs) {
+            r(i++) = size_type(idx);
         }
     }
 

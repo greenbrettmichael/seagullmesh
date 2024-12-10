@@ -21,13 +21,11 @@ void init_alpha_wrapping(py::module&);
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
-    init_properties(m);
-
-    init_io(m);
+//    init_properties(m);
+//    init_io(m);
 //    init_geodesic_distances(m);
-
 //    init_locate(m);
-//    init_connected(m);
+    init_connected(m);
 //    init_meshing(m);
 //    init_corefine(m);
 //    init_parametrize(m);
