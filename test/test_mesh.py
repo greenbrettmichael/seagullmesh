@@ -1,6 +1,6 @@
 from numpy import arange, ones
 
-from seagullmesh import sgm, Mesh3, Indices, Vertex
+from seagullmesh import sgm, Mesh3, Indices, Vertex, Vertices
 import numpy as np
 
 
@@ -8,7 +8,7 @@ def test_indices_from_vector():
     mesh = Mesh3.icosahedron()
     vs = mesh.vertices
     v0, v1 = vs[0], vs[1]
-    idxs = Indices.collect(Vertex, [v0, v1])
+    idxs = Vertices.collect(mesh, Vertex, [v0, v1])
     assert (idxs == vs[:2]).all()
 
 

@@ -50,7 +50,8 @@ _indices_to_index = {
 
 
 class Indices(Generic[Index]):
-    def __init__(self, indices: _Indices, idx_t: Type[Index]):
+    def __init__(self, mesh: Mesh3, indices: _Indices, idx_t: Type[Index]):
+        self._mesh = mesh
         self.indices = indices  # The C++ Indices<Index> object: Vertices, Faces, Edges, Halfedges
         self.idx_t = idx_t  # Vertex, Face, Edge, Halfedge
 
@@ -76,8 +77,9 @@ class Indices(Generic[Index]):
         for i in self._array:
             yield self.idx_t(i)
 
-    def _with_array(self, arr: np.NDArray[np.uint32]):
-        return Indices(type(self.indices)(arr), idx_t=self.idx_t)
+    def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
+        indices = type(self.indices)(arr)
+        return type(self)(self._mesh, indices)
 
     @property
     def _array(self) -> np.ndarray:  # array of ints
@@ -107,26 +109,44 @@ class Indices(Generic[Index]):
 
     def __setitem__(self, item, value):
         if isinstance(item, int) and isinstance(value, self.idx_t):
+            # faces[0] = some_face
             self._array[item] = value.to_int()
-        elif isinstance(value, Indices) and value.idx_t is self.idx_t:
-            self._array[item] = value._array
+        elif isinstance(value, type(self)):
+            if value._mesh is self._mesh:
+                self._array[item] = value._array
+            else:
+                raise ValueError("Assigning indices between different meshes, this is probably a mistake")
         else:
             raise TypeError("Can only assign indices of the same type")
 
     def unique(self) -> Self:
         return self._with_array(np.unique(self._array))
 
-    @staticmethod
-    def collect(idx_t: Type[Index], indices: list[Index]) -> Indices:
-        cls = _index_to_indices[idx_t]
-        _indices = cls.from_indices(indices)  # static constructor
-        return Indices(indices=_indices, idx_t=idx_t)
+    @classmethod
+    def collect(cls, mesh: Mesh3, idx_t: Type[Index], indices: list[Index]) -> Self:
+        idxs_cls = _index_to_indices[idx_t]
+        _indices = idxs_cls.from_indices(indices)  # static constructor
+        return cls(mesh=mesh, indices=_indices)
 
 
-Vertices: TypeAlias = Indices[Vertex]
-Faces: TypeAlias = Indices[Face]
-Edges: TypeAlias = Indices[Edge]
-Halfedges: TypeAlias = Indices[Halfedge]
+class Vertices(Indices[Vertex]):
+    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Vertices):
+        super().__init__(mesh, indices, idx_t=Vertex)
+
+
+class Faces(Indices[Face]):
+    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Faces):
+        super().__init__(mesh, indices, idx_t=Face)
+
+
+class Edges(Indices[Edge]):
+    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Edges):
+        super().__init__(mesh, indices, idx_t=Edge)
+
+
+class Halfedges(Indices[Halfedge]):
+    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Halfedges):
+        super().__init__(mesh, indices, idx_t=Halfedge)
 
 
 class Mesh3:
@@ -146,22 +166,22 @@ class Mesh3:
     @property
     def vertices(self) -> Vertices:
         """Vector of vertex indices"""
-        return Indices(self._mesh.vertices, idx_t=Vertex)
+        return Vertices(self, self._mesh.vertices)
 
     @property
     def faces(self) -> Faces:
         """Vector of face indices"""
-        return Indices(self._mesh.faces, idx_t=Face)
+        return Faces(self, self._mesh.faces)
 
     @property
     def edges(self) -> Edges:
         """Vector of edge indices"""
-        return Indices(self._mesh.edges, idx_t=Edge)
+        return Edges(self, self._mesh.edges)
 
     @property
     def halfedges(self) -> Halfedges:
         """Vector of halfedge indices"""
-        return Indices(self._mesh.halfedges, idx_t=Halfedge)
+        return Halfedges(self, self._mesh.halfedges)
 
     n_vertices = property(lambda self: self._mesh.n_vertices)
     n_faces = property(lambda self: self._mesh.n_faces)
@@ -832,7 +852,6 @@ class Mesh3:
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
         with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
-
 
 
 class ParametrizationError(RuntimeError):

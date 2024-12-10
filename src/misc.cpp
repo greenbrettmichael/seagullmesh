@@ -12,6 +12,7 @@ typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
 
 
+// Geometry?
 Transform3 array_to_transform3(const py::array_t<double>& transform) {
     auto r = transform.unchecked<2>();
     if (r.shape(0) != r.shape(1)) {
@@ -38,6 +39,7 @@ Transform3 array_to_transform3(const py::array_t<double>& transform) {
 void init_mesh(py::module &m) {
     py::module sub = m.def_submodule("misc");
 
+    // Geometry
     py::class_<BBox3>(sub, "BoundingBox3", py::module_local())
         .def(py::init<double, double, double, double, double, double>())
         .def_property_readonly("x_min", &BBox3::xmin)
@@ -66,6 +68,8 @@ void init_mesh(py::module &m) {
                 points[v] = t(points[v]);
             }
         })
+
+        // connected?
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
             for (V v : verts.to_vector()) {
@@ -100,6 +104,7 @@ void init_mesh(py::module &m) {
             return verts.map_to_array_of_scalars<Mesh3::size_type>(
                 [&mesh](V v) { return mesh.degree(v); });
         })
+        // Measure?
         .def("face_normals", [](const Mesh3& mesh, const Indices<F>& faces) {
             return faces.map_to_array_of_vectors<3, F, Vector3>(
                 [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}

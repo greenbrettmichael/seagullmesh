@@ -171,12 +171,16 @@ void init_triangulate(py::module &m) {
         .def("triangulate_faces", [](Mesh3& mesh, const Indices<F>& faces) {
             PMP::triangulate_faces(faces.to_vector(), mesh);
         })
+
+        // Util?
         .def("reverse_face_orientations", [](Mesh3& mesh, const Indices<F>& faces) {
             PMP::reverse_face_orientations(faces.to_vector(), mesh);
         })
         .def("reverse_face_orientations", [](Mesh3& mesh) {
             PMP::reverse_face_orientations(mesh);
         })
+
+        // Measure?
         .def("does_bound_a_volume", [](const Mesh3& mesh) {
             return PMP::does_bound_a_volume(mesh);
         })
