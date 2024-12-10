@@ -44,7 +44,6 @@ typedef typename CGAL::AABB_face_graph_triangle_primitive<Mesh3, Point2_to_Point
 typedef typename CGAL::AABB_traits_3<Kernel, AABB_primitive2>                       AABB_traits2;
 typedef typename CGAL::AABB_tree<AABB_traits2>                                      AABB_Tree2;
 
-//return construct_points<3, Point3, VertPoints3>(mesh, faces, bary_coords, vertex_point_map);
 
 template<size_t N, typename Point, typename VPM>
 auto construct_points(
@@ -55,11 +54,9 @@ auto construct_points(
 ) {
     auto rbc = bary_coords.unchecked<2>();
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
-    size_t i = 0;
 
-    return faces.map_to_array_of_vectors<Point, N, double>([&rbc, &mesh, &params, &i] (F f) {
+    return faces.map_to_array_of_vectors<Point, N, double>([&rbc, &mesh, &params] (size_t i, F f) {
         Barycentric_coordinates bc = {rbc(i, 0), rbc(i, 1), rbc(i, 2)};
-        i++;
         FaceLocation loc = {f, bc};
         return PMP::construct_point(loc, mesh, params);
     });

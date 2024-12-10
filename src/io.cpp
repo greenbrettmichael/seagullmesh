@@ -8,17 +8,36 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-typedef CGAL::dynamic_vertex_property_t<size_t>                           VertexIndex;
-typedef typename boost::property_map<Mesh3, VertexIndex>::const_type      VertexIndexMap;
+typedef Mesh3::Property_map<V, size_t>  VertexIndexMap;
 
 
-VertexIndexMap build_vertex_index_map(const Mesh3& mesh) {
-    VertexIndexMap vim = get(VertexIndex(), mesh);
+template<typename Edges>
+py::array_t<size_t> edge_soup(const Mesh3& mesh, const Edges& edges, size_t n_edges, const VertexIndexMap& vidx) {
+    py::array_t<size_t> out({n_edges, size_t(2)});
+    auto r = out.mutable_unchecked<2>();
     size_t i = 0;
-    for (const V v : mesh.vertices()) {
-        put(vim, v, i++);
+    for (E e : edges) {
+        for (size_t j = 0; j < 2; ++j) {
+            r(i, j) = vidx[mesh.vertex(e, j)];
+        }
+        ++i;
     }
-    return vim;
+    return out;
+}
+
+template<typename Faces>
+py::array_t<size_t> triangle_soup(const Mesh3& mesh, const Faces& faces, size_t n_faces, const VertexIndexMap& vidx) {
+    py::array_t<size_t> out({n_faces, size_t(3)});
+    auto r = out.mutable_unchecked<2>();
+    size_t i = 0;
+    for (F f : faces) {
+        size_t j = 0;
+        for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+            r(i, j++) = vidx[target(h, mesh)];
+        }
+        ++i;
+    }
+    return out;
 }
 
 
@@ -64,34 +83,17 @@ void init_io(py::module &m) {
             }
             return mesh;
         })
-        .def("edge_soup", [](const Mesh3& mesh) {
-            VertexIndexMap vim = build_vertex_index_map(mesh);
-            const size_t ne = mesh.number_of_edges();
-            py::array_t<size_t> verts({ne, size_t(2)});
-            auto r = verts.mutable_unchecked<2>();
-            size_t i = 0;
-            for (E e : mesh.edges()) {
-                for (size_t j = 0; j < 2; ++j) {
-                    r(i, j) = get(vim, mesh.vertex(e, j));
-                }
-                ++i;
-            }
-            return verts;
+        .def("edge_soup", [](const Mesh3& mesh, const VertexIndexMap& vidx) {
+            return edge_soup<Mesh3::Edge_range>(mesh, mesh.edges(), mesh.number_of_edges(), vidx);
         })
-        .def("triangle_soup", [](const Mesh3& mesh) {
-            VertexIndexMap vim = build_vertex_index_map(mesh);
-            const size_t nf = mesh.number_of_faces();
-            py::array_t<size_t> verts({nf, size_t(3)});
-            auto r = verts.mutable_unchecked<2>();
-            size_t i = 0;
-            for (F f : mesh.faces()) {
-                size_t j = 0;
-                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-                    r(i, j++) = get(vim, target(h, mesh));
-                }
-                ++i;
-            }
-            return verts;
+        .def("edge_soup", [](const Mesh3& mesh, const Indices<E>& edges, const VertexIndexMap& vidx) {
+            return edge_soup<std::vector<E>>(mesh, edges.to_vector(), edges.size(), vidx);
+        })
+        .def("triangle_soup", [](const Mesh3& mesh, const VertexIndexMap& vidx) {
+            return triangle_soup<Mesh3::Face_range>(mesh, mesh.faces(), mesh.number_of_faces(), vidx);
+        })
+        .def("triangle_soup", [](const Mesh3& mesh, const Indices<F>& faces, const VertexIndexMap& vidx) {
+            return triangle_soup<std::vector<F>>(mesh, faces.to_vector(), faces.size(), vidx);
         })
         .def("write_ply", [](Mesh3& mesh, std::string file) {
             std::ofstream out(file, std::ios::binary);

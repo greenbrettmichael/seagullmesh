@@ -99,8 +99,22 @@ class Indices {
         auto rout = out.mutable_unchecked<2>();
         auto ridxs = indices.unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
-            T idx = T( ridxs(i) );
-            Vec vec = fn(idx);
+            Vec vec = fn(T(ridxs(i)));
+            for (size_t j = 0; j < Dim; ++j) {
+                rout(i, j) = vec[j];
+            }
+        }
+        return out;
+    }
+
+    template <typename Vec, size_t Dim, typename U>
+    py::array_t<U> map_to_array_of_vectors(const std::function<Vec (size_t, T)> fn) const {
+        size_t n = indices.size();
+        py::array_t<U> out( {n, Dim} );
+        auto rout = out.mutable_unchecked<2>();
+        auto ridxs = indices.unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            Vec vec = fn(i, T(ridxs(i)));
             for (size_t j = 0; j < Dim; ++j) {
                 rout(i, j) = vec[j];
             }

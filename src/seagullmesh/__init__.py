@@ -132,6 +132,16 @@ class Vertices(Indices[Vertex]):
     def __init__(self, mesh: Mesh3, indices: sgm.mesh.Vertices):
         super().__init__(mesh, indices, idx_t=Vertex)
 
+    # TODO these return the C++ indices, what's an easy way to wrap them?
+    # def adjacent_faces(self) -> Faces:
+    #     return sgm.connected.vertices_to_faces(self._mesh.mesh, self.indices)
+    #
+    # def adjacent_edges(self) -> Edges:
+    #     return sgm.connected.edges_to_faces(self._mesh.mesh, self.indices)
+    #
+    # def degrees(self) -> np.ndarray:
+    #     return sgm.connected.vertex_degrees(self._mesh, self.indices)
+
 
 class Faces(Indices[Face]):
     def __init__(self, mesh: Mesh3, indices: sgm.mesh.Faces):
@@ -152,10 +162,22 @@ class Faces(Indices[Face]):
         pmap = self._mesh.get_vertex_point_map(vert_points)
         return sgm.locate.construct_points(self._mesh, self.indices, bary_coords, pmap)
 
+    def triangle_soup(self) -> np.ndarray:
+        return sgm.io.triangle_soup(self._mesh)  # TODO index, index_map
+
+    # def adjacent_edges(self) -> Edges:
+    #     return sgm.connected.faces_to_edges(self._mesh.mesh, self.indices)
+    #
+    # def adjacent_vertices(self) -> Vertices:
+    #     return sgm.connected.faces_to_vertices(self._mesh.mesh, self.indices)
+
 
 class Edges(Indices[Edge]):
     def __init__(self, mesh: Mesh3, indices: sgm.mesh.Edges):
         super().__init__(mesh, indices, idx_t=Edge)
+
+    def edge_soup(self) -> np.ndarray:
+        return sgm.io.edge_soup(self._mesh)  # TODO index, index_map
 
 
 class Halfedges(Indices[Halfedge]):
@@ -278,12 +300,6 @@ class Mesh3:
             )
         return self._vertex_point_map
 
-    def edge_soup(self) -> np.ndarray:
-        return sgm.io.edge_soup(self._mesh)
-
-    def triangle_soup(self) -> np.ndarray:
-        return sgm.io.triangle_soup(self._mesh)
-
     def estimate_geodesic_distances(
             self,
             src: Union[Vertex, Vertices],
@@ -302,12 +318,8 @@ class Mesh3:
         out._mesh.transform(transform)
         return out
 
-
     def volume(self) -> float:
         return self._mesh.volume()
-
-    def vertices_to_faces(self, verts: Vertices) -> Faces:
-        return self._mesh.vertices_to_faces(verts)
 
     def face_normals(self, faces: Faces) -> np.ndarray:
         """Returns a (len(faces) * 3) array of face normal vectors"""
