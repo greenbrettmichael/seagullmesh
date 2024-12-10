@@ -122,7 +122,7 @@ ext_modules = [
             'src/properties.cpp',
             # 'src/io.cpp',
 
-            'src/geodesic_distances.cpp',
+            # 'src/geodesic_distances.cpp',
             'src/locate.cpp',
 
 

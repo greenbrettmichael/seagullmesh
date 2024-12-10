@@ -40,7 +40,6 @@ class Indices {
     Indices(py::array_t<size_type> indices) : indices(indices) {}
     const py::array_t<size_type>& get_indices() const { return indices; }
 
-    // From vector
     explicit Indices(const std::vector<T>& idxs) {
         size_t n = idxs.size();
         indices = py::array_t<size_type>({py::ssize_t(n)});
@@ -49,6 +48,16 @@ class Indices {
             r(i) = size_type(idxs[i]);
         }
     }
+
+    explicit Indices(const std::set<T>& idxs) {
+        size_t n = idxs.size();
+        indices = py::array_t<size_type>({py::ssize_t(n)});
+        auto r = indices.mutable_unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            r(i) = size_type(idxs[i]);
+        }
+    }
+
 
     // To vector
     std::vector<T> to_vector() const {
@@ -99,12 +108,18 @@ class Indices {
         return out;
     }
 
-    void map(const std::function<void (size_t, T)> fn) const {
+    void apply(const std::function<void (T)> fn) const {
         size_t n = indices.size();
         auto ridxs = indices.unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
-            T idx = T( ridxs(i) );
-            fn(i, idx);
+            fn( T( ridxs(i) ) );
+        }
+    }
+    void apply(const std::function<void (size_t, T)> fn) const {
+        size_t n = indices.size();
+        auto ridxs = indices.unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            fn(i, T(ridxs(i)));
         }
     }
 

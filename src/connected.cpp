@@ -17,9 +17,41 @@ typedef Mesh3::Property_map<F, FaceIdx>         FacePatchMap;
 namespace PMP = CGAL::Polygon_mesh_processing;
 
 void init_connected(py::module &m) {
-    py::module sub = m.def_submodule("connected");
-
-    sub
+    m.def_submodule("connected");
+        .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
+            std::set<F> faces;
+            for (V v : verts.to_vector()) {
+                // mesh.halfedge(v) returns an incoming halfedge of vertex v
+                for (F f : faces_around_target(mesh.halfedge(v), mesh)) {
+                    if (f != mesh.null_face()) {
+                        faces.insert(f);
+                    }
+                }
+            }
+            return Indices<F>(faces);
+        })
+        .def("vertices_to_edges", [](const Mesh3& mesh, const Indices<V>& verts) {
+            std::set<E> edges;
+            for (V v : verts.to_vector()) {
+                for (H h : halfedges_around_source(v, mesh)) {
+                    edges.insert(mesh.edge(h));
+                }
+            }
+            return Indices<E>(edges);
+        })
+        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
+            std::set<E> edges;
+            for (F f : faces.to_vector()) {
+                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+                    edges.insert(mesh.edge(h));
+                }
+            }
+            return Indices<E>(edges);
+        })
+        .def("vertex_degrees", [](const Mesh3& mesh, const Indices<V>& verts) {
+            return verts.map_to_array_of_scalars<Mesh3::size_type>(
+                [&mesh](V v) { return mesh.degree(v); });
+        })
         .def("label_connected_components", [](const Mesh3& mesh, FacePatchMap& face_patch, EdgeBool& edge_is_constrained) {
             // Returns the number of connected components
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
@@ -51,6 +83,9 @@ void init_connected(py::module &m) {
         })
         .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
             PMP::remove_connected_components(mesh, components_to_remove, components);
+        })
+        .def("remove_faces", [](Mesh3& mesh, const Indices<F> faces)) {
+
         })
     ;
 }
