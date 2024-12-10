@@ -83,8 +83,8 @@ class Indices(Generic[Index]):
     def _array(self) -> np.ndarray:  # array of ints
         return self.indices.indices
 
-    def copy(self, deep=True) -> Self:  # TODO does this matter
-        return self._with_array(self._array.copy() if deep else self._array)
+    def copy(self) -> Self:
+        return self._with_array(self._array.copy())
 
     @overload
     def __getitem__(self, item: int) -> Index: ...  # Vertex, Face, Edge, Halfedge
@@ -186,7 +186,7 @@ class Mesh3:
 
         # The properties have been copied, just need to create new pmap references
         for k in ('vertex_data', 'face_data', 'edge_data', 'halfedge_data'):
-            _copy_property_metadata(getattr(self, k), out._mesh, getattr(out, k))
+            _copy_property_metadata(getattr(self, k), getattr(out, k))
 
         return out
 
@@ -914,12 +914,24 @@ IntoIndices = np.ndarray | Sequence[Key] | slice | Indices[Key]
 
 class PropertyMap(Generic[Key, Val], ABC):
     def __init__(self, pmap, data: MeshData[Key], dtype: str):
-        self.pmap = pmap  # the C++ object
+        self._pmap = pmap  # the C++ object
         self._data = data
-        self._dtype = dtype
+        self._dtype_name = dtype
 
     def __str__(self) -> str:
-        return f'PropertyMap[{self._data.key_t.__name__}, {self._dtype}]'
+        return f'PropertyMap[{self._data.key_t.__name__}, {self.dtype_name}]'
+
+    @property
+    def pmap(self):
+        return self._pmap
+
+    @property
+    def data(self) -> MeshData[Key]:
+        return self._data
+
+    @property
+    def dtype_name(self) -> str:
+        return self._dtype_name
 
     @property
     def key_t(self) -> Type[Index]:
@@ -954,7 +966,7 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
-            return self.pmap(self._data.mesh_keys[key])
+            return self.pmap[self._data.mesh_keys[key]]
         elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
             if isinstance(key, self.key_t):
                 return self.pmap[key]
@@ -1127,7 +1139,7 @@ class MeshData(Generic[Key]):
             raise TypeError(msg)
 
         pmap = pmap_class(self._mesh.mesh, name, default)
-        return self.assign_property_map(name=name, pmap=pmap, dtype=dtype_name)  # The wrapped map
+        return self.assign_property_map(name=name, pmap=pmap, dtype_name=dtype_name)  # The wrapped map
 
     def remove_property(self, key: str):
         pmap = self._data.pop(key)
@@ -1138,31 +1150,33 @@ class MeshData(Generic[Key]):
             pmap_cls: type,
             name: str,
             wrapper_cls: Type[PropertyMap] | None = None,
+            dtype_name: str = 'unknown',
     ) -> PropertyMap[Key]:
         # Finds a pre-existing pmap, wraps it, and returns it without adding it to self
         pmap = pmap_cls.get_property_map(self._mesh.mesh, name)  # noqa
         if pmap is None:
             raise KeyError(f"Property map {pmap_cls} {name} doesn't exist")
-        return self.wrap_property_map(pmap, wrapper_cls=wrapper_cls)
+        return self.wrap_property_map(pmap, wrapper_cls=wrapper_cls, dtype_name=dtype_name)
 
     def wrap_property_map(
             self,
             pmap,  # the c++ class,
             wrapper_cls: Type[PropertyMap] | None = None,
-            dtype: str = 'unknown',
+            dtype_name: str = 'unknown',
     ) -> PropertyMap[Key]:
         if wrapper_cls is None:
             wrapper_cls = ScalarPropertyMap if pmap.is_scalar else ArrayPropertyMap
-        return wrapper_cls(pmap=pmap, data=self, dtype=dtype)
+        return wrapper_cls(pmap=pmap, data=self, dtype=dtype_name)
 
     def assign_property_map(
             self,
             name: str,
             pmap,  # The C++ property map
             wrapper_cls: Type[PropertyMap] | None = None,
-            dtype: str = 'unknown',
+            dtype_name: str = 'unknown',
     ) -> PropertyMap:
-        wrapped_pmap = self._data[name] = self.wrap_property_map(pmap, wrapper_cls, dtype=dtype)
+        wrapped_pmap = self._data[name] = self.wrap_property_map(
+            pmap, wrapper_cls, dtype_name=dtype_name)
         return wrapped_pmap
 
     def get_property_map(self, key: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
@@ -1191,14 +1205,17 @@ class MeshData(Generic[Key]):
     def __delitem__(self, item: str):
         self.remove_property(item)
 
-    def __setitem__(self, key: str, value: Any):
+    def __setitem__(self, key: str, value: Any) -> None:
+        if isinstance(value, PropertyMap):  # An already wrapped pmap
+            if value.data is not self:
+                raise TypeError("Property map does not belong to this mesh")
+            self._data[key] = value
+            return
+
         if hasattr(value, "is_sgm_property_map"):
             # Assigning the bare C++ property map
             self.assign_property_map(name=key, pmap=value)
             return
-
-        if isinstance(value, PropertyMap):
-            self._data[key] = value
 
         # Implicit construction of a new property map with initial value(s) `value`
         default = np.zeros_like(value, shape=()).item()
@@ -1219,9 +1236,16 @@ class MeshData(Generic[Key]):
 
 
 def _copy_property_metadata(src_data: MeshData, dest_data: MeshData):
-    for name, pmap_wrapper in src_data.items():
-        dest_data[name] = dest_data.find_property_map(
-            pmap_cls=type(pmap_wrapper.pmap), name=name, wrapper_cls=type(pmap_wrapper))
+    assert isinstance(dest_data, MeshData)
+    for name, src_wrapper in src_data.items():
+        wrapped = dest_data.find_property_map(
+            pmap_cls=type(src_wrapper.pmap),
+            name=name,
+            wrapper_cls=type(src_wrapper),
+            dtype_name=src_wrapper.dtype_name,
+        )
+        assert isinstance(wrapped, PropertyMap)
+        dest_data[name] = wrapped
 
 
 class TubeMesher:
