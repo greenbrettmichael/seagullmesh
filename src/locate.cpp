@@ -48,41 +48,22 @@ typedef typename CGAL::AABB_tree<AABB_traits2>                                  
 template<size_t N, typename Point, typename VPM>
 auto construct_points(
         const Mesh3& mesh,
-        const std::vector<F>& faces,
+        const Indices<F>& faces,
         const py::array_t<double>& bary_coords,
         const VPM& vertex_point_map
 ) {
-    const size_t nf = faces.size();
     auto rbc = bary_coords.unchecked<2>();
-    const size_t nb = size_t(rbc.shape(0));
-    if (nf != nb) {
-        throw std::runtime_error("number of faces doesn't match number of points");
-    }
-
-    py::array_t<double> points({nf, N});
-    auto rpts = points.mutable_unchecked<2>();
     auto params = CGAL::parameters::vertex_point_map(vertex_point_map);
 
-    for (size_t i = 0; i < nf; ++i) {
+    return faces.map_to_array_of_vectors<Point, N, double>([&rbc, &mesh] (size_t i, F f) {
         Barycentric_coordinates bc = {rbc(i, 0), rbc(i, 1), rbc(i, 2)};
-        FaceLocation loc = {faces[i], bc};
-        auto pt = PMP::construct_point(loc, mesh, params);
-        for (size_t j = 0; j < N; ++j) {
-            rpts(i, j) = pt[j];
-        }
-    }
-    return points;
+        FaceLocation loc = {f, bc};
+        return PMP::construct_point(loc, mesh, params);
+    });
 }
 
-struct SurfacePoints {
-    SurfacePoints(std::vector<F> faces, py::array_t<double> bary_coords) : faces(faces), bary_coords(bary_coords) { }
-
-    std::vector<F> faces;
-    py::array_t<double> bary_coords;
-};
-
 template<size_t N, typename AABB_Tree, typename VPM>
-SurfacePoints locate_points(
+auto locate_points(
         const Mesh3& mesh,
         const AABB_Tree& tree,
         const py::array_t<double>& points,
@@ -110,17 +91,11 @@ SurfacePoints locate_points(
         }
     }
 
-    return SurfacePoints(faces, bary_coords);
+    return std::make_pair(faces, bary_coords);
 }
 
 void init_locate(py::module &m) {
     py::module sub = m.def_submodule("locate");
-
-    py::class_<SurfacePoints>(sub, "SurfacePoints")
-        .def_readonly("faces", &SurfacePoints::faces)
-        .def_readonly("bary_coords", &SurfacePoints::bary_coords)
-    ;
-
     py::class_<AABB_Tree3>(sub, "AABB_Tree3");
 
     sub.def("aabb_tree", [](const Mesh3& mesh) {
@@ -148,7 +123,8 @@ void init_locate(py::module &m) {
                 const py::array_t<double>& points,  // n_pts x 3
                 const VertPoints3& vertex_point_map
             ) {
-            return locate_points<3, AABB_Tree3, VertPoints3>(mesh, tree, points, vertex_point_map);
+            auto out = locate_points<3, AABB_Tree3, VertPoints3>(mesh, tree, points, vertex_point_map);
+            return std::make_pair(Indices<F>(out.first), out.second);
         })
         .def("locate_points", [](
                 const Mesh3& mesh,
@@ -156,12 +132,13 @@ void init_locate(py::module &m) {
                 const py::array_t<double>& points,  // n_pts x 2
                 const VertPoints2& vertex_point_map
         ) {
-            return locate_points<2, AABB_Tree2, Point2_to_Point3>(
+            auto out = locate_points<2, AABB_Tree2, Point2_to_Point3>(
                 mesh, tree, points, Point2_to_Point3(vertex_point_map));
+            return std::make_pair(Indices<F>(out.first), out.second);
         })
         .def("construct_points", [](
                 const Mesh3& mesh,
-                const std::vector<F>& faces,
+                const Indices<F>& faces,
                 const py::array_t<double>& bary_coords,
                 const VertPoints3& vertex_point_map
         ){
@@ -169,7 +146,7 @@ void init_locate(py::module &m) {
         })
         .def("construct_points", [](
                 const Mesh3& mesh,
-                const std::vector<F>& faces,
+                const Indices<F>& faces,
                 const py::array_t<double>& bary_coords,
                 const VertPoints3& vertex_point_map
         ){
@@ -177,7 +154,7 @@ void init_locate(py::module &m) {
         })
         .def("construct_points", [](
                 const Mesh3& mesh,
-                const std::vector<F>& faces,
+                const Indices<F>& faces,
                 const py::array_t<double>& bary_coords,
                 const VertPoints2& vertex_point_map
         ){
@@ -209,7 +186,6 @@ void init_locate(py::module &m) {
             ) {
 
             typedef Kernel::Ray_3 Ray3;
-
             auto r_pts = points.unchecked<2>();
             auto r_dirs = directions.unchecked<2>();
             size_t n = r_pts.shape(0);
@@ -229,7 +205,7 @@ void init_locate(py::module &m) {
                     rbc(i, j) = loc.second[j];
                 }
             }
-            return SurfacePoints(faces, bary_coords);
+            return std::make_pair(Indices<F>(faces), bary_coords);
         })
     ;
 }

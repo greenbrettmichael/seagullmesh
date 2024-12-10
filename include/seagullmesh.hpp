@@ -40,6 +40,7 @@ class Indices {
     Indices(py::array_t<size_type> indices) : indices(indices) {}
     const py::array_t<size_type>& get_indices() const { return indices; }
 
+    // From vector
     explicit Indices(const std::vector<T>& idxs) {
         size_t n = idxs.size();
         indices = py::array_t<size_type>({py::ssize_t(n)});
@@ -47,6 +48,11 @@ class Indices {
         for (size_t i = 0; i < n; ++i) {
             r(i) = size_type(idxs[i]);
         }
+    }
+
+    // To vector
+    std::vector<T> to_vector() const {
+        return map_to_vector<T>([](T idx) { return idx; } );
     }
 
     size_t size() const { return indices.size(); }

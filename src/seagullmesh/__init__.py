@@ -6,11 +6,9 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overload, Tuple, \
-    Generic, List, Iterator, Type, Dict, Literal, TypeAlias
+    Generic, List, Iterator, Type, Dict, Literal
 
 import numpy as np
-from seagullmesh import _seagullmesh as sgm
-
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
@@ -18,6 +16,7 @@ from seagullmesh._seagullmesh.mesh import (
 )
 from typing_extensions import Self
 
+from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
 
 if TYPE_CHECKING:
@@ -137,6 +136,21 @@ class Vertices(Indices[Vertex]):
 class Faces(Indices[Face]):
     def __init__(self, mesh: Mesh3, indices: sgm.mesh.Faces):
         super().__init__(mesh, indices, idx_t=Face)
+
+    def construct_points(
+            self,
+            bary_coords: np.ndarray,
+            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
+    ) -> np.ndarray:
+        """Construct a set of points from face barycentric coordinates
+
+        `bary_coords` must be of shape (len(faces), 3)
+
+        By default, points are constructed using the default mesh vertex points. An optional vertex point map of value
+        Point2 or Point3 can also be supplied. The returned array if of shape (len(faces), 2 or 3) as appropriate.
+        """
+        pmap = self._mesh.get_vertex_point_map(vert_points)
+        return sgm.locate.construct_points(self._mesh, self.indices, bary_coords, pmap)
 
 
 class Edges(Indices[Edge]):
@@ -555,7 +569,7 @@ class Mesh3:
     def remove_self_intersections(self) -> None:
         return sgm.meshing.remove_self_intersections(self._mesh)
 
-    def _get_vertex_point_map(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
+    def get_vertex_point_map(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
         if vert_points is None:
             return self.mesh.points
         else:
@@ -570,7 +584,7 @@ class Mesh3:
         By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
         property map storing Point2 or Point3 locations.
         """
-        return sgm.locate.aabb_tree(self._mesh, self._get_vertex_point_map(vert_points))
+        return sgm.locate.aabb_tree(self._mesh, self.get_vertex_point_map(vert_points))
 
     def locate_points(
             self,
@@ -586,25 +600,9 @@ class Mesh3:
         Returns a list of face indices of length np, and an array (np, 3) of barycentric coordinates within those faces.
         """
         tree = aabb_tree or self.aabb_tree()
-        pmap = self._get_vertex_point_map(vert_points)
+        pmap = self.get_vertex_point_map(vert_points)
         surface_points = sgm.locate.locate_points(self._mesh, tree, points, pmap)
         return surface_points.faces, surface_points.bary_coords
-
-    def construct_points(
-            self,
-            faces: Faces,
-            bary_coords: np.ndarray,
-            vert_points: str | PropertyMap[sgm.mesh.Vertex, sgm.mesh.Point2 | sgm.mesh.Point3] | None = None,
-    ) -> np.ndarray:
-        """Construct a set of points from face barycentric coordinates
-
-        `bary_coords` must be of shape (len(faces), 3)
-
-        By default, points are constructed using the default mesh vertex points. An optional vertex point map of value
-        Point2 or Point3 can also be supplied. The returned array if of shape (len(faces), 2 or 3) as appropriate.
-        """
-        pmap = self._get_vertex_point_map(vert_points)
-        return sgm.locate.construct_points(self._mesh, faces, bary_coords, pmap)
 
     def first_ray_intersections(
             self,
