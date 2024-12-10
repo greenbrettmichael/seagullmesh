@@ -123,12 +123,14 @@ ext_modules = [
             # 'src/io.cpp',
             # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',
-            'src/connected.cpp',
+            # 'src/connected.cpp',
+            'src/border.cpp',
+
+
             # 'src/meshing.cpp',
             # 'src/corefine.cpp',
             # 'src/parametrize.cpp',
             # 'src/triangulate.cpp',
-            # 'src/border.cpp',
             # 'src/simplification.cpp',
             # 'src/skeletonization.cpp',
             # 'src/poisson_reconstruct.cpp',
