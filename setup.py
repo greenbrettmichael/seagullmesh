@@ -126,11 +126,12 @@ ext_modules = [
             # 'src/connected.cpp',
             # 'src/border.cpp',
             # 'src/skeletonization.cpp',
-            'src/simplification.cpp',
+            # 'src/simplification.cpp',
+            'src/parametrize.cpp',
 
             # 'src/meshing.cpp',
             # 'src/corefine.cpp',
-            # 'src/parametrize.cpp',
+
             # 'src/triangulate.cpp',
 
             # 'src/poisson_reconstruct.cpp',
