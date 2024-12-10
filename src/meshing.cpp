@@ -105,67 +105,67 @@ void init_meshing(py::module &m) {
             ;
             PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
-//        .def("adaptive_isotropic_remeshing", [](
-//                Mesh3& mesh,
-//                const Indices<F>& faces,
-//                const double tolerance,
-//                const double ball_radius,
-//                const std::pair<double, double>& edge_len_min_max,
-//                unsigned int n_iter,
-//                bool protect_constraints,
-//                VertBool& vertex_is_constrained_map,
-//                EdgeBool& edge_is_constrained_map,
-//                VertBool& touched
-//            ) {
-//            const std::vector<F> fs = faces.to_vector();
-//
-//            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-//            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-//                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
-//
-//            auto params = PMP::parameters::
-//                number_of_iterations(n_iter)
-//                .vertex_point_map(vertex_point_map)
-//                .protect_constraints(protect_constraints)
-//                .vertex_is_constrained_map(vertex_is_constrained_map)
-//                .edge_is_constrained_map(edge_is_constrained_map)
-//            ;
-//            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
-//        })
-//        .def("adaptive_isotropic_remeshing2", [](
-//                Mesh3& mesh,
-//                const Indices<F>& faces,
-//                const double tolerance,
-//                const double ball_radius,
-//                const std::pair<double, double>& edge_len_min_max,
-//                unsigned int n_iter,
-//                bool protect_constraints,
-//                VertBool& vertex_is_constrained_map,
-//                EdgeBool& edge_is_constrained_map,
-//                VertBool& touched,
-//                FaceIndex& face_idx
-//            ) {
-//            const std::vector<F> fs = faces.to_vector();
-//
-//            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-//            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-//                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
-//
-//            auto params = PMP::parameters::
-//                number_of_iterations(n_iter)
-//                .vertex_point_map(vertex_point_map)
-//                .protect_constraints(protect_constraints)
-//                .vertex_is_constrained_map(vertex_is_constrained_map)
-//                .edge_is_constrained_map(edge_is_constrained_map)
-//                .face_patch_map(face_idx)
-//            ;
-//            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
-//        })
-//        .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
-//            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
-//            return PMP::surface_Delaunay_remeshing(mesh, params);
-//
-//        })
+        .def("adaptive_isotropic_remeshing", [](
+                Mesh3& mesh,
+                const Indices<F>& faces,
+                const double tolerance,
+                const double ball_radius,
+                const std::pair<double, double>& edge_len_min_max,
+                unsigned int n_iter,
+                bool protect_constraints,
+                VertBool& vertex_is_constrained_map,
+                EdgeBool& edge_is_constrained_map,
+                VertBool& touched
+            ) {
+            const std::vector<F> fs = faces.to_vector();
+
+            TouchedVertPoint vertex_point_map(mesh.points(), touched);
+            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
+                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .vertex_point_map(vertex_point_map)
+                .protect_constraints(protect_constraints)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+                .edge_is_constrained_map(edge_is_constrained_map)
+            ;
+            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
+        })
+        .def("adaptive_isotropic_remeshing2", [](
+                Mesh3& mesh,
+                const Indices<F>& faces,
+                const double tolerance,
+                const double ball_radius,
+                const std::pair<double, double>& edge_len_min_max,
+                unsigned int n_iter,
+                bool protect_constraints,
+                VertBool& vertex_is_constrained_map,
+                EdgeBool& edge_is_constrained_map,
+                VertBool& touched,
+                FaceIndex& face_idx
+            ) {
+            const std::vector<F> fs = faces.to_vector();
+
+            TouchedVertPoint vertex_point_map(mesh.points(), touched);
+            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
+                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .vertex_point_map(vertex_point_map)
+                .protect_constraints(protect_constraints)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+                .edge_is_constrained_map(edge_is_constrained_map)
+                .face_patch_map(face_idx)
+            ;
+            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
+        })
+        .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
+            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
+            return PMP::surface_Delaunay_remeshing(mesh, params);
+
+        })
 //        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
 //            // A value controling the tangential continuity of the output surface patch.
 //            // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
