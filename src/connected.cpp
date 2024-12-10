@@ -10,7 +10,6 @@ typedef CGAL::Face_filtered_graph<Mesh3>        FilteredMesh;
 typedef Mesh3::Property_map<F, bool>            FaceBool;
 typedef Mesh3::Property_map<E, bool>            EdgeBool;
 
-// I think CGAL's happy with any int type here as long as it's convertible to std::size but I'm not sure
 typedef F::size_type                            FaceIdx;
 typedef Mesh3::Property_map<F, FaceIdx>         FacePatchMap;
 
@@ -39,25 +38,25 @@ void init_connected(py::module &m) {
             }
             return Indices<E>(edges);
         })
-        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
-            std::set<E> edges;
-            for (F f : faces.to_vector()) {
-                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-                    edges.insert(mesh.edge(h));
-                }
-            }
-            return Indices<E>(edges);
-        })
-        .def("faces_to_vertices", [](const Mesh3& mesh, const Indices<F>& faces) {
-            std::set<V> verts;
-            for (F f : faces.to_vector()) {
-                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-                    verts.insert(mesh.source(h));
-                    // verts.insert(mesh.target(h));
-                }
-            }
-            return Indices<V>(verts);
-        }
+//        .def("faces_to_edges", [](const Mesh3& mesh, const Indices<F>& faces) {
+//            std::set<E> edges;
+//            for (F f : faces.to_vector()) {
+//                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+//                    edges.insert(mesh.edge(h));
+//                }
+//            }
+//            return Indices<E>(edges);
+//        })
+//        .def("faces_to_vertices", [](const Mesh3& mesh, const Indices<F>& faces) {
+//            std::set<V> verts;
+//            for (F f : faces.to_vector()) {
+//                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+//                    verts.insert(mesh.source(h));
+//                    // verts.insert(mesh.target(h));
+//                }
+//            }
+//            return Indices<V>(verts);
+//        }
 //        .def("vertex_degrees", [](const Mesh3& mesh, const Indices<V>& verts) {
 //            return verts.map_to_array_of_scalars<Mesh3::size_type>(
 //                [&mesh](V v) { return mesh.degree(v); });
