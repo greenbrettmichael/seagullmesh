@@ -105,190 +105,190 @@ void init_meshing(py::module &m) {
             ;
             PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
-        .def("adaptive_isotropic_remeshing", [](
-                Mesh3& mesh,
-                const Indices<F>& faces,
-                const double tolerance,
-                const double ball_radius,
-                const std::pair<double, double>& edge_len_min_max,
-                unsigned int n_iter,
-                bool protect_constraints,
-                VertBool& vertex_is_constrained_map,
-                EdgeBool& edge_is_constrained_map,
-                VertBool& touched
-            ) {
-            const std::vector<F> fs = faces.to_vector();
-
-            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
-
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_point_map(vertex_point_map)
-                .protect_constraints(protect_constraints)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-            ;
-            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
-        })
-        .def("adaptive_isotropic_remeshing2", [](
-                Mesh3& mesh,
-                const Indices<F>& faces,
-                const double tolerance,
-                const double ball_radius,
-                const std::pair<double, double>& edge_len_min_max,
-                unsigned int n_iter,
-                bool protect_constraints,
-                VertBool& vertex_is_constrained_map,
-                EdgeBool& edge_is_constrained_map,
-                VertBool& touched,
-                FaceIndex& face_idx
-            ) {
-            const std::vector<F> fs = faces.to_vector();
-
-            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
-
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_point_map(vertex_point_map)
-                .protect_constraints(protect_constraints)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-                .face_patch_map(face_idx)
-            ;
-            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
-        })
-        .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
-            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
-            return PMP::surface_Delaunay_remeshing(mesh, params);
-
-        })
-        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
-            // A value controling the tangential continuity of the output surface patch.
-            // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
-            auto params = PMP::parameters::fairing_continuity(fairing_continuity);
-            bool success = PMP::fair(mesh, verts.to_vector(), params);
-            if (!success) {
-                throw std::runtime_error("Fairing failed");
-            }
-        })
-        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
-            std::vector<V> new_verts;
-            std::vector<F> new_faces;
-            auto params = PMP::parameters::density_control_factor(density);
-            PMP::refine(mesh, faces, std::back_inserter(new_faces), std::back_inserter(new_verts), params);
-            return std::make_tuple(Indices<V>(new_verts), Indices<F>(new_faces));
-        })
-        .def("smooth_angle_and_area", [](
-            Mesh3& mesh, 
-            const Indices<F>& faces,
-            unsigned int n_iter,
-            bool use_area_smoothing,
-            bool use_angle_smoothing,
-            bool use_safety_constraints,
-            bool do_project, 
-            VertBool& vertex_is_constrained_map,
-            EdgeBool& edge_is_constrained_map
-        ) {
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .use_area_smoothing(use_area_smoothing)
-                .use_angle_smoothing(use_angle_smoothing)
-                .use_safety_constraints(use_safety_constraints)
-                .do_project(do_project)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-            ;
-            PMP::angle_and_area_smoothing(faces.to_vector(), mesh, params);
-        })
-        .def("tangential_relaxation", [](
-            Mesh3& mesh,
-            const Indices<V>& verts,
-            unsigned int n_iter,
-            bool relax_constraints,
-            VertBool& vertex_is_constrained_map,
-            EdgeBool& edge_is_constrained_map
-        ) {
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .relax_constraints(relax_constraints)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-            ;
-            PMP::tangential_relaxation(verts.to_vector(), mesh, params);
-        })
-        .def("smooth_shape", [](
-            Mesh3& mesh, 
-            const Indices<F>& faces,
-            const double time, 
-            unsigned int n_iter,
-            VertBool& vertex_is_constrained_map
-        ) {
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-            ;
-            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
-        })
-        .def("does_self_intersect", [](const Mesh3& mesh) {
-            return PMP::does_self_intersect(mesh);
-        })
-        .def("self_intersections", [](const Mesh3& mesh) {
-            std::vector<std::pair<F, F>> pairs;
-            PMP::self_intersections(mesh, std::back_inserter(pairs));
-
-            std::vector<F> first, second;
-            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
-            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
-
-            return std::make_tuple(Indices<F>(first), Indices<F>(second));
-        })
-        .def("remove_self_intersections", [](Mesh3& mesh) {
-            // returns a bool, presumably success
-            return PMP::experimental::remove_self_intersections(mesh);
-        })
-        .def("remesh_planar_patches", [](
-                const Mesh3& mesh,
-                EdgeBool& edge_is_constrained_map,
-                FaceMap& face_patch_map,
-                float cosine_of_maximum_angle
-            ) {
-            auto params = PMP::parameters::
-                edge_is_constrained_map(edge_is_constrained_map)
-                .face_patch_map(face_patch_map)
-                .cosine_of_maximum_angle(cosine_of_maximum_angle)
-            ;
-
-            Mesh3 out;
-            PMP::remesh_planar_patches(mesh, out, params);
-            return out;
-        })
-        .def("interpolated_corrected_curvatures", [](
-            const Mesh3& mesh,
-            VertDouble& mean_curv_map,
-            VertDouble& gauss_curv_map,
-            VertPrincipalCurvDir& princ_curv_dir_map,
-            const double ball_radius
-        ) {
-            auto params = PMP::parameters::
-                vertex_mean_curvature_map(mean_curv_map)
-                .vertex_Gaussian_curvature_map(gauss_curv_map)
-                .vertex_principal_curvatures_and_directions_map(princ_curv_dir_map)
-                .ball_radius(ball_radius)
-            ;
-            PMP::interpolated_corrected_curvatures(mesh, params);
-        })
-        .def("refine_mesh_at_isolevel", [](
-            Mesh3& mesh,
-            VertDouble& value_map,
-            double isovalue,
-            EdgeBool& edge_is_constrained_map
-        ) {
-            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
-            PMP::refine_mesh_at_isolevel(mesh, value_map, isovalue, params);
-        })
+//        .def("adaptive_isotropic_remeshing", [](
+//                Mesh3& mesh,
+//                const Indices<F>& faces,
+//                const double tolerance,
+//                const double ball_radius,
+//                const std::pair<double, double>& edge_len_min_max,
+//                unsigned int n_iter,
+//                bool protect_constraints,
+//                VertBool& vertex_is_constrained_map,
+//                EdgeBool& edge_is_constrained_map,
+//                VertBool& touched
+//            ) {
+//            const std::vector<F> fs = faces.to_vector();
+//
+//            TouchedVertPoint vertex_point_map(mesh.points(), touched);
+//            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
+//                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+//
+//            auto params = PMP::parameters::
+//                number_of_iterations(n_iter)
+//                .vertex_point_map(vertex_point_map)
+//                .protect_constraints(protect_constraints)
+//                .vertex_is_constrained_map(vertex_is_constrained_map)
+//                .edge_is_constrained_map(edge_is_constrained_map)
+//            ;
+//            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
+//        })
+//        .def("adaptive_isotropic_remeshing2", [](
+//                Mesh3& mesh,
+//                const Indices<F>& faces,
+//                const double tolerance,
+//                const double ball_radius,
+//                const std::pair<double, double>& edge_len_min_max,
+//                unsigned int n_iter,
+//                bool protect_constraints,
+//                VertBool& vertex_is_constrained_map,
+//                EdgeBool& edge_is_constrained_map,
+//                VertBool& touched,
+//                FaceIndex& face_idx
+//            ) {
+//            const std::vector<F> fs = faces.to_vector();
+//
+//            TouchedVertPoint vertex_point_map(mesh.points(), touched);
+//            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
+//                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+//
+//            auto params = PMP::parameters::
+//                number_of_iterations(n_iter)
+//                .vertex_point_map(vertex_point_map)
+//                .protect_constraints(protect_constraints)
+//                .vertex_is_constrained_map(vertex_is_constrained_map)
+//                .edge_is_constrained_map(edge_is_constrained_map)
+//                .face_patch_map(face_idx)
+//            ;
+//            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
+//        })
+//        .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
+//            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
+//            return PMP::surface_Delaunay_remeshing(mesh, params);
+//
+//        })
+//        .def("fair", [](Mesh3& mesh, const Indices<V>& verts, const unsigned int fairing_continuity) {
+//            // A value controling the tangential continuity of the output surface patch.
+//            // The possible values are 0, 1 and 2, refering to the C0, C1 and C2 continuity.
+//            auto params = PMP::parameters::fairing_continuity(fairing_continuity);
+//            bool success = PMP::fair(mesh, verts.to_vector(), params);
+//            if (!success) {
+//                throw std::runtime_error("Fairing failed");
+//            }
+//        })
+//        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
+//            std::vector<V> new_verts;
+//            std::vector<F> new_faces;
+//            auto params = PMP::parameters::density_control_factor(density);
+//            PMP::refine(mesh, faces, std::back_inserter(new_faces), std::back_inserter(new_verts), params);
+//            return std::make_tuple(Indices<V>(new_verts), Indices<F>(new_faces));
+//        })
+//        .def("smooth_angle_and_area", [](
+//            Mesh3& mesh,
+//            const Indices<F>& faces,
+//            unsigned int n_iter,
+//            bool use_area_smoothing,
+//            bool use_angle_smoothing,
+//            bool use_safety_constraints,
+//            bool do_project,
+//            VertBool& vertex_is_constrained_map,
+//            EdgeBool& edge_is_constrained_map
+//        ) {
+//            auto params = PMP::parameters::
+//                number_of_iterations(n_iter)
+//                .use_area_smoothing(use_area_smoothing)
+//                .use_angle_smoothing(use_angle_smoothing)
+//                .use_safety_constraints(use_safety_constraints)
+//                .do_project(do_project)
+//                .vertex_is_constrained_map(vertex_is_constrained_map)
+//                .edge_is_constrained_map(edge_is_constrained_map)
+//            ;
+//            PMP::angle_and_area_smoothing(faces.to_vector(), mesh, params);
+//        })
+//        .def("tangential_relaxation", [](
+//            Mesh3& mesh,
+//            const Indices<V>& verts,
+//            unsigned int n_iter,
+//            bool relax_constraints,
+//            VertBool& vertex_is_constrained_map,
+//            EdgeBool& edge_is_constrained_map
+//        ) {
+//            auto params = PMP::parameters::
+//                number_of_iterations(n_iter)
+//                .relax_constraints(relax_constraints)
+//                .vertex_is_constrained_map(vertex_is_constrained_map)
+//                .edge_is_constrained_map(edge_is_constrained_map)
+//            ;
+//            PMP::tangential_relaxation(verts.to_vector(), mesh, params);
+//        })
+//        .def("smooth_shape", [](
+//            Mesh3& mesh,
+//            const Indices<F>& faces,
+//            const double time,
+//            unsigned int n_iter,
+//            VertBool& vertex_is_constrained_map
+//        ) {
+//            auto params = PMP::parameters::
+//                number_of_iterations(n_iter)
+//                .vertex_is_constrained_map(vertex_is_constrained_map)
+//            ;
+//            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
+//        })
+//        .def("does_self_intersect", [](const Mesh3& mesh) {
+//            return PMP::does_self_intersect(mesh);
+//        })
+//        .def("self_intersections", [](const Mesh3& mesh) {
+//            std::vector<std::pair<F, F>> pairs;
+//            PMP::self_intersections(mesh, std::back_inserter(pairs));
+//
+//            std::vector<F> first, second;
+//            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
+//            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
+//
+//            return std::make_tuple(Indices<F>(first), Indices<F>(second));
+//        })
+//        .def("remove_self_intersections", [](Mesh3& mesh) {
+//            // returns a bool, presumably success
+//            return PMP::experimental::remove_self_intersections(mesh);
+//        })
+//        .def("remesh_planar_patches", [](
+//                const Mesh3& mesh,
+//                EdgeBool& edge_is_constrained_map,
+//                FaceMap& face_patch_map,
+//                float cosine_of_maximum_angle
+//            ) {
+//            auto params = PMP::parameters::
+//                edge_is_constrained_map(edge_is_constrained_map)
+//                .face_patch_map(face_patch_map)
+//                .cosine_of_maximum_angle(cosine_of_maximum_angle)
+//            ;
+//
+//            Mesh3 out;
+//            PMP::remesh_planar_patches(mesh, out, params);
+//            return out;
+//        })
+//        .def("interpolated_corrected_curvatures", [](
+//            const Mesh3& mesh,
+//            VertDouble& mean_curv_map,
+//            VertDouble& gauss_curv_map,
+//            VertPrincipalCurvDir& princ_curv_dir_map,
+//            const double ball_radius
+//        ) {
+//            auto params = PMP::parameters::
+//                vertex_mean_curvature_map(mean_curv_map)
+//                .vertex_Gaussian_curvature_map(gauss_curv_map)
+//                .vertex_principal_curvatures_and_directions_map(princ_curv_dir_map)
+//                .ball_radius(ball_radius)
+//            ;
+//            PMP::interpolated_corrected_curvatures(mesh, params);
+//        })
+//        .def("refine_mesh_at_isolevel", [](
+//            Mesh3& mesh,
+//            VertDouble& value_map,
+//            double isovalue,
+//            EdgeBool& edge_is_constrained_map
+//        ) {
+//            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
+//            PMP::refine_mesh_at_isolevel(mesh, value_map, isovalue, params);
+//        })
     ;
 }

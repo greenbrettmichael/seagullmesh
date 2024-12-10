@@ -128,9 +128,11 @@ ext_modules = [
             # 'src/skeletonization.cpp',
             # 'src/simplification.cpp',
             # 'src/parametrize.cpp',
-            'src/poisson_reconstruct.cpp',
-            'src/alpha_wrapping.cpp',
-            # 'src/meshing.cpp',
+            # 'src/poisson_reconstruct.cpp',
+            # 'src/alpha_wrapping.cpp',
+
+
+            'src/meshing.cpp',
             # 'src/corefine.cpp',
 
             # 'src/triangulate.cpp',
