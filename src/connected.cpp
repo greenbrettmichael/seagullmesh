@@ -87,12 +87,12 @@ void init_connected(py::module &m) {
             PMP::connected_component(seed_face, mesh, std::back_inserter(out), params);
             return Indices<F>(out);
         })
-//        .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
-//            PMP::remove_connected_components(mesh, faces.to_vector());
-//        })
-//        .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
-//            PMP::remove_connected_components(mesh, components_to_remove, components);
-//        })
+        .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::remove_connected_components(mesh, faces.to_vector());
+        })
+        .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
+            PMP::remove_connected_components(mesh, components_to_remove, components);
+        })
 //        .def("remove_faces", [](Mesh3& mesh, const Indices<F>& faces)) {
 //            faces.apply([&mesh](F f){ CGAL::Euler::remove_face(); });
 //        })
