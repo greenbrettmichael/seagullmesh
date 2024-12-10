@@ -124,7 +124,8 @@ ext_modules = [
             # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',
             # 'src/connected.cpp',
-            'src/border.cpp',
+            # 'src/border.cpp',
+            'src/skeletonization.cpp',
 
 
             # 'src/meshing.cpp',
@@ -132,7 +133,6 @@ ext_modules = [
             # 'src/parametrize.cpp',
             # 'src/triangulate.cpp',
             # 'src/simplification.cpp',
-            # 'src/skeletonization.cpp',
             # 'src/poisson_reconstruct.cpp',
             # 'src/alpha_wrapping.cpp',
         ],
