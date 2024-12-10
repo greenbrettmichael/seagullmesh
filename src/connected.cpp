@@ -93,7 +93,10 @@ void init_connected(py::module &m) {
         .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
             PMP::remove_connected_components(mesh, components_to_remove, components);
         })
-//        .def("remove_faces", [](Mesh3& mesh, const Indices<F>& faces)) {
+
+//      TODO: maybe I actually want make_hole?
+//      #include <CGAL/boost/graph/Euler_operations.h>
+//        .def("remove_faces", [](Mesh3& mesh, const Indices<F>& faces) {
 //            faces.apply([&mesh](F f){ CGAL::Euler::remove_face(); });
 //        })
     ;
