@@ -4,58 +4,46 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-typedef Mesh3::Property_map<V, V>           VertexMap;
-typedef Mesh3::Property_map<V, uint32_t>    VertexInt;
-typedef Mesh3::Property_map<F, F>           FaceMap;
-typedef Mesh3::Property_map<F, uint32_t>    FaceInt;
-typedef Mesh3::Property_map<E, bool>        EdgeBool;
+//typedef std::pair<uint32_t, V>                                      VertexOrigin;
+//typedef CGAL::dynamic_vertex_property_t<VertexOrigin>               VertexOriginProperty;
+//typedef boost::property_map<Mesh3, VertexOriginProperty>::type      VertexOriginPMap;
+
+typedef std::pair<uint32_t, F>                                      FaceOrigin;
+typedef CGAL::dynamic_face_property_t<FaceOrigin>                   FaceOriginProperty;
+typedef boost::property_map<Mesh3, FaceOriginProperty>::type        FaceOriginPropertyMap;
 
 
+// todo: need pmap[F, F] on mesh1 and mesh2
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
-//https://github.com/CGAL/cgal/blob/master/Polygon_mesh_processing/examples/Polygon_mesh_processing/corefinement_mesh_union_with_attributes.cpp
-
-    // Used for tracking for refinement indices
-    // CGAL's corefine only uses a visitor for the first mesh, so we need the references to both
-    // here to tell which is which
     Mesh3& mesh1;
     Mesh3& mesh2;
-    VertexInt& vert_mesh_idx;
-    VertexMap& vert_map;
-    FaceInt& face_mesh_idx;
-    FaceMap& face_map;
-    uint32_t pre_split_face_mesh_idx;
-    F pre_split_face;
+    Mesh3& output;
+    FaceOrigin face_origin;
+    FaceOriginPropertyMap face_origins;
 
-    CorefineTracker(
-        Mesh3& m1, Mesh3& m2, VertexInt& vi, VertexMap& vm, FaceInt& fi, FaceMap& fm
-    ) : mesh1(m1), mesh2(m2),
-        vert_mesh_idx(vi), vert_map(vm),
-        face_mesh_idx(fi), face_map(fm),
-        pre_split_face_mesh_idx(2),
-        pre_split_face(Mesh3::null_face())
-        {}
 
+    CorefineTracker(Mesh3& m1, Mesh3& m2, Mesh3& out) : mesh1(m1), mesh2(m2), output(out) {
+        face_origin = std::make_pair(2, Mesh3::null_face());
+        face_origins = get(FaceOriginProperty(), output, face_origin);
+    }
     uint32_t mesh_idx(const Mesh3& mesh) {
         if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
     }
-    void after_vertex_copy(V v_src, const Mesh3& m_src, V v_tgt, const Mesh3& m_tgt) {
-        vert_mesh_idx[v_tgt] = mesh_idx(m_src);
-        vert_map[v_tgt] = v_src;
-    }
+//    void after_vertex_copy(V v_src, const Mesh3& m_src, V v_tgt, const Mesh3& m_tgt) {
+//        vertex_origin[v_tgt] = std::make_pair(mesh_idx(m_src), v_src)
+//    }
+//    void new_vertex_added(size_t i_id, V v, const Mesh3& mesh) {
+//        vert_mesh_idx[v] = 2;
+//    }
+
     void after_face_copy(F f_src, const Mesh3& m_src, F f_tgt, const Mesh3& m_tgt) {
-        face_mesh_idx[f_tgt] = mesh_idx(m_src);
-        face_map[f_tgt] = f_src;
-    }
-    void new_vertex_added(size_t i_id, V v, const Mesh3& mesh) {
-        vert_mesh_idx[v] = 2;
+        put(face_origins, f_tgt, std::make_pair(mesh_idx(m_src), f_tgt));
     }
     void before_subface_creations(F f, Mesh3& mesh) {
-        pre_split_face = f;
-        pre_split_face_mesh_idx = mesh_idx(mesh);
+        face_origin = std::make_pair(mesh_idx(mesh), f);
     }
     void after_subface_created(F f_new, const Mesh3& mesh) {
-        face_mesh_idx[f_new] = pre_split_mesh_idx;
-        face_map[f_new] = pre_split_face;
+        put(face_origins, f_new, face_origin);
     }
 };
 
@@ -67,10 +55,9 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
 void init_corefine(py::module &m) {
     py::module sub = m.def_submodule("corefine");
 
-//    py::class_<CorefineTracker>(sub, "CorefineTracker")
-//        // .def(py::init<Mesh3&, Mesh3&, VertexInt&, VertexMap&, FaceInt&>())
-//        .def(py::init())
-//    ;
+    py::class_<CorefineTracker>(sub, "CorefineTracker")
+        .def(py::init<Mesh3&, Mesh3&, Mesh3&>())
+    ;
 
 
 //    sub
