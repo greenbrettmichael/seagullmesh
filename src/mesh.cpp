@@ -111,18 +111,21 @@ void init_mesh(py::module &m) {
             const std::vector<H> idxs(hs.begin(), hs.end());
             return Indices<H>(idxs);
         })
-        .def("icosahedron", [](Mesh3& mesh, double x, double y, double z, double r){
+    ;
+
+    sub
+        .def("add_icosahedron", [](Mesh3& mesh, double x, double y, double z, double r){
             CGAL::make_icosahedron(mesh, Point3(x, y, z), r);
         })
-        .def("tetrahedron", [](Mesh3& mesh, const py::array_t<double>& points){
+        .def("add_tetrahedron", [](Mesh3& mesh, const py::array_t<double>& points){
             std::vector<Point3> pts = array_to_points_3(points);
             CGAL::make_tetrahedron(pts.at(0), pts.at(1), pts.at(2), pts.at(3), mesh);
         })
-        .def("triangle", [](Mesh3& mesh, const py::array_t<double>& points){
+        .def("add_triangle", [](Mesh3& mesh, const py::array_t<double>& points){
             std::vector<Point3> pts = array_to_points_3(points);
             CGAL::make_triangle(pts.at(0), pts.at(1), pts.at(2), mesh);
         })
-        .def("pyramid", [](
+        .def("add_pyramid", [](
                 Mesh3& mesh,
                 Mesh3::size_type n_base_verts,
                 const Point3 base_center,
