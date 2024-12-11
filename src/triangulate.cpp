@@ -3,7 +3,6 @@
 
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
-#include <CGAL/Polygon_mesh_processing/orientation.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 typedef CGAL::Triple<size_t, size_t, size_t> Triangle;
@@ -115,14 +114,6 @@ void init_triangulate(py::module &m) {
         })
         .def("reverse_face_orientations", [](Mesh3& mesh) {
             PMP::reverse_face_orientations(mesh);
-        })
-
-        // Measure?
-        .def("does_bound_a_volume", [](const Mesh3& mesh) {
-            return PMP::does_bound_a_volume(mesh);
-        })
-        .def("is_outward_oriented", [](const Mesh3& mesh) {
-            return PMP::is_outward_oriented(mesh);
         })
     ;
 }
