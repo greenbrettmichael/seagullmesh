@@ -30,7 +30,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         original_faces = {
             get(FaceId(), mesh1, Mesh3::null_face()),
             get(FaceId(), mesh2, Mesh3::null_face())
-        }
+        };
         for (F f : mesh1.faces()) { put(original_faces[0], f, f); }
         for (F f : mesh2.faces()) { put(original_faces[1], f, f); }
 
@@ -44,7 +44,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     void before_subface_creations(F f_to_be_split, Mesh3& mesh) {
         // Going to split a face in mesh1 or mesh2 during the corefinement stage
         auto i = mesh_idx(mesh);
-        F f_original = original_faces[i][f_to_be_split]
+        F f_original = get(original_faces[i], f_to_be_split);
         face_origin = std::make_pair(i, f_original);
     }
     void after_subface_created(F f_new, const Mesh3& mesh) {
