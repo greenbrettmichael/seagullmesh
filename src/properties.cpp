@@ -52,6 +52,9 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def("get_vector", [](const PMap& pmap, const Indices<Key>& indices) {
             return indices.map_to_vector<Val>([&pmap](Key k) { return pmap[k]; });
         })
+        .def("copy_values", [](const PMap& pmap, const Indices<Key>& src_idxs, const Indices<Key>& dest_idxs) {
+            src_idxs.zip<Key>(dest_idxs, [&pmap](Key src, Key dest) { pmap[dest] = pmap[src];});
+        })
     ;
 }
 

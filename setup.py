@@ -120,7 +120,7 @@ ext_modules = [
             'src/seagullmesh.cpp',
             'src/mesh.cpp',
             # 'src/geometry.cpp',
-            # 'src/properties.cpp',
+            'src/properties.cpp',
             # 'src/io.cpp',
             # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',

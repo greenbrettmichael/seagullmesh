@@ -4,27 +4,29 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
+typedef Mesh3::Property_map<E, bool> EdgeBool;
+
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     typedef std::map<F, F> FaceMap;
     struct FaceOrigin {
-        mesh_idx: size_t
-        face: F
+        size_t mesh_idx;
+        F face;
     };
     Mesh3& mesh1;
     Mesh3& mesh2;
-
     std::array<FaceMap, 2> split_faces;     // subface -> original face for each source mesh
     std::array<FaceMap, 2> copied_faces;    // subface in output -> orig_face
+    FaceOrigin face_origin;
 
     CorefineTracker(Mesh3& m1, Mesh3& m2) : mesh1(m1), mesh2(m2) {};
 
-    uint32_t mesh_idx(const Mesh3& mesh) const {
+    size_t mesh_idx(const Mesh3& mesh) const {
         if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
     }
 
     F original_face(size_t mesh_idx, F face) const {
-        auto it = split_faces[i].find(face);
-        return (it != split_faces[i].end()) ? it->second : face;
+        auto it = split_faces[mesh_idx].find(face);
+        return (it != split_faces[mesh_idx].end()) ? it->second : face;
     }
 
     void before_subface_creations(F f, const Mesh3& mesh) {
@@ -40,17 +42,26 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         copied_faces[i][f_tgt] = original_face(i, f_src);
     }
 
-//    void get_mapped_faces(size_t i) {
-//        std::vector<F> faces_input;
-//        std::vector<F> faces_output;
-//        for (F f : output.faces()) {
-//            const FaceOrigin& fo = get(face_origins, f);
-//            if (fo.first == i) {
-//                faces_input.push_back(fo.second);
-//                faces_output.
-//            }
-//        }
-//    }
+    auto get_split_faces(size_t mesh_idx, const Mesh3& mesh) const {
+        std::vector<F> old_faces;
+        std::vector<F> new_faces;
+        for (auto const& [f_new, f_orig] : split_faces[mesh_idx]) {
+            if (!mesh.is_removed(f_new)) {
+                old_faces.push_back(f_orig);
+                new_faces.push_back(f_new);
+            }
+        }
+        return std::make_pair(old_faces, new_faces);
+    }
+    auto get_copied_faces(size_t mesh_idx) {
+        std::vector<F> old_faces;
+        std::vector<F> new_faces;
+        for (auto const& [f_new, f_orig] : copied_faces[mesh_idx]) {
+            old_faces.push_back(f_orig);
+            new_faces.push_back(f_new);
+        }
+        return std::make_pair(old_faces, new_faces);
+    }
 };
 
 
@@ -62,7 +73,14 @@ void init_corefine(py::module &m) {
     py::module sub = m.def_submodule("corefine");
 
     py::class_<CorefineTracker>(sub, "CorefineTracker")
-        .def(py::init<Mesh3&, Mesh3&>())
+        .def("get_split_faces", [](const CorefineTracker& tracker, size_t mesh_idx, const Mesh3& output) {
+            auto pair = tracker.get_split_faces(mesh_idx, output);
+            return std::make_pair(Indices<F>(pair.first), Indices<F>(pair.second));
+        })
+        .def("get_copied_faces", [](const CorefineTracker& tracker, size_t mesh_idx, const Mesh3& output) {
+            auto pair = tracker.get_copied_faces(mesh_idx, output);
+            return std::make_pair(Indices<F>(pair.first), Indices<F>(pair.second));
+        })
     ;
 
 
@@ -70,8 +88,8 @@ void init_corefine(py::module &m) {
 //        .def("corefine", [](
 //                Mesh3& mesh1,
 //                Mesh3& mesh2,
-//                EdgeConstrainedMap& ecm1,
-//                EdgeConstrainedMap& ecm2,
+//                EdgeBool& ecm1,
+//                EdgeBool& ecm2,
 //                CorefineTracker& tracker
 //        ) {
 //
@@ -79,17 +97,19 @@ void init_corefine(py::module &m) {
 //            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
 //            PMP::corefine(mesh1, mesh2, params1, params2);
 //        })
-//        .def("union", [](
-//                Mesh3& mesh1,
-//                Mesh3& mesh2,
-//                Mesh3& ouput,
-//                EdgeConstrainedMap& ecm1,
-//                EdgeConstrainedMap& ecm2,
-//                CorefineTracker& tracker) {
-//
-//            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
-//            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-//            return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
-//        })
-//    ;
+    sub
+        .def("union", [](
+                Mesh3& mesh1,
+                Mesh3& mesh2,
+                Mesh3& output,
+                EdgeBool& ecm1,
+                EdgeBool& ecm2
+        ) {
+            CorefineTracker tracker(mesh1, mesh2);
+            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
+            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
+            bool success = PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
+            return std::make_pair(success, tracker);
+        })
+    ;
 }

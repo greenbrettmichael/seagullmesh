@@ -1,36 +1,11 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Iterator, Tuple
+from typing import Sequence
 
-from typing_extensions import Self
-
-from seagullmesh import Mesh3, PropertyMap, Vertex, Edge, sgm, Face
 from seagullmesh._seagullmesh import corefine
 
-
-_PMaps = Tuple[
-    PropertyMap[Edge, bool],
-    PropertyMap[Vertex, Vertex],
-    PropertyMap[Face ,Face],
-]
-
-
-@dataclass
-class InputSpec:
-    mesh: Mesh3
-    edge_constrained: str | PropertyMap[Edge, bool] | None = None
-    vertex_index: str | PropertyMap[Vertex, Vertex] | None = None
-    face_index: str | PropertyMap[Face, Face] | None = None
-
-    @contextmanager
-    def get_or_temp_properties(self) -> Iterator[_PMaps]:
-        m = self.mesh
-        with (
-            m.edge_data.get_or_temp(self.edge_constrained, '_temp_ecm', default=False) as ecm,
-            m.vertex_data.get_or_temp(self.vertex_index, '_temp_vidx', default=m.null_vertex) as vidx,
-            m.face_data.get_or_temp(self.face_index, '_temp_fidx', default=m.null_face) as fidx
-        ):
-            yield ecm, vidx, fidx
+from seagullmesh import Mesh3, PropertyMap, Edge, sgm
 
 
 class Corefiner:
@@ -38,83 +13,53 @@ class Corefiner:
             self,
             mesh0: Mesh3,
             mesh1: Mesh3,
-            inplace=False,
-            edge_constrained: str | None = None,
-            vertex_index
+            edge_constrained0: str | PropertyMap[Edge, bool] | None = None,
+            edge_constrained1: str | PropertyMap[Edge, bool] | None = None,
     ):
-        self.specs = InputSpec(mesh=mesh0), InputSpec(mesh=mesh1)
-        self.output = mesh0 if inplace else Mesh3()
+        self.sources = (mesh0, mesh1)
+        self.edge_constrained = (edge_constrained0, edge_constrained1)
 
 
+    @contextmanager
+    def _mesh_and_ecm(self, i: int):
+        mesh = self.sources[i]
+        ecm = self.edge_constrained[0]
+        with mesh.edge_data.get_or_temp(ecm, '_temp_edge_is_constrained', default=False) as ecm:
+            yield mesh.mesh, ecm
 
-    def corefine(self, other: Mesh3) -> None:
-        """Corefines the two meshes in place"""
-        sgm.corefine.corefine(self._mesh, other._mesh)
-
-
-    def union(self, other: Mesh3, inplace=False) -> Mesh3:
+    def union(self) -> Corefined:
         """Corefines the two meshes and returns their boolean union"""
+        output = self.sources[0]  # todo: non-inplace
 
-        sgm.corefine.union(self._mesh, other._mesh, out._mesh)
-        return out
-
-
-    def difference(self, other: Mesh3, inplace=False) -> Mesh3:
-        """Corefines the two meshes and returns their boolean difference"""
-        out = self if inplace else Mesh3(_Mesh3())
-        sgm.corefine.difference(self._mesh, other._mesh, out._mesh)
-        return out
+        with (
+            self._mesh_and_ecm(0) as (mesh0, ecm0),
+            self._mesh_and_ecm(1) as (mesh1, ecm1)
+        ):
+            success, tracker = sgm.corefine.union(mesh0, mesh1, output.mesh, ecm0, ecm1)
+            return Corefined(self, tracker, output)
 
 
-    def intersection(self, other: Mesh3, inplace=False) -> Mesh3:
-        """Corefines the two meshes and returns their boolean intersection"""
-        out = self if inplace else Mesh3(_Mesh3())
-        sgm.corefine.intersection(self._mesh, other._mesh, out._mesh)
-        return out
+class Corefined:
+    def __init__(self, corefiner: Corefiner, tracker: corefine.CorefineTracker, output: Mesh3):
+        self.corefiner = corefiner
+        self.tracker = tracker
+        self.output = output
 
+    def update_corefined_faces(
+            self,
+            property_names: Sequence[str] | None = None,
+        ):
 
+        for i, mesh in enumerate(self.corefiner.sources):
+            # Update source mesh
+            prop_names = mesh.face_data.keys() if property_names is None else property_names
+            old_faces, new_faces = self.tracker.get_split_faces(i, mesh.mesh)
+            for k in prop_names:
+                mesh.face_data[k].copy_values(old_faces, new_faces)
 
- # def corefine(self, other: Mesh3) -> None:
- #        """Corefines the two meshes in place"""
- #        sgm.corefine.corefine(self._mesh, other._mesh)
- #
- #    def union(self, other: Mesh3, inplace=False) -> Mesh3:
- #        """Corefines the two meshes and returns their boolean union"""
- #        out = self if inplace else Mesh3(_Mesh3())
- #        sgm.corefine.union(self._mesh, other._mesh, out._mesh)
- #        return out
- #
- #    def difference(self, other: Mesh3, inplace=False) -> Mesh3:
- #        """Corefines the two meshes and returns their boolean difference"""
- #        out = self if inplace else Mesh3(_Mesh3())
- #        sgm.corefine.difference(self._mesh, other._mesh, out._mesh)
- #        return out
- #
- #    def intersection(self, other: Mesh3, inplace=False) -> Mesh3:
- #        """Corefines the two meshes and returns their boolean intersection"""
- #        out = self if inplace else Mesh3(_Mesh3())
- #        sgm.corefine.intersection(self._mesh, other._mesh, out._mesh)
- #        return out
- #
- #    def corefine_tracked(
- #            self,
- #            other: Mesh3,
- #            vert_idx: str,
- #            edge_constrained: str,
- #            face_idx: Optional[str] = None,
- #    ) -> None:
- #        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained, face_idx)
- #        sgm.corefine.corefine(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)
- #
- #    def clip_tracked(self, other: Mesh3, vert_idx: str, face_idx: Optional[str] = None):
- #        tracker = _get_corefined_properties(self, other, vert_idx=vert_idx, face_idx=face_idx)
- #        sgm.corefine.clip(self._mesh, other._mesh, tracker)
- #
- #    def union_tracked(
- #            self,
- #            other: Mesh3,
- #            vert_idx: str | PropertyMap[Vertex, int],
- #            edge_constrained: str | PropertyMap[Edge, bool],
- #    ) -> None:
- #        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained)
- #        sgm.corefine.union(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)
+            # Update output mesh
+            old_faces, new_faces = self.tracker.get_copied_faces(i)
+            if mesh is self.output:
+                mesh.face_data[k].copy_values(old_faces, new_faces)
+            else:
+                self.output.face_data[k][old_faces] = mesh.face_data[k][new_faces]
