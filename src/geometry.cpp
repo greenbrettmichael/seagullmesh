@@ -62,11 +62,11 @@ void init_geometry(py::module &m) {
                 [&mesh](F f) {return PMP::compute_face_normal(f, mesh);}
             );
         })
-//        .def("vertex_normals", [](const Mesh3& mesh, const Indices<V>& verts) {
-//            return verts.map_to_array_of_vectors<3, V, Vector3>(
-//                [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
-//            );
-//        })
+        .def("vertex_normals", [](const Mesh3& mesh, const Indices<V>& verts) {
+            return verts.map_to_array_of_vectors<Vector3, 3, double>(
+                [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
+            );
+        })
 //        .def("face_areas", [](const Mesh3& mesh, const Indices<F>& faces) {
 //            return faces.map_to_array_of_scalars<F, double>(
 //                [&mesh](F f){ return PMP::face_area(f, mesh);}
