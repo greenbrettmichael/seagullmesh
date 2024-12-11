@@ -39,22 +39,22 @@ namespace PMP = CGAL::Polygon_mesh_processing;
 void init_geometry(py::module &m) {
     py::module sub = m.def_submodule("geometry");
 
-//    py::class_<BBox3>(sub, "BoundingBox3", py::module_local())
-//        .def(py::init<double, double, double, double, double, double>())
-//        .def_property_readonly("x_min", &BBox3::xmin)
-//        .def_property_readonly("x_max", &BBox3::xmax)
-//        .def_property_readonly("y_min", &BBox3::ymin)
-//        .def_property_readonly("y_max", &BBox3::ymax)
-//        .def_property_readonly("x_min", &BBox3::zmin)
-//        .def_property_readonly("z_max", &BBox3::zmax)
-//        .def("diagonal", [](const BBox3& bbox) {
-//            return std::sqrt(
-//                CGAL::square(bbox.xmax() - bbox.xmin()) +
-//                CGAL::square(bbox.ymax() - bbox.ymin()) +
-//                CGAL::square(bbox.zmax() - bbox.zmin())
-//            );
-//        })
-//    ;
+    py::class_<BBox3>(sub, "BoundingBox3", py::module_local())
+        .def(py::init<double, double, double, double, double, double>())
+        .def_property_readonly("x_min", &BBox3::xmin)
+        .def_property_readonly("x_max", &BBox3::xmax)
+        .def_property_readonly("y_min", &BBox3::ymin)
+        .def_property_readonly("y_max", &BBox3::ymax)
+        .def_property_readonly("x_min", &BBox3::zmin)
+        .def_property_readonly("z_max", &BBox3::zmax)
+        .def("diagonal", [](const BBox3& bbox) {
+            return std::sqrt(
+                CGAL::square(bbox.xmax() - bbox.xmin()) +
+                CGAL::square(bbox.ymax() - bbox.ymin()) +
+                CGAL::square(bbox.zmax() - bbox.zmin())
+            );
+        })
+    ;
 
     sub
         .def("face_normals", [](const Mesh3& mesh, const Indices<F>& faces) {
@@ -72,17 +72,15 @@ void init_geometry(py::module &m) {
                 [&mesh](F f){ return PMP::face_area(f, mesh);}
             );
         })
-//        .def("edge_lengths", [](const Mesh3& mesh, const Indices<E>& Edges) {
-//            return faces.map_to_array_of_scalars<E, double>(
-//                [&mesh](E e){ return PMP::edge_length(f, mesh);}
-//            );
-//        })
-//        .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
-//        .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
-//        .def("bounding_box", [](const Mesh3& mesh) {
-//            return PMP::bbox(mesh);
-//        })
-////        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
+        .def("edge_lengths", [](const Mesh3& mesh, const Indices<E>& edges) {
+            return edges.map_to_array_of_scalars<double>(
+                [&mesh](E e){ return PMP::edge_length(e, mesh); }
+            );
+        })
+        .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
+        .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
+        .def("bounding_box", [](const Mesh3& mesh) { return PMP::bbox(mesh); })
+//        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
 //            Transform3 t = array_to_transform3(transform);
 //            auto points = mesh.points();
 //            for (V v : mesh.vertices() ) {

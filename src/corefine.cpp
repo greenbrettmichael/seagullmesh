@@ -4,9 +4,9 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-typedef Mesh3::Property_map<V, int>      VertexIndex;
-typedef Mesh3::Property_map<F, std::size_t>      FaceIndex;
-typedef Mesh3::Property_map<E, bool>             EdgeConstrainedMap;
+typedef Mesh3::Property_map<V, int>             VertexIndex;
+typedef Mesh3::Property_map<F, std::size_t>     FaceIndex;
+typedef Mesh3::Property_map<E, bool>            EdgeConstrainedMap;
 
 
 struct CorefinementVertexTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
