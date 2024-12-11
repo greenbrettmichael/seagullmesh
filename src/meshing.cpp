@@ -24,7 +24,7 @@ typedef Mesh3::Property_map<V, Point3>                      VertPoint;
 typedef Mesh3::Property_map<V, double>                      VertDouble;
 typedef Mesh3::Property_map<V, bool>                        VertBool;
 typedef Mesh3::Property_map<E, bool>                        EdgeBool;
-typedef Mesh3::Property_map<F, F>                           FaceMap;
+
 typedef Mesh3::Property_map<F, F::size_type>                FaceIndex;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
@@ -250,22 +250,22 @@ void init_meshing(py::module &m) {
             // returns a bool, presumably success
             return PMP::experimental::remove_self_intersections(mesh);
         })
-//        .def("remesh_planar_patches", [](
-//                const Mesh3& mesh,
-//                EdgeBool& edge_is_constrained_map,
-//                FaceMap& face_patch_map,
-//                float cosine_of_maximum_angle
-//            ) {
-//            auto params = PMP::parameters::
-//                edge_is_constrained_map(edge_is_constrained_map)
-//                .face_patch_map(face_patch_map)
-//                .cosine_of_maximum_angle(cosine_of_maximum_angle)
-//            ;
-//
-//            Mesh3 out;
-//            PMP::remesh_planar_patches(mesh, out, params);
-//            return out;
-//        })
+        .def("remesh_planar_patches", [](
+                const Mesh3& mesh,
+                EdgeBool& edge_is_constrained_map,
+                FaceIndex& face_patch_map,
+                float cosine_of_maximum_angle
+            ) {
+            auto params = PMP::parameters::
+                edge_is_constrained_map(edge_is_constrained_map)
+                .face_patch_map(face_patch_map)
+                .cosine_of_maximum_angle(cosine_of_maximum_angle)
+            ;
+
+            Mesh3 out;
+            PMP::remesh_planar_patches(mesh, out, params);
+            return out;
+        })
         .def("interpolated_corrected_curvatures", [](
             const Mesh3& mesh,
             VertDouble& mean_curv_map,
