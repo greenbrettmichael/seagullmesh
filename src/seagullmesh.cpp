@@ -23,7 +23,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
 //    init_geometry(m);
-    init_properties(m);
+//    init_properties(m);
 //    init_io(m);
 //    init_geodesic_distances(m);
 //    init_locate(m);
@@ -35,7 +35,8 @@ PYBIND11_MODULE(_seagullmesh, m) {
 //    init_poisson_reconstruct(m);
 //    init_alpha_wrapping(m);
 
-//    init_meshing(m);
+    init_meshing(m);
+
 //    init_corefine(m);
 //    init_triangulate(m);
 
