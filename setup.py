@@ -132,7 +132,7 @@ ext_modules = [
             # 'src/alpha_wrapping.cpp',
 
 
-            'src/meshing.cpp',
+            # 'src/meshing.cpp',
             # 'src/corefine.cpp',
 
             # 'src/triangulate.cpp',
