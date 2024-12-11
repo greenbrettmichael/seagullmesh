@@ -71,3 +71,50 @@ class Corefiner:
         out = self if inplace else Mesh3(_Mesh3())
         sgm.corefine.intersection(self._mesh, other._mesh, out._mesh)
         return out
+
+
+
+ # def corefine(self, other: Mesh3) -> None:
+ #        """Corefines the two meshes in place"""
+ #        sgm.corefine.corefine(self._mesh, other._mesh)
+ #
+ #    def union(self, other: Mesh3, inplace=False) -> Mesh3:
+ #        """Corefines the two meshes and returns their boolean union"""
+ #        out = self if inplace else Mesh3(_Mesh3())
+ #        sgm.corefine.union(self._mesh, other._mesh, out._mesh)
+ #        return out
+ #
+ #    def difference(self, other: Mesh3, inplace=False) -> Mesh3:
+ #        """Corefines the two meshes and returns their boolean difference"""
+ #        out = self if inplace else Mesh3(_Mesh3())
+ #        sgm.corefine.difference(self._mesh, other._mesh, out._mesh)
+ #        return out
+ #
+ #    def intersection(self, other: Mesh3, inplace=False) -> Mesh3:
+ #        """Corefines the two meshes and returns their boolean intersection"""
+ #        out = self if inplace else Mesh3(_Mesh3())
+ #        sgm.corefine.intersection(self._mesh, other._mesh, out._mesh)
+ #        return out
+ #
+ #    def corefine_tracked(
+ #            self,
+ #            other: Mesh3,
+ #            vert_idx: str,
+ #            edge_constrained: str,
+ #            face_idx: Optional[str] = None,
+ #    ) -> None:
+ #        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained, face_idx)
+ #        sgm.corefine.corefine(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)
+ #
+ #    def clip_tracked(self, other: Mesh3, vert_idx: str, face_idx: Optional[str] = None):
+ #        tracker = _get_corefined_properties(self, other, vert_idx=vert_idx, face_idx=face_idx)
+ #        sgm.corefine.clip(self._mesh, other._mesh, tracker)
+ #
+ #    def union_tracked(
+ #            self,
+ #            other: Mesh3,
+ #            vert_idx: str | PropertyMap[Vertex, int],
+ #            edge_constrained: str | PropertyMap[Edge, bool],
+ #    ) -> None:
+ #        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained)
+ #        sgm.corefine.union(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)

@@ -186,6 +186,11 @@ class Halfedges(Indices[Halfedge]):
 
 
 class Mesh3:
+    null_vertex: Vertex = _Mesh3.null_vertex
+    null_face: Face = _Mesh3.null_face
+    null_edge: Edge = _Mesh3.null_edge
+    null_halfedge: Halfedge = _Mesh3.null_halfedge
+
     def __init__(self, mesh: _Mesh3 | None = None):
         self._mesh = mesh if mesh else _Mesh3()
 
@@ -194,10 +199,11 @@ class Mesh3:
             self.face_data = MeshData(self, Face, sgm.mesh.Faces)
             self.edge_data = MeshData(self, Edge, sgm.mesh.Edges)
             self.halfedge_data = MeshData(self, Halfedge, sgm.mesh.Halfedges)
-        else:
-            warnings.warn("properties module not available")
 
-        self._vertex_point_map: PropertyMap[Vertex, Point3] | None = None
+    @property
+    def mesh(self) -> sgm.mesh.Mesh3:  # TODO who cares just make it public
+        """The C++ mesh object"""
+        return self._mesh
 
     @property
     def vertices(self) -> Vertices:
@@ -223,18 +229,21 @@ class Mesh3:
     n_faces = property(lambda self: self._mesh.n_faces)
     n_edges = property(lambda self: self._mesh.n_edges)
     n_halfedges = property(lambda self: self._mesh.n_halfedges)
-
-    null_vertex = property(lambda self: self._mesh.null_vertex)
-    null_face = property(lambda self: self._mesh.null_face)
-    null_edge = property(lambda self: self._mesh.null_edge)
-    null_halfedge = property(lambda self: self._mesh.null_halfedge)
-
     is_valid = property(lambda self: self._mesh.is_valid)
 
     @property
-    def mesh(self) -> sgm.mesh.Mesh3:
-        """The C++ mesh object"""
-        return self._mesh
+    def has_garbage(self) -> bool:
+        return self._mesh.has_garbage
+
+    def collect_garbage(self) -> None:
+        self._mesh.collect_garbage()
+
+    @cached_property
+    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
+        return self.vertex_data.find_property_map(
+            sgm.properties.V_Point3_PropertyMap,
+            name='v:point',
+        )
 
     def copy(self) -> Mesh3:
         """Deep-copy the mesh and all its properties"""
@@ -250,13 +259,6 @@ class Mesh3:
         out = self if inplace else self.copy()
         out._mesh += other._mesh
         return out
-
-    @property
-    def has_garbage(self) -> bool:
-        return self._mesh.has_garbage
-
-    def collect_garbage(self) -> None:
-        self._mesh.collect_garbage()
 
     @staticmethod
     def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True) -> Mesh3:
@@ -291,15 +293,6 @@ class Mesh3:
         out._mesh.icosahedron(*center, radius)
         return out
 
-    @property
-    def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
-        if self._vertex_point_map is None:
-            self._vertex_point_map = self.vertex_data.find_property_map(
-                sgm.properties.V_Point3_PropertyMap,
-                name='v:point',
-            )
-        return self._vertex_point_map
-
     def estimate_geodesic_distances(
             self,
             src: Union[Vertex, Vertices],
@@ -327,10 +320,6 @@ class Mesh3:
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return self._mesh.bounding_box()
-
-
-
-
 
     @staticmethod
     def from_pyvista(
@@ -387,51 +376,6 @@ class Mesh3:
                 mesh.cell_data[k] = self.face_data[k][faces]
 
         return mesh
-
-    def corefine(self, other: Mesh3) -> None:
-        """Corefines the two meshes in place"""
-        sgm.corefine.corefine(self._mesh, other._mesh)
-
-    def union(self, other: Mesh3, inplace=False) -> Mesh3:
-        """Corefines the two meshes and returns their boolean union"""
-        out = self if inplace else Mesh3(_Mesh3())
-        sgm.corefine.union(self._mesh, other._mesh, out._mesh)
-        return out
-
-    def difference(self, other: Mesh3, inplace=False) -> Mesh3:
-        """Corefines the two meshes and returns their boolean difference"""
-        out = self if inplace else Mesh3(_Mesh3())
-        sgm.corefine.difference(self._mesh, other._mesh, out._mesh)
-        return out
-
-    def intersection(self, other: Mesh3, inplace=False) -> Mesh3:
-        """Corefines the two meshes and returns their boolean intersection"""
-        out = self if inplace else Mesh3(_Mesh3())
-        sgm.corefine.intersection(self._mesh, other._mesh, out._mesh)
-        return out
-
-    def corefine_tracked(
-            self,
-            other: Mesh3,
-            vert_idx: str,
-            edge_constrained: str,
-            face_idx: Optional[str] = None,
-    ) -> None:
-        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained, face_idx)
-        sgm.corefine.corefine(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)
-
-    def clip_tracked(self, other: Mesh3, vert_idx: str, face_idx: Optional[str] = None):
-        tracker = _get_corefined_properties(self, other, vert_idx=vert_idx, face_idx=face_idx)
-        sgm.corefine.clip(self._mesh, other._mesh, tracker)
-
-    def union_tracked(
-            self,
-            other: Mesh3,
-            vert_idx: str | PropertyMap[Vertex, int],
-            edge_constrained: str | PropertyMap[Edge, bool],
-    ) -> None:
-        tracker, ecm1, ecm2 = _get_corefined_properties(self, other, vert_idx, edge_constrained)
-        sgm.corefine.union(self._mesh, other._mesh, ecm1.pmap, ecm2.pmap, tracker)
 
     def remesh(
             self,
@@ -908,36 +852,10 @@ class Skeleton:
         sk_mesh.point_data['max_radius'] = self.radii[:, 1]
 
 
-def _get_corefined_properties(
-        mesh1: Mesh3,
-        mesh2: Mesh3,
-        vert_idx: str,
-        edge_constrained: Optional[str] = None,
-        face_idx: Optional[str] = None,
-):
-    vert_idx1 = mesh1.vertex_data.get_or_create_property(vert_idx, default=-1, signed=True)
-    vert_idx2 = mesh2.vertex_data.get_or_create_property(vert_idx, default=-1, signed=True)
-
-    if face_idx:
-        face_idx1 = mesh1.face_data.get_or_create_property(face_idx, default=-1, signed=True)
-        face_idx2 = mesh2.face_data.get_or_create_property(face_idx, default=-1, signed=True)
-        tracker = sgm.corefine.CorefinementVertexFaceTracker(
-            mesh1.mesh, mesh2.mesh, vert_idx1.pmap, vert_idx2.pmap, face_idx1.pmap, face_idx2.pmap)
-    else:
-        tracker = sgm.corefine.CorefinementVertexTracker(mesh1.mesh, mesh2.mesh, vert_idx1.pmap, vert_idx2.pmap)
-
-    if edge_constrained:
-        ecm1 = mesh1.edge_data.get_or_create_property(edge_constrained, default=False)
-        ecm2 = mesh2.edge_data.get_or_create_property(edge_constrained, default=False)
-        return tracker, ecm1, ecm2
-    else:
-        return tracker
-
-
 Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
 Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
 
-
+"""Something that can vector-index a property map"""
 IntoIndices = np.ndarray | Sequence[Key] | slice | Indices[Key]
 
 

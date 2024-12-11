@@ -112,10 +112,5 @@ void init_connected(py::module &m) {
             CGAL::expand_face_selection(faces, mesh, k, is_selected, std::back_inserter(added));
             return added;
         })
-//      TODO: maybe I actually want make_hole?
-//      #include <CGAL/boost/graph/Euler_operations.h>
-//        .def("remove_faces", [](Mesh3& mesh, const Indices<F>& faces) {
-//            faces.apply([&mesh](F f){ CGAL::Euler::remove_face(); });
-//        })
     ;
 }
