@@ -135,8 +135,8 @@ ext_modules = [
             # 'src/triangulate.cpp',
 
 
-            # 'src/corefine.cpp',
-
+            'src/corefine.cpp',
+        #
 
 
 

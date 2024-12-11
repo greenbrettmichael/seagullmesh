@@ -25,89 +25,84 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-_IndexTypes = (Vertex, Face, Edge, Halfedge)
-Index = TypeVar('Index', Vertex, Face, Edge, Halfedge)
 
-_Indices = TypeVar(
-    '_Indices',
-    sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges,
-)
-
-_index_to_indices = {
-    Vertex: sgm.mesh.Vertices,
-    Face: sgm.mesh.Faces,
-    Edge: sgm.mesh.Edges,
-    Halfedge: sgm.mesh.Halfedges,
-}
-
-_indices_to_index = {
-    sgm.mesh.Vertices: Vertex,
-    sgm.mesh.Faces: Face,
-    sgm.mesh.Edges: Edge,
-    sgm.mesh.Halfedges: Halfedge,
-}
+TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
+TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 
 
-class Indices(Generic[Index]):
-    def __init__(self, mesh: Mesh3, indices: _Indices, idx_t: Type[Index]):
+class Indices(Generic[TIndex, TIndices]):
+    index_type: Type[TIndex]  # Set by subclass
+    indices_type: Type[TIndices]  # Set by subclass
+
+    _indices_types =  sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
+    _cpp_indices_to_py_indices: Dict[Type[_indices_types], Type[Indices]]
+
+    def __init__(self, mesh: Mesh3, indices: TIndices):
         self._mesh = mesh
-        self.indices = indices  # The C++ Indices<Index> object: Vertices, Faces, Edges, Halfedges
-        self.idx_t = idx_t  # Vertex, Face, Edge, Halfedge
+        self.indices = indices
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass()
+        Indices._cpp_indices_to_py_indices[cls.indices_type] = cls
+
+    @staticmethod
+    def from_indices(mesh: Mesh3, indices: TIndices) -> Indices:
+        return Indices._cpp_indices_to_py_indices[type(indices)](mesh, indices)
 
     def __repr__(self) -> str:
-        return f'Indices[{self.idx_t.__name__}](n={len(self)})'
+        return f'Indices[{self.index_type.__name__}](n={len(self)})'
 
     def __len__(self) -> int:
         return len(self._array)
 
-    def __eq__(self, other: Index | Indices[Index]) -> np.ndarray:
-        if isinstance(other, self.idx_t):
+    def __eq__(self, other: TIndex | Indices[TIndex]) -> np.ndarray:
+        if isinstance(other, self.index_type):
             return self._array == other.to_int()
-        elif isinstance(other, Indices) and (other.idx_t is self.idx_t):
+        elif isinstance(other, Indices) and (other.index_type is self.index_type):
             return self._array == other._array
         else:
             msg = f"Can only compare indices of the same type, got {self=} and {other=}"
             raise TypeError(msg)
 
-    def __ne__(self, other: Index | Indices[Index]) -> np.ndarray:
-        return ~(self == other)
+    def __ne__(self, other: TIndex | Indices[TIndex]) -> np.ndarray:
+        return np.logical_not((self == other))
 
-    def __iter__(self) -> Iterator[Index]:
+    def __iter__(self) -> Iterator[TIndex]:
         for i in self._array:
-            yield self.idx_t(i)
+            yield self.index_type(i)
 
     def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
-        indices = type(self.indices)(arr)
+        indices = self.indices_type(arr)
         return type(self)(self._mesh, indices)
 
     @property
     def _array(self) -> np.ndarray:  # array of ints
-        return self.indices.indices
+        return self.indices.get_indices()
 
     def copy(self) -> Self:
         return self._with_array(self._array.copy())
 
     @overload
-    def __getitem__(self, item: int) -> Index: ...  # Vertex, Face, Edge, Halfedge
+    def __getitem__(self, item: int) -> TIndex: ...  # Vertex, Face, Edge, Halfedge
 
     @overload
     def __getitem__(self, item: slice | Sequence[int] | np.ndarray) -> Self: ...  # slice self to get another Self
 
     def __getitem__(self, item):
         if isinstance(item, int):
-            return self.idx_t(self._array[item])  # Convert int to descriptor
+            return self.index_type(self._array[item])  # Convert int to descriptor
         else:
             # As long as it can slice an array we're happy
             return self._with_array(self._array[item])
 
     @overload
-    def __setitem__(self, item: int, value: Index): ...  # self.idxs[8] = some_vertex
+    def __setitem__(self, item: int, value: TIndex): ...  # self.idxs[8] = some_vertex
 
     @overload
     def __setitem__(self, item: Sequence, value: Self): ...  # self.idxs[1:]] = self.idxs[1:][::-1]
 
     def __setitem__(self, item, value):
-        if isinstance(item, int) and isinstance(value, self.idx_t):
+        if isinstance(item, int) and isinstance(value, self.index_type):
             # faces[0] = some_face
             self._array[item] = value.to_int()
         elif isinstance(value, type(self)):
@@ -122,30 +117,33 @@ class Indices(Generic[Index]):
         return self._with_array(np.unique(self._array))
 
     @classmethod
-    def collect(cls, mesh: Mesh3, idx_t: Type[Index], indices: list[Index]) -> Self:
+    def collect(cls, mesh: Mesh3, idx_t: Type[TIndex], indices: list[TIndex]) -> Self:
         idxs_cls = _index_to_indices[idx_t]
         _indices = idxs_cls.from_indices(indices)  # static constructor
         return cls(mesh=mesh, indices=_indices)
 
 
-class Vertices(Indices[Vertex]):
-    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Vertices):
-        super().__init__(mesh, indices, idx_t=Vertex)
 
-    # TODO these return the C++ indices, what's an easy way to wrap them?
-    # def adjacent_faces(self) -> Faces:
-    #     return sgm.connected.vertices_to_faces(self._mesh.mesh, self.indices)
-    #
-    # def adjacent_edges(self) -> Edges:
-    #     return sgm.connected.edges_to_faces(self._mesh.mesh, self.indices)
-    #
-    # def degrees(self) -> np.ndarray:
-    #     return sgm.connected.vertex_degrees(self._mesh, self.indices)
+class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
+    index_type = Vertex
+    indices_type = sgm.mesh.Vertices
+
+    def adjacent_faces(self) -> Faces:
+        return Faces(self._mesh, sgm.connected.vertices_to_faces(self._mesh.mesh, self.indices))
+
+    def adjacent_edges(self) -> Edges:
+        return Edges(self._mesh, sgm.connected.edges_to_faces(self._mesh.mesh, self.indices))
+
+    def degrees(self) -> np.ndarray:
+        return sgm.connected.vertex_degrees(self._mesh, self.indices)
+
+    def points(self) -> nd.ndarray:
+        return self._mesh.vertex_point_map[self]
 
 
-class Faces(Indices[Face]):
-    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Faces):
-        super().__init__(mesh, indices, idx_t=Face)
+class Faces(Indices[Face, sgm.mesh.Faces]):
+    index_type = Face
+    indices_type = sgm.mesh.Faces
 
     def construct_points(
             self,
@@ -165,24 +163,28 @@ class Faces(Indices[Face]):
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self._mesh)  # TODO index, index_map
 
-    # def adjacent_edges(self) -> Edges:
-    #     return sgm.connected.faces_to_edges(self._mesh.mesh, self.indices)
-    #
-    # def adjacent_vertices(self) -> Vertices:
-    #     return sgm.connected.faces_to_vertices(self._mesh.mesh, self.indices)
+    def normals(self, faces: Faces) -> np.ndarray:
+        """Returns a (len(faces) * 3) array of face normal vectors"""
+        return self._mesh.face_normals(faces)
+
+    def adjacent_edges(self) -> Edges:
+        return Edges(self._mesh, sgm.connected.faces_to_edges(self._mesh.mesh, self.indices))
+
+    def adjacent_vertices(self) -> Vertices:
+        return Vertices(self._mesh, sgm.connected.faces_to_vertices(self._mesh.mesh, self.indices))
 
 
-class Edges(Indices[Edge]):
-    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Edges):
-        super().__init__(mesh, indices, idx_t=Edge)
+class Edges(Indices[Edge, sgm.mesh.Edges]):
+    index_type = Edge
+    indices_type = sgm.mesh.Edges
 
     def edge_soup(self) -> np.ndarray:
         return sgm.io.edge_soup(self._mesh)  # TODO index, index_map
 
 
-class Halfedges(Indices[Halfedge]):
-    def __init__(self, mesh: Mesh3, indices: sgm.mesh.Halfedges):
-        super().__init__(mesh, indices, idx_t=Halfedge)
+class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
+    index_type = Halfedge
+    indices_type = sgm.mesh.Halfedges
 
 
 class Mesh3:
@@ -224,6 +226,9 @@ class Mesh3:
     def halfedges(self) -> Halfedges:
         """Vector of halfedge indices"""
         return Halfedges(self, self._mesh.halfedges)
+
+    def indices(self, cls: Type[Indices]):
+        pass
 
     n_vertices = property(lambda self: self._mesh.n_vertices)
     n_faces = property(lambda self: self._mesh.n_faces)
@@ -290,7 +295,7 @@ class Mesh3:
     @staticmethod
     def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
         out = Mesh3()
-        out._mesh.icosahedron(*center, radius)
+        sgm.mesh.add_icosahedron(out._mesh, *center, radius)
         return out
 
     @staticmethod
@@ -301,9 +306,9 @@ class Mesh3:
             radius: float = 1.0,
             closed: bool = True,
     ):
-        base_center = Point3(*base_center) if not isinstance(base_center, Point3) else base_center
         out = Mesh3()
-        out._mesh.pyramid(n_base_pts, base_center, height, radius, closed)
+        base_center = Point3(*base_center) if not isinstance(base_center, Point3) else base_center
+        sgm.mesh.add_pyramid(out._mesh, n_base_pts, base_center, height, radius, closed)
         return out
 
     def estimate_geodesic_distances(
@@ -326,10 +331,6 @@ class Mesh3:
 
     def volume(self) -> float:
         return self._mesh.volume()
-
-    def face_normals(self, faces: Faces) -> np.ndarray:
-        """Returns a (len(faces) * 3) array of face normal vectors"""
-        return self._mesh.face_normals(faces)
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return self._mesh.bounding_box()
@@ -894,7 +895,7 @@ class PropertyMap(Generic[Key, Val], ABC):
         return self._dtype_name
 
     @property
-    def key_t(self) -> Type[Index]:
+    def key_t(self) -> Type[TIndex]:
         return self._data.key_t
 
     @property
@@ -912,10 +913,10 @@ class PropertyMap(Generic[Key, Val], ABC):
                 # 2) index into indices, like a ndarray[bool]
                 key = self._data.mesh_keys[key]
 
-        if key.idx_t is self.key_t:
+        if key.index_type is self.key_t:
             return key.indices
         else:
-            msg = f'Tried to index a {self.key_t} property map with {key.idx_t} indices'
+            msg = f'Tried to index a {self.key_t} property map with {key.index_type} indices'
             raise TypeError(msg)
 
     @overload
@@ -998,7 +999,7 @@ class MeshData(Generic[Key]):
     def __init__(
             self,
             mesh: Mesh3,
-            key_t: Type[Index],
+            key_t: Type[TIndex],
             indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}

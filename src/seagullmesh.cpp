@@ -37,7 +37,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
 //    init_meshing(m);
 //    init_triangulate(m);
 
-//    init_corefine(m);
+    init_corefine(m);
 
 
 }

@@ -23,11 +23,17 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     VertexMap& vert_map;
     FaceInt& face_mesh_idx;
     FaceMap& face_map;
-    F split_face;
+    uint32_t pre_split_face_mesh_idx;
+    F pre_split_face;
 
-//    CorefineVertexFaceTracker(
-//        Mesh3& m1, Mesh3& m2, VertexIndex& v1, VertexIndex& v2, FaceIndex& f1, FaceIndex&f2
-//    ) : mesh1(m1), mesh2(m2), vert_ids1(v1), vert_ids2(v2), face_ids1(f1), face_ids2(f2), face_id(-1) {}
+    CorefineTracker(
+        Mesh3& m1, Mesh3& m2, VertexInt& vi, VertexMap& vm, FaceInt& fi, FaceMap& fm
+    ) : mesh1(m1), mesh2(m2),
+        vert_mesh_idx(vi), vert_map(vm),
+        face_mesh_idx(fi), face_map(fm),
+        pre_split_face_mesh_idx(2),
+        pre_split_face(Mesh3::null_face())
+        {}
 
     uint32_t mesh_idx(const Mesh3& mesh) {
         if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
@@ -44,47 +50,53 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         vert_mesh_idx[v] = 2;
     }
     void before_subface_creations(F f, Mesh3& mesh) {
-        split_face = f;
+        pre_split_face = f;
+        pre_split_face_mesh_idx = mesh_idx(mesh);
     }
     void after_subface_created(F f_new, const Mesh3& mesh) {
-        face_mesh_idx[f_new] = face_mesh_idx[split_face];
-        face_map[f_new] = face_map[split_face];
+        face_mesh_idx[f_new] = pre_split_mesh_idx;
+        face_map[f_new] = pre_split_face;
     }
 };
 
 
 // TODO
-// All methods accept the output arg and let python handle inplace or not
 // All methods accept the visitor, who cares about optimizing the simple case
 // All methods return bool success, throw on the python side
-
 
 void init_corefine(py::module &m) {
     py::module sub = m.def_submodule("corefine");
 
-    py::class_<CorefineTracker>(sub, "CorefineTracker")
-        .def(py::init<Mesh3&, Mesh3&, VertexIndex&, VertexIndex&>())
-    ;
+//    py::class_<CorefineTracker>(sub, "CorefineTracker")
+//        // .def(py::init<Mesh3&, Mesh3&, VertexInt&, VertexMap&, FaceInt&>())
+//        .def(py::init())
+//    ;
 
 
-    sub
-        .def("corefine", [](
-                Mesh3& mesh1, Mesh3& mesh2,
-                EdgeConstrainedMap& ecm1, EdgeConstrainedMap& ecm2,
-                CorefineTracker& tracker) {
-
-            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
-            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            PMP::corefine(mesh1, mesh2, params1, params2);
-        })
-        .def("union", [](
-                Mesh3& mesh1, Mesh3& mesh2,
-                EdgeConstrainedMap& ecm1, EdgeConstrainedMap& ecm2,
-                CorefineTracker& tracker) {
-
-            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
-            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            return PMP::corefine_and_compute_union(mesh1, mesh2, mesh1, params1, params2);
-        })
-    ;
+//    sub
+//        .def("corefine", [](
+//                Mesh3& mesh1,
+//                Mesh3& mesh2,
+//                EdgeConstrainedMap& ecm1,
+//                EdgeConstrainedMap& ecm2,
+//                CorefineTracker& tracker
+//        ) {
+//
+//            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
+//            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
+//            PMP::corefine(mesh1, mesh2, params1, params2);
+//        })
+//        .def("union", [](
+//                Mesh3& mesh1,
+//                Mesh3& mesh2,
+//                Mesh3& ouput,
+//                EdgeConstrainedMap& ecm1,
+//                EdgeConstrainedMap& ecm2,
+//                CorefineTracker& tracker) {
+//
+//            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
+//            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
+//            return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
+//        })
+//    ;
 }
