@@ -132,7 +132,7 @@ ext_modules = [
             # 'src/poisson_reconstruct.cpp',
             # 'src/alpha_wrapping.cpp',
             # 'src/meshing.cpp',
-            'src/triangulate.cpp',
+            # 'src/triangulate.cpp',
 
 
             # 'src/corefine.cpp',

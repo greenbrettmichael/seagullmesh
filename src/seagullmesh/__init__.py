@@ -289,8 +289,21 @@ class Mesh3:
 
     @staticmethod
     def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
-        out = Mesh3(sgm.mesh.Mesh3())
+        out = Mesh3()
         out._mesh.icosahedron(*center, radius)
+        return out
+
+    @staticmethod
+    def pyramid(
+            base_center: np.ndarray | Sequence[float] | Point3 = (0, 0, 0),
+            n_base_pts: int = 4,
+            height: float = 1.0,
+            radius: float = 1.0,
+            closed: bool = True,
+    ):
+        base_center = Point3(*base_center) if not isinstance(base_center, Point3) else base_center
+        out = Mesh3()
+        out._mesh.pyramid(n_base_pts, base_center, height, radius, closed)
         return out
 
     def estimate_geodesic_distances(
