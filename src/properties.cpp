@@ -71,6 +71,23 @@ void define_scalar_property_map(py::module &m, std::string name) {
     ;
 }
 
+
+// Properties mapping one key type to another, e.g. PMap[F, F] or PMap[F, V] etc
+template <typename Key, typename Val>
+void define_index_property_map(py::module &m, std::string name) {
+    using PMap = typename Mesh3::Property_map<Key, Val>;
+
+    define_property_map<Key, Val>(m, name, true)
+        .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
+            auto idxs_out = indices.map_to_array_of_scalars<uint32_t>([&pmap](Key k) { return uint32_t(pmap[k]); });
+            return Indices<Val>(idxs_out);
+        })
+        .def("__setitem__", [](PMap& pmap, const Indices<Key>& keys, const Indices<Val>& vals) {
+            keys.zip<Val>(vals, [&pmap](Key k, Val v){ pmap[k] = v; });
+        })
+    ;
+}
+
 // For Point2/3 and Vector2/3
 // template variable U here could be hardcoded to double but left generic for future int-valued vectors
 template <typename Key, typename Val, size_t Dim, typename U>
@@ -168,6 +185,9 @@ void init_properties(py::module &m) {
     define_scalar_property_map<F, double   >(sub, "F_double_PropertyMap");
     define_scalar_property_map<E, double   >(sub, "E_double_PropertyMap");
     define_scalar_property_map<H, double   >(sub, "H_double_PropertyMap");
+
+    define_index_property_map<V, V>(sub, "V_Vertex_PropertyMap");
+    define_index_property_map<F, F>(sub, "F_Face_PropertyMap");
 
     define_array_property_map<V, Point2, 2, double >(sub, "V_Point2_PropertyMap");
     define_array_property_map<F, Point2, 2, double >(sub, "F_Point2_PropertyMap");

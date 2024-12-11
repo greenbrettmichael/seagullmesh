@@ -22,8 +22,8 @@ void init_geometry(py::module&);
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
-    init_geometry(m);
-//    init_properties(m);
+//    init_geometry(m);
+    init_properties(m);
 //    init_io(m);
 //    init_geodesic_distances(m);
 //    init_locate(m);

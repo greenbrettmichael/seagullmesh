@@ -59,13 +59,12 @@ class Indices {
         }
     }
 
-
     // To vector
     std::vector<T> to_vector() const {
         return map_to_vector<T>([](T idx) { return idx; } );
     }
 
-    size_t size() const { return indices.size(); }
+    size_t size() const { return size_t(indices.size()); }
 
     template<typename U>
     std::vector<U> map_to_vector(const std::function<U (T)> fn) const {
@@ -135,6 +134,16 @@ class Indices {
         auto ridxs = indices.unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             fn(i, T(ridxs(i)));
+        }
+    }
+
+    template<typename U>
+    void zip(const Indices<U>& other, std::function<void (T, U)> fn) const {
+        py::ssize_t n = indices.size();
+        auto rt = indices.unchecked<1>();
+        auto ru = indices.unchecked<1>();
+        for (py::ssize_t i = 0; i < n; ++i) {
+            fn(T(rt(i)), U(ru(i)));
         }
     }
 
