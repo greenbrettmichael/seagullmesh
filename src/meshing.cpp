@@ -182,74 +182,74 @@ void init_meshing(py::module &m) {
             PMP::refine(mesh, faces.to_vector(), std::back_inserter(new_faces), std::back_inserter(new_verts), params);
             return std::make_pair(Indices<V>(new_verts), Indices<F>(new_faces));
         })
-//        .def("smooth_angle_and_area", [](
-//            Mesh3& mesh,
-//            const Indices<F>& faces,
-//            unsigned int n_iter,
-//            bool use_area_smoothing,
-//            bool use_angle_smoothing,
-//            bool use_safety_constraints,
-//            bool do_project,
-//            VertBool& vertex_is_constrained_map,
-//            EdgeBool& edge_is_constrained_map
-//        ) {
-//            auto params = PMP::parameters::
-//                number_of_iterations(n_iter)
-//                .use_area_smoothing(use_area_smoothing)
-//                .use_angle_smoothing(use_angle_smoothing)
-//                .use_safety_constraints(use_safety_constraints)
-//                .do_project(do_project)
-//                .vertex_is_constrained_map(vertex_is_constrained_map)
-//                .edge_is_constrained_map(edge_is_constrained_map)
-//            ;
-//            PMP::angle_and_area_smoothing(faces.to_vector(), mesh, params);
-//        })
-//        .def("tangential_relaxation", [](
-//            Mesh3& mesh,
-//            const Indices<V>& verts,
-//            unsigned int n_iter,
-//            bool relax_constraints,
-//            VertBool& vertex_is_constrained_map,
-//            EdgeBool& edge_is_constrained_map
-//        ) {
-//            auto params = PMP::parameters::
-//                number_of_iterations(n_iter)
-//                .relax_constraints(relax_constraints)
-//                .vertex_is_constrained_map(vertex_is_constrained_map)
-//                .edge_is_constrained_map(edge_is_constrained_map)
-//            ;
-//            PMP::tangential_relaxation(verts.to_vector(), mesh, params);
-//        })
-//        .def("smooth_shape", [](
-//            Mesh3& mesh,
-//            const Indices<F>& faces,
-//            const double time,
-//            unsigned int n_iter,
-//            VertBool& vertex_is_constrained_map
-//        ) {
-//            auto params = PMP::parameters::
-//                number_of_iterations(n_iter)
-//                .vertex_is_constrained_map(vertex_is_constrained_map)
-//            ;
-//            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
-//        })
-//        .def("does_self_intersect", [](const Mesh3& mesh) {
-//            return PMP::does_self_intersect(mesh);
-//        })
-//        .def("self_intersections", [](const Mesh3& mesh) {
-//            std::vector<std::pair<F, F>> pairs;
-//            PMP::self_intersections(mesh, std::back_inserter(pairs));
-//
-//            std::vector<F> first, second;
-//            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
-//            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
-//
-//            return std::make_tuple(Indices<F>(first), Indices<F>(second));
-//        })
-//        .def("remove_self_intersections", [](Mesh3& mesh) {
-//            // returns a bool, presumably success
-//            return PMP::experimental::remove_self_intersections(mesh);
-//        })
+        .def("smooth_angle_and_area", [](
+            Mesh3& mesh,
+            const Indices<F>& faces,
+            unsigned int n_iter,
+            bool use_area_smoothing,
+            bool use_angle_smoothing,
+            bool use_safety_constraints,
+            bool do_project,
+            VertBool& vertex_is_constrained_map,
+            EdgeBool& edge_is_constrained_map
+        ) {
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .use_area_smoothing(use_area_smoothing)
+                .use_angle_smoothing(use_angle_smoothing)
+                .use_safety_constraints(use_safety_constraints)
+                .do_project(do_project)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+                .edge_is_constrained_map(edge_is_constrained_map)
+            ;
+            PMP::angle_and_area_smoothing(faces.to_vector(), mesh, params);
+        })
+        .def("tangential_relaxation", [](
+            Mesh3& mesh,
+            const Indices<V>& verts,
+            unsigned int n_iter,
+            bool relax_constraints,
+            VertBool& vertex_is_constrained_map,
+            EdgeBool& edge_is_constrained_map
+        ) {
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .relax_constraints(relax_constraints)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+                .edge_is_constrained_map(edge_is_constrained_map)
+            ;
+            PMP::tangential_relaxation(verts.to_vector(), mesh, params);
+        })
+        .def("smooth_shape", [](
+            Mesh3& mesh,
+            const Indices<F>& faces,
+            const double time,
+            unsigned int n_iter,
+            VertBool& vertex_is_constrained_map
+        ) {
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+            ;
+            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
+        })
+        .def("does_self_intersect", [](const Mesh3& mesh) {
+            return PMP::does_self_intersect(mesh);
+        })
+        .def("self_intersections", [](const Mesh3& mesh) {
+            std::vector<std::pair<F, F>> pairs;
+            PMP::self_intersections(mesh, std::back_inserter(pairs));
+
+            std::vector<F> first, second;
+            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.first; }), std::back_inserter(first));
+            boost::copy(pairs | boost::adaptors::transformed([](const auto& pair) { return pair.second; }), std::back_inserter(second));
+
+            return std::make_tuple(Indices<F>(first), Indices<F>(second));
+        })
+        .def("remove_self_intersections", [](Mesh3& mesh) {
+            // returns a bool, presumably success
+            return PMP::experimental::remove_self_intersections(mesh);
+        })
 //        .def("remesh_planar_patches", [](
 //                const Mesh3& mesh,
 //                EdgeBool& edge_is_constrained_map,
