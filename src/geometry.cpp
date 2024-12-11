@@ -67,11 +67,11 @@ void init_geometry(py::module &m) {
                 [&mesh](V v) {return PMP::compute_vertex_normal(v, mesh);}
             );
         })
-//        .def("face_areas", [](const Mesh3& mesh, const Indices<F>& faces) {
-//            return faces.map_to_array_of_scalars<F, double>(
-//                [&mesh](F f){ return PMP::face_area(f, mesh);}
-//            );
-//        })
+        .def("face_areas", [](const Mesh3& mesh, const Indices<F>& faces) {
+            return faces.map_to_array_of_scalars<double>(
+                [&mesh](F f){ return PMP::face_area(f, mesh);}
+            );
+        })
 //        .def("edge_lengths", [](const Mesh3& mesh, const Indices<E>& Edges) {
 //            return faces.map_to_array_of_scalars<E, double>(
 //                [&mesh](E e){ return PMP::edge_length(f, mesh);}
@@ -82,7 +82,7 @@ void init_geometry(py::module &m) {
 //        .def("bounding_box", [](const Mesh3& mesh) {
 //            return PMP::bbox(mesh);
 //        })
-//        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
+////        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
 //            Transform3 t = array_to_transform3(transform);
 //            auto points = mesh.points();
 //            for (V v : mesh.vertices() ) {
