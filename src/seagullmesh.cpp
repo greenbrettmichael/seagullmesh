@@ -34,11 +34,10 @@ PYBIND11_MODULE(_seagullmesh, m) {
 //    init_parametrize(m);
 //    init_poisson_reconstruct(m);
 //    init_alpha_wrapping(m);
-
-    init_meshing(m);
+//    init_meshing(m);
+    init_triangulate(m);
 
 //    init_corefine(m);
-//    init_triangulate(m);
 
 
 }
