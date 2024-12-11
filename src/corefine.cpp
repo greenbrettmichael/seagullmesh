@@ -68,72 +68,23 @@ void init_corefine(py::module &m) {
 
 
     sub
-        .def("corefine", [](Mesh3& mesh1, Mesh3& mesh2){
-            PMP::corefine(mesh1, mesh2);
-        })
         .def("corefine", [](
                 Mesh3& mesh1, Mesh3& mesh2,
                 EdgeConstrainedMap& ecm1, EdgeConstrainedMap& ecm2,
-                CorefinementVertexTracker& tracker) {
+                CorefineTracker& tracker) {
 
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
             PMP::corefine(mesh1, mesh2, params1, params2);
-        })
-        .def("corefine", [](
-                Mesh3& mesh1, Mesh3& mesh2,
-                EdgeConstrainedMap& ecm1, EdgeConstrainedMap& ecm2,
-                CorefinementVertexFaceTracker& tracker) {
-
-            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
-            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            PMP::corefine(mesh1, mesh2, params1, params2);
-        })
-        .def("clip", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexTracker& tracker){
-            auto params1 = PMP::parameters::visitor(tracker);
-            PMP::clip(mesh1, mesh2, params1);
-        })
-        .def("clip", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexFaceTracker& tracker){
-            auto params1 = PMP::parameters::visitor(tracker);
-            PMP::clip(mesh1, mesh2, params1);
-        })
-        .def("split", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexTracker& tracker){
-            auto params1 = PMP::parameters::visitor(tracker);
-            PMP::split(mesh1, mesh2, params1);
-        })
-        .def("split", [](Mesh3& mesh1, Mesh3& mesh2, CorefinementVertexFaceTracker& tracker){
-            auto params1 = PMP::parameters::visitor(tracker);
-            PMP::split(mesh1, mesh2, params1);
-        })
-        .def("difference", [](Mesh3& mesh1, Mesh3& mesh2, Mesh3& out) {
-            bool success = PMP::corefine_and_compute_difference(mesh1, mesh2, out);
-            if (!success) {
-                throw std::runtime_error("Boolean operation failed.");
-            }
-        })
-        .def("union", [](Mesh3& mesh1, Mesh3& mesh2, Mesh3& out) {
-            bool success = PMP::corefine_and_compute_union(mesh1, mesh2, out);
-            if (!success) {
-                throw std::runtime_error("Boolean operation failed.");
-            }
-        })
-        .def("intersection", [](Mesh3& mesh1, Mesh3& mesh2, Mesh3& out) {
-            bool success = CGAL::Polygon_mesh_processing::corefine_and_compute_intersection(mesh1, mesh2, out);
-            if (!success) {
-                throw std::runtime_error("Boolean operation failed.");
-            }
         })
         .def("union", [](
                 Mesh3& mesh1, Mesh3& mesh2,
                 EdgeConstrainedMap& ecm1, EdgeConstrainedMap& ecm2,
-                CorefinementVertexTracker& tracker) {
+                CorefineTracker& tracker) {
 
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            bool success = PMP::corefine_and_compute_union(mesh1, mesh2, mesh1, params1, params2);
-            if (!success) {
-                throw std::runtime_error("Boolean operation failed.");
-            }
+            return PMP::corefine_and_compute_union(mesh1, mesh2, mesh1, params1, params2);
         })
     ;
 }

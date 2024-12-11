@@ -75,10 +75,10 @@ void init_mesh(py::module &m) {
         .def_property_readonly("has_garbage", [](const Mesh3& mesh) {return mesh.has_garbage();})
         .def("collect_garbage", [](Mesh3& mesh) {mesh.collect_garbage();})
 
-        .def_readonly("null_vertex", &Mesh3::null_vertex)
-        .def_readonly("null_face", &Mesh3::null_face)
-        .def_readonly("null_edge", &Mesh3::null_edge)
-        .def_readonly("null_halfedge", &Mesh3::null_halfedge)
+        .def_static("null_vertex", &Mesh3::null_vertex)
+        .def_static("null_face", &Mesh3::null_face)
+        .def_static("null_edge", &Mesh3::null_edge)
+        .def_static("null_halfedge", &Mesh3::null_halfedge)
         
         .def_property_readonly("is_valid", [](const Mesh3& mesh) { return mesh.is_valid(false); })
         .def_property_readonly("n_vertices", [](const Mesh3& mesh) { return mesh.number_of_vertices(); })
