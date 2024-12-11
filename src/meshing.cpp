@@ -175,13 +175,13 @@ void init_meshing(py::module &m) {
                 throw std::runtime_error("Fairing failed");
             }
         })
-//        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
-//            std::vector<V> new_verts;
-//            std::vector<F> new_faces;
-//            auto params = PMP::parameters::density_control_factor(density);
-//            PMP::refine(mesh, faces, std::back_inserter(new_faces), std::back_inserter(new_verts), params);
-//            return std::make_tuple(Indices<V>(new_verts), Indices<F>(new_faces));
-//        })
+        .def("refine", [](Mesh3& mesh, const Indices<F>& faces, double density) {
+            std::vector<V> new_verts;
+            std::vector<F> new_faces;
+            auto params = PMP::parameters::density_control_factor(density);
+            PMP::refine(mesh, faces.to_vector(), std::back_inserter(new_faces), std::back_inserter(new_verts), params);
+            return std::make_pair(Indices<V>(new_verts), Indices<F>(new_faces));
+        })
 //        .def("smooth_angle_and_area", [](
 //            Mesh3& mesh,
 //            const Indices<F>& faces,
