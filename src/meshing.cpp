@@ -266,21 +266,21 @@ void init_meshing(py::module &m) {
 //            PMP::remesh_planar_patches(mesh, out, params);
 //            return out;
 //        })
-//        .def("interpolated_corrected_curvatures", [](
-//            const Mesh3& mesh,
-//            VertDouble& mean_curv_map,
-//            VertDouble& gauss_curv_map,
-//            VertPrincipalCurvDir& princ_curv_dir_map,
-//            const double ball_radius
-//        ) {
-//            auto params = PMP::parameters::
-//                vertex_mean_curvature_map(mean_curv_map)
-//                .vertex_Gaussian_curvature_map(gauss_curv_map)
-//                .vertex_principal_curvatures_and_directions_map(princ_curv_dir_map)
-//                .ball_radius(ball_radius)
-//            ;
-//            PMP::interpolated_corrected_curvatures(mesh, params);
-//        })
+        .def("interpolated_corrected_curvatures", [](
+            const Mesh3& mesh,
+            VertDouble& mean_curv_map,
+            VertDouble& gauss_curv_map,
+            VertPrincipalCurvDir& princ_curv_dir_map,
+            const double ball_radius
+        ) {
+            auto params = PMP::parameters::
+                vertex_mean_curvature_map(mean_curv_map)
+                .vertex_Gaussian_curvature_map(gauss_curv_map)
+                .vertex_principal_curvatures_and_directions_map(princ_curv_dir_map)
+                .ball_radius(ball_radius)
+            ;
+            PMP::interpolated_corrected_curvatures(mesh, params);
+        })
 //        .def("refine_mesh_at_isolevel", [](
 //            Mesh3& mesh,
 //            VertDouble& value_map,
