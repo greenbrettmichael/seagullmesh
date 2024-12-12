@@ -2,18 +2,17 @@ import numpy as np
 from numpy import arange, ones
 
 from seagullmesh import Mesh3, Vertex, Vertices
+from .util import mesh
 
 
-def test_indices_from_vector():
-    mesh = Mesh3.icosahedron()
+def test_indices_from_vector(mesh):
     vs = mesh.vertices
     v0, v1 = vs[0], vs[1]
     idxs = Vertices(mesh, [v0, v1])
     assert (idxs == vs[:2]).all()
 
 
-def test_index_indexing():
-    mesh = Mesh3.icosahedron()
+def test_index_indexing(mesh):
     idxs = mesh.vertices
     assert len(idxs) == mesh.n_vertices
     n = len(idxs)
@@ -41,3 +40,8 @@ def test_index_indexing():
     set_ = set(idxs)
     assert len(set_) == n
     assert i in set_
+
+
+def test_vertex_points(mesh: Mesh3):
+    pts = mesh.vertices.points()
+    assert pts.shape == (mesh.n_vertices, 3)

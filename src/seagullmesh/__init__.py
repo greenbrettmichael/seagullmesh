@@ -44,7 +44,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
     # _cpp_index_to_
 
     def __init__(self, mesh: Mesh3, indices: TIndices | Sequence[TIndex]):
-        self._mesh = mesh
+        self.mesh = mesh
 
         if isinstance(indices, Indices._indices_types):
             if isinstance(indices, self.indices_type):
@@ -71,7 +71,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
 
     def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
         indices = self.indices_type(arr)
-        return type(self)(self._mesh, indices)
+        return type(self)(self.mesh, indices)
 
     def __repr__(self) -> str:
         return f'{self.indices_type.__name__}(n={len(self)})'
@@ -125,7 +125,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
             # faces[0] = some_face
             self._array[item] = value.to_int()
         elif isinstance(value, type(self)):
-            if value._mesh is self._mesh:
+            if value.mesh is self.mesh:
                 self._array[item] = value._array
             else:
                 raise ValueError("Assigning indices between different meshes, this is probably a mistake")
@@ -141,16 +141,19 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
     indices_type = sgm.mesh.Vertices
 
     def adjacent_faces(self) -> Faces:
-        return Faces(self._mesh, sgm.connected.vertices_to_faces(self._mesh.mesh, self.indices))
+        return Faces(self.mesh, sgm.connected.vertices_to_faces(self.mesh.mesh, self.indices))
 
     def adjacent_edges(self) -> Edges:
-        return Edges(self._mesh, sgm.connected.edges_to_faces(self._mesh.mesh, self.indices))
+        return Edges(self.mesh, sgm.connected.edges_to_faces(self.mesh.mesh, self.indices))
 
     def degrees(self) -> np.ndarray:
-        return sgm.connected.vertex_degrees(self._mesh, self.indices)
+        return sgm.connected.vertex_degrees(self.mesh, self.indices)
 
-    def points(self) -> nd.ndarray:
-        return self._mesh.vertex_point_map[self]
+    def points(self) -> np.ndarray:
+        return self.mesh.vertex_point_map[self]
+
+    def normals(self) -> np.ndarray:
+        return sgm.geometry.vertex_normals(self.mesh.mesh, self.indices)
 
 
 class Faces(Indices[Face, sgm.mesh.Faces]):
@@ -169,21 +172,25 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         By default, points are constructed using the default mesh vertex points. An optional vertex point map of value
         Point2 or Point3 can also be supplied. The returned array if of shape (len(faces), 2 or 3) as appropriate.
         """
-        pmap = self._mesh.get_vertex_point_map(vert_points)
-        return sgm.locate.construct_points(self._mesh, self.indices, bary_coords, pmap)
+        pmap = self.mesh.get_vertex_point_map(vert_points)
+        return sgm.locate.construct_points(self.mesh, self.indices, bary_coords, pmap)
 
     def triangle_soup(self) -> np.ndarray:
-        return sgm.io.triangle_soup(self._mesh)  # TODO index, index_map
+        return sgm.io.triangle_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
 
-    def normals(self, faces: Faces) -> np.ndarray:
-        """Returns a (len(faces) * 3) array of face normal vectors"""
-        return self._mesh.face_normals(faces)
+    def normals(self) -> np.ndarray:
+        """(nf, 3) array of face normal vectors"""
+        return sgm.geometry.face_normals(self.mesh.mesh, self.indices)
+
+    def areas(self) -> np.ndarray:
+        """(nf,) array of face areas"""
+        return sgm.geometry.face_areas(self.mesh.mesh, self.indices)
 
     def adjacent_edges(self) -> Edges:
-        return Edges(self._mesh, sgm.connected.faces_to_edges(self._mesh.mesh, self.indices))
+        return Edges(self.mesh, sgm.connected.faces_to_edges(self.mesh.mesh, self.indices))
 
     def adjacent_vertices(self) -> Vertices:
-        return Vertices(self._mesh, sgm.connected.faces_to_vertices(self._mesh.mesh, self.indices))
+        return Vertices(self.mesh, sgm.connected.faces_to_vertices(self.mesh.mesh, self.indices))
 
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
@@ -191,7 +198,11 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
     indices_type = sgm.mesh.Edges
 
     def edge_soup(self) -> np.ndarray:
-        return sgm.io.edge_soup(self._mesh)  # TODO index, index_map
+        return sgm.io.edge_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
+
+    def lengths(self) -> np.ndarray:
+        return sgm.geometry.edge_lengths(self.mesh.mesh, self.indices)
+
 
 
 class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
@@ -333,7 +344,7 @@ class Mesh3:
 
     def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
-        out.mesh.transform(transform)
+        sgm.geometry.transform(out.mesh, transform)
         return out
 
     def volume(self) -> float:
