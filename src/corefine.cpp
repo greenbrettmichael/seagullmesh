@@ -64,7 +64,7 @@ void init_corefine(py::module &m) {
         ) {
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2); 
+            return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
         })
     ;
 }

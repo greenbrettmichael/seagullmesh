@@ -445,19 +445,9 @@ class Mesh3:
 
         return mesh
 
-    def corefiner(
-            self,
-            other: Mesh3,
-            edge_constrained0: str | PropertyMap[Edge, bool] | None = None,
-            edge_constrained1: str | PropertyMap[Edge, bool] | None = None,
-    ):
+    def corefiner(self, other: Mesh3, **kwargs):
         from .corefine import Corefiner
-        return Corefiner(
-            mesh0=self,
-            mesh1=other,
-            edge_constrained0=edge_constrained0,
-            edge_constrained1=edge_constrained1,
-        )
+        return Corefiner(mesh0=self, mesh1=other, **kwargs)
 
     def remesh(
             self,
@@ -1035,6 +1025,7 @@ class MeshData(Generic[Key]):
             indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
+        assert mesh is not None
         self.mesh = mesh  # python wrapped mesh
         self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
@@ -1190,6 +1181,7 @@ class MeshData(Generic[Key]):
         if key in self._data:
             return self._data[key]
         else:
+            assert isinstance(key, str), key
             return self.add_property(name=key, default=default, dtype=dtype)
 
     def __getitem__(self, item: str) -> PropertyMap[Key, Any]:

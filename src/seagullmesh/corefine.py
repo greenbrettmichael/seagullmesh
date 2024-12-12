@@ -29,6 +29,7 @@ class Corefiner:
 
     def _get_inputs(self, i: int, tracker: corefine.CorefineTracker):
         mesh = self.sources[i]
+        assert isinstance(self.edge_constrained[0], str)
         ecm = mesh.edge_data.get_or_create_property(self.edge_constrained[0], default=False)
         face_idx = mesh.face_data.get_or_create_property(self.face_idx[0], default=-1, dtype='int64')
         face_idx[mesh.faces] = arange(mesh.n_faces)
@@ -39,7 +40,7 @@ class Corefiner:
         tracker = corefine.CorefineTracker()
         mesh0, ecm0, face_idx0 = self._get_inputs(0, tracker)
         mesh1, ecm1, face_idx0 = self._get_inputs(1, tracker)
-        sgm.corefine.corefine(mesh0, mesh1, ecm0, ecm1, tracker)
+        sgm.corefine.corefine(mesh0.mesh, mesh1.mesh, ecm0.pmap, ecm1.pmap, tracker)
         return Corefined(self)  # TODO store pmap references
 
     def union(self) -> Corefined:
