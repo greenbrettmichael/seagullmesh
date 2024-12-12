@@ -20,26 +20,30 @@ class Corefiner:
             mesh1: Mesh3,
             edge_constrained0: str | PropertyMap[Edge, bool] = 'edge_is_constrained',
             edge_constrained1: str | PropertyMap[Edge, bool] = 'edge_is_constrained',
+            face_origin0: str | PropertyMap[Face, int] = 'face_origin',
+            face_origin1: str | PropertyMap[Face, int] = 'face_origin',
             face_idx0: str | PropertyMap[Face, int] = 'orig_face_idx',
             face_idx1: str | PropertyMap[Face, int] = 'orig_face_idx',
     ):
         self.sources: Tuple[Mesh3, Mesh3] = (mesh0, mesh1)
         self.edge_constrained = (edge_constrained0, edge_constrained1)
+        self.face_origin = (face_origin0, face_origin1)
         self.face_idx = (face_idx0, face_idx1)
 
     def _get_inputs(self, i: int, tracker: corefine.CorefineTracker):
         mesh = self.sources[i]
-        assert isinstance(self.edge_constrained[0], str)
-        ecm = mesh.edge_data.get_or_create_property(self.edge_constrained[0], default=False)
-        face_idx = mesh.face_data.get_or_create_property(self.face_idx[0], default=-1, dtype='int64')
+        assert isinstance(self.edge_constrained[i], str)
+        ecm = mesh.edge_data.get_or_create_property(self.edge_constrained[i], default=False)
+        face_origin = mesh.face_data.get_or_create_property(self.face_origin[i], default=i, dtype='int64')
+        face_idx = mesh.face_data.get_or_create_property(self.face_idx[i], default=-1, dtype='int64')
         face_idx[mesh.faces] = arange(mesh.n_faces)
-        tracker.track_mesh(mesh.mesh, face_idx.pmap)
-        return mesh, ecm, face_idx
+        tracker.track(mesh.mesh, i, face_origin.pmap, face_idx.pmap)
+        return mesh, ecm, face_origin, face_idx
 
     def corefine(self) -> Corefined:
         tracker = corefine.CorefineTracker()
-        mesh0, ecm0, face_idx0 = self._get_inputs(0, tracker)
-        mesh1, ecm1, face_idx0 = self._get_inputs(1, tracker)
+        mesh0, ecm0, face_origin0, face_idx0 = self._get_inputs(0, tracker)
+        mesh1, ecm1, face_origin1, face_idx1 = self._get_inputs(1, tracker)
         sgm.corefine.corefine(mesh0.mesh, mesh1.mesh, ecm0.pmap, ecm1.pmap, tracker)
         return Corefined(self)  # TODO store pmap references
 

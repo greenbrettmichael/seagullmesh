@@ -11,20 +11,21 @@ typedef Mesh3::Property_map<F, int64_t> FaceInt;
 
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     struct Tracked {
-        FaceInt face_idx;
+        size_t mesh_idx; // 0, 1, or 2
+        FaceInt face_origin;  // F -> 0, 1, 2
+        FaceInt face_idx;  // F -> 0, ..., n_faces
     };
 
     boost::container::flat_map<const Mesh3*, Tracked> tracked;
     int64_t face_idx;
 
     CorefineTracker() {
-        tracked.reserve(3);
+        tracked.reserve(3);  //input mesh 0, input mesh1, maybe output mesh
         face_idx = -1;
     }
-    void track_mesh(Mesh3& mesh, FaceInt& face_idx) {
-        tracked[&mesh] = Tracked{face_idx};
+    void track(Mesh3& mesh, size_t mesh_idx, FaceInt& face_origin, FaceInt& face_idx) {
+        tracked[&mesh] = Tracked{mesh_idx, face_origin, face_idx};
     }
-
     void new_vertex_added (size_t i_id, V v, Mesh3& mesh) {}
 
     void before_subface_creations(F f_split, Mesh3& mesh) {
@@ -34,6 +35,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         tracked[&mesh].face_idx[f_new] = face_idx;
     }
     void after_face_copy(F f_src, Mesh3& m_src, F f_tgt, Mesh3& m_tgt) {
+        tracked[&m_tgt].face_origin[f_tgt] = tracked[&m_src].mesh_idx;
         tracked[&m_tgt].face_idx[f_tgt] = tracked[&m_src].face_idx[f_src];
     }
 
@@ -43,7 +45,7 @@ void init_corefine(py::module &m) {
 
     py::class_<CorefineTracker>(sub, "CorefineTracker")
         .def(py::init<>())
-        .def("track_mesh", &CorefineTracker::track_mesh)
+        .def("track", &CorefineTracker::track)
     ;
 
     sub
