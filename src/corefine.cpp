@@ -14,14 +14,13 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     };
     Mesh3& mesh1;
     Mesh3& mesh2;
-
     std::array<std::vector<V>, 2> new_vertices;
-
     std::array<FaceMap, 2> split_faces;     // subface -> original face for each source mesh
     std::array<FaceMap, 2> copied_faces;    // subface in output -> orig_face
     FaceOrigin face_origin;
+    std::optional<bool> success;
 
-    CorefineTracker(Mesh3& m1, Mesh3& m2) : mesh1(m1), mesh2(m2) {};
+    CorefineTracker(Mesh3& m1, Mesh3& m2) : mesh1(m1), mesh2(m2), success(std::nullopt) {};
 
     size_t mesh_idx(const Mesh3& mesh) const {
         if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
@@ -114,7 +113,8 @@ void init_corefine(py::module &m) {
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
             bool success = PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
-            return std::make_pair(success, tracker);
+            tracker.success = success;
+            return tracker;
         })
     ;
 }

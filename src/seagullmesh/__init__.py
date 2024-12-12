@@ -15,6 +15,7 @@ from seagullmesh._seagullmesh.mesh import (
 )
 from typing_extensions import Self
 
+import seagullmesh.corefine
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
 from .skeleton import Skeleton
@@ -445,6 +446,20 @@ class Mesh3:
                 mesh.cell_data[k] = self.face_data[k][faces]
 
         return mesh
+
+    def corefiner(
+            self,
+            other: Mesh3,
+            edge_constrained0: str | PropertyMap[Edge, bool] | None = None,
+            edge_constrained1: str | PropertyMap[Edge, bool] | None = None,
+    ) -> seagullmesh.corefine.Corefiner:
+        from seagullmesh.corefine import Corefiner
+        return Corefiner(
+            mesh0=self,
+            mesh1=other,
+            edge_constrained0=edge_constrained0,
+            edge_constrained1=edge_constrained1,
+        )
 
     def remesh(
             self,

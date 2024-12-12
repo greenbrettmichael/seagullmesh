@@ -19,7 +19,6 @@ class Corefiner:
         self.sources = (mesh0, mesh1)
         self.edge_constrained = (edge_constrained0, edge_constrained1)
 
-
     @contextmanager
     def _mesh_and_ecm(self, i: int):
         mesh = self.sources[i]
