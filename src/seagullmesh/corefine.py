@@ -9,6 +9,8 @@ from typing_extensions import Self
 
 from seagullmesh import Mesh3, PropertyMap, Edge, sgm, Vertices
 
+from src.seagullmesh import Faces
+
 
 class Corefiner:
     def __init__(
@@ -33,13 +35,15 @@ class Corefiner:
 
     def corefine(self) -> Corefined:
         with self._inputs() as (mesh0, mesh1, ecm0, ecm1):
-            tracker = sgm.corefine.corefine(mesh0, mesh1, ecm0, ecm1)
+            tracker = corefine.CorefineTracker(mesh0, mesh1)
+            sgm.corefine.corefine(mesh0, mesh1, ecm0, ecm1, tracker)
             return Corefined(self, tracker)
 
     def union(self) -> Corefined:
         """Corefines the two meshes and returns their boolean union"""
         with self._inputs() as (mesh0, mesh1, ecm0, ecm1):
-            tracker = sgm.corefine.union(mesh0, mesh1, mesh0, ecm0, ecm1)
+            tracker = corefine.CorefineTracker(mesh0, mesh1)
+            sgm.corefine.union(mesh0, mesh1, mesh0, ecm0, ecm1, tracker)
             return Corefined(self, tracker)
 
 
@@ -61,6 +65,11 @@ class Corefined:
         new_verts = self.tracker.get_new_vertices(i)
         pmap[new_verts] = True
         return self
+
+    def get_split_faces(self, i: int) -> Tuple[Faces, Faces]:
+        mesh = self.corefiner.sources[i]
+        old_faces, new_faces = self.tracker.get_split_faces(i, mesh.mesh)
+        return Faces(mesh, old_faces), Faces(mesh, new_faces)
 
     def update_split_faces(self, i: int, property_names: Sequence[str] | None = None) -> Self:
         mesh = self.corefiner.sources[i]

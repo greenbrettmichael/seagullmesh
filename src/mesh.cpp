@@ -54,6 +54,12 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         .def("from_indices", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
         .def_property_readonly("indices", [](const Indices<T>& idxs) { return idxs.get_indices(); })
         .def("__len__", [](const Indices<T>& idxs) { return idxs.size(); })
+        .def("is_removed", [](const Indices<T>& idxs, const Mesh3& mesh) {
+            return idxs.map_to_array_of_scalars<bool>([&mesh](T idx) { return mesh.is_removed(idx); });
+        })
+        .def("is_valid", [](const Indices<T>& idxs, const Mesh3& mesh) {
+            return idxs.map_to_array_of_scalars<bool>([&mesh](T idx) { return mesh.is_valid(idx); });
+        })
     ;
 
     // Also provide a module-level free function
