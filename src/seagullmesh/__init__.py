@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import warnings
 from abc import ABC
 from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overload, Tuple, \
-    Generic, List, Iterator, Type, Dict, Literal, Callable
+    Generic, Iterator, Type, Dict, Literal, Callable
 
 import numpy as np
 from seagullmesh._seagullmesh.mesh import (
@@ -18,6 +17,7 @@ from typing_extensions import Self
 
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
+from .skeleton import Skeleton
 
 if TYPE_CHECKING:
     try:
@@ -267,17 +267,35 @@ class Mesh3:
             name='v:point',
         )
 
+    def iter_meshdata(self) -> Iterator[MeshData]:
+        yield self.vertex_data
+        yield self.face_data
+        yield self.edge_data
+        yield self.halfedge_data
+
     def copy(self) -> Mesh3:
         """Deep-copy the mesh and all its properties"""
         out = Mesh3(sgm.mesh.Mesh3(self.mesh))
 
         # The properties have been copied, just need to create new pmap references
-        for k in ('vertex_data', 'face_data', 'edge_data', 'halfedge_data'):
-            _copy_property_metadata(getattr(self, k), getattr(out, k))
+        for src_data, dest_data in zip(self.iter_meshdata(), out.iter_meshdata()):
+            for name, src_wrapper in src_data.items():
+                wrapped = dest_data.find_property_map(
+                    pmap_cls=type(src_wrapper.pmap),
+                    name=name,
+                    wrapper_cls=type(src_wrapper),
+                    dtype_name=src_wrapper.dtype_name,
+                )
+                assert isinstance(wrapped, PropertyMap)
+                dest_data[name] = wrapped
 
         return out
 
-    def add(self, other: Mesh3, check_properties=True, inplace=False) -> Mesh3:
+    def add(self, other: Mesh3, check_properties=False, inplace=False) -> Mesh3:
+        if check_properties:
+            for d_self, d_other in zip(self.iter_meshdata(), other.iter_meshdata()):
+                d_self.check_has_same_properties(d_other)
+
         out = self if inplace else self.copy()
         out.mesh += other.mesh
         return out
@@ -757,15 +775,16 @@ class Mesh3:
           edges : (m, 2) array of vertex indices
           vertex_map : dict[int, list[mesh vertex]] mapping skeleton vertices to mesh vertices
         """
-        skeleton = sgm.skeletonization.extract_mean_curvature_flow_skeleton(self.mesh)
-        return Skeleton(mesh=self, skeleton=skeleton)
+        from seagullmesh.skeleton import Skeleton
+        skel = sgm.skeletonization.extract_mean_curvature_flow_skeleton(self.mesh)
+        return Skeleton(mesh=self, skeleton=skel)
 
     def interpolated_corrected_curvatures(
             self,
             ball_radius: float = -1,
             mean_curvature_map: str | PropertyMap[Vertex, float] = 'mean_curvature',
             gaussian_curvature_map: str | PropertyMap[Vertex, float] = 'gaussian_curvature',
-            principal_curvature_map: str | sgm.properties.V_PrincipalCurvaturesAndDirections_PropertyMap = 'principal_curvature',
+            principal_curvature_map: str | PropertyMap[Vertex, sgm.properties.PrincipalCurvaturesAndDirections] = 'principal_curvature',
     ):
         mcm = self.vertex_data.get_or_create_property(mean_curvature_map, 0.0)
         gcm = self.vertex_data.get_or_create_property(gaussian_curvature_map, 0.0)
@@ -831,10 +850,6 @@ class Mesh3:
     ):
         sgm.border.regularize_face_selection_borders(self.mesh, is_selected, weight, prevent_unselection)
 
-    def vertex_degrees(self, vertices: Vertices | None = None) -> np.ndarray:
-        vertices = self.vertices if vertices is None else vertices
-        return sgm.mesh.vertex_degrees(vertices)
-
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
         face_patch_idx = self.face_data.get_or_create_property(face_patch_idx, default=0, is_index=True)
@@ -844,7 +859,11 @@ class Mesh3:
     def label_connected_components(self, face_patches: PropertyMap[Face, int], edge_is_constrained: PropertyMap[Edge, bool]) -> int:
         return sgm.connected.label_connected_components(self.mesh, face_patches.pmap, edge_is_constrained.pmap)
 
-    def remove_connected_face_patches(self, to_remove: Sequence[int], face_patches: PropertyMap[Face, int]):
+    def remove_connected_face_patches(
+            self,
+            to_remove: Sequence[int | bool],
+            face_patches: PropertyMap[Face, int | bool],
+    ):
         sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
 
     def connected_component(
@@ -863,40 +882,6 @@ def _bbox_diagonal(points: np.ndarray):
     return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
 
 
-class Skeleton:
-    """Wrapper around the C++ sgm.skeletonization.Skeleton class
-
-    (Which is itself a boost adjacency_list)
-    """
-    def __init__(self, mesh: Mesh3, skeleton):
-        self.mesh = mesh
-        self._skeleton = skeleton
-
-    @cached_property
-    def points(self) -> np.ndarray:
-        return self._skeleton.points
-
-    @cached_property
-    def edges(self) -> np.ndarray:
-        return self._skeleton.edges
-
-    @cached_property
-    def vertex_map(self) -> Dict[int, List[Vertex]]:
-        return self._skeleton.vertex_map
-
-    @cached_property
-    def radii(self) -> np.ndarray:
-        return self._skeleton.compute_radii(self.mesh.mesh)
-
-    def to_pyvista(self):
-        import pyvista as pv
-        sk_mesh = pv.PolyData()
-        sk_mesh.points = self.points
-        sk_mesh.lines = pv.CellArray.from_regular_cells(self.edges)
-        sk_mesh.point_data['min_radius'] = self.radii[:, 0]
-        sk_mesh.point_data['max_radius'] = self.radii[:, 1]
-
-
 Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
 Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
 
@@ -911,7 +896,7 @@ class PropertyMap(Generic[Key, Val], ABC):
         self._dtype_name = dtype
 
     def __str__(self) -> str:
-        return f'PropertyMap[{self._data.key_t.__name__}, {self.dtype_name}]'
+        return f'PropertyMap[{self._data.key_type.__name__}, {self.dtype_name}]'
 
     @property
     def pmap(self):
@@ -927,7 +912,7 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     @property
     def key_t(self) -> Type[TIndex]:
-        return self._data.key_t
+        return self._data.key_type
 
     @property
     def indices_t(self) -> type:
@@ -1030,7 +1015,7 @@ class MeshData(Generic[Key]):
     def __init__(
             self,
             mesh: Mesh3,
-            key_t: Type[TIndex],
+            key_type: Type[TIndex],
             indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
@@ -1038,7 +1023,7 @@ class MeshData(Generic[Key]):
         self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
         self.indices_t = indices_t
-        self.key_t = key_t
+        self.key_type = key_type
 
     _dtype_mappings: dict[type, str] = {
         float: 'double',
@@ -1226,41 +1211,12 @@ class MeshData(Generic[Key]):
     def __iter__(self) -> Iterator[str]:
         yield from self._data.__iter__()
 
+    def check_has_same_properties(self, other: Self) -> None:
+        if missing_keys := set(self.keys()).symmetric_difference(other.keys()):
+            msg = f"{self.key_type} properties {missing_keys} are not present in both meshes."
+            raise ValueError(msg)
 
-def _copy_property_metadata(src_data: MeshData, dest_data: MeshData):
-    assert isinstance(dest_data, MeshData)
-    for name, src_wrapper in src_data.items():
-        wrapped = dest_data.find_property_map(
-            pmap_cls=type(src_wrapper.pmap),
-            name=name,
-            wrapper_cls=type(src_wrapper),
-            dtype_name=src_wrapper.dtype_name,
-        )
-        assert isinstance(wrapped, PropertyMap)
-        dest_data[name] = wrapped
-
-
-class TubeMesher:
-    def __init__(self, t0: float, theta0: np.ndarray, pts0: np.ndarray, closed=False):
-        mesh = self.mesh = Mesh3()
-        t_map = mesh.vertex_data.add_property('t', default=-1.0)
-        theta_map = mesh.vertex_data.add_property('theta', default=-1.0)
-        self.tube_mesher = sgm.triangulate.TubeMesher(mesh.mesh, t_map.pmap, theta_map.pmap, t0, theta0, pts0)
-
-        self.closed = closed
-        if closed:
-            self.tube_mesher.close_xs(False)
-
-    def add_xs(self, t: float, theta: np.ndarray, pts: np.ndarray):
-        self.tube_mesher.add_xs(t, theta, pts)
-
-    def finish(self, reverse_orientation: bool):
-        if self.closed:
-            self.tube_mesher.close_xs(True)
-
-        sgm.triangulate.triangulate_faces(self.mesh.mesh, self.mesh.faces)
-        self.mesh.collect_garbage()
-        if reverse_orientation:
-            sgm.triangulate.reverse_face_orientations(self.mesh.mesh, self.mesh.faces)
-
-        return self.mesh
+        for k, pmap in self.items():
+            t0, t1 = type(pmap.pmap), type(other[k].pmap)
+            if t0 is not t1:
+                raise TypeError(f"Property {k} has two different types: {t0} and {t1}")

@@ -119,13 +119,13 @@ ext_modules = [
             'src/util.cpp',
             'src/seagullmesh.cpp',
             'src/mesh.cpp',
-            'src/geometry.cpp',
+            # 'src/geometry.cpp',
             'src/properties.cpp',
             'src/io.cpp',
             # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',
             # 'src/connected.cpp',
-            'src/border.cpp',
+            # 'src/border.cpp',
             # 'src/skeletonization.cpp',
             # 'src/simplification.cpp',
             # 'src/parametrize.cpp',
@@ -133,10 +133,7 @@ ext_modules = [
             # 'src/alpha_wrapping.cpp',
             # 'src/meshing.cpp',
             # 'src/triangulate.cpp',
-            # 'src/corefine.cpp',
-        #
-
-
+            'src/corefine.cpp',
 
         ],
         include_dirs=include_dirs,

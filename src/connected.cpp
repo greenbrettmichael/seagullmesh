@@ -17,6 +17,9 @@ typedef Mesh3::Property_map<F, FaceIdx>         FacePatchMap;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
+
+// Todo need to be generic over facepatch types?
+
 void init_connected(py::module &m) {
     m.def_submodule("connected")
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
@@ -92,6 +95,7 @@ void init_connected(py::module &m) {
         .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
             PMP::remove_connected_components(mesh, faces.to_vector());
         })
+
         .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
             PMP::remove_connected_components(mesh, components_to_remove, components);
         })
