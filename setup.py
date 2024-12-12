@@ -125,7 +125,7 @@ ext_modules = [
             # 'src/geodesic_distances.cpp',
             # 'src/locate.cpp',
             # 'src/connected.cpp',
-            # 'src/border.cpp',
+            'src/border.cpp',
             # 'src/skeletonization.cpp',
             # 'src/simplification.cpp',
             # 'src/parametrize.cpp',

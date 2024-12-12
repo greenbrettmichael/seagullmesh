@@ -28,7 +28,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
 //    init_geodesic_distances(m);
 //    init_locate(m);
 //    init_connected(m);
-//    init_border(m);
+    init_border(m);
 //    init_skeletonization(m);
 //    init_simplification(m);
 //    init_parametrize(m);

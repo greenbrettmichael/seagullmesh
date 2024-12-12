@@ -1,6 +1,8 @@
 #include "seagullmesh.hpp"
 #include "util.hpp"
 
+#include <pybind11/functional.h>
+
 #include <CGAL/boost/graph/generators.h>
 #include <CGAL/Surface_mesh/IO/PLY.h>
 #include <CGAL/Surface_mesh/IO/OFF.h>
@@ -144,6 +146,15 @@ void init_mesh(py::module &m) {
                 bool closed
             ){
             CGAL::make_pyramid(n_base_verts, mesh, base_center, height, radius, closed);
+        })
+        .def("add_grid", [](
+                Mesh3& mesh,
+                V::size_type ni,
+                V::size_type nj,
+                std::function<Point3 (V::size_type, V::size_type)> calculator,
+                bool triangulated
+        ){
+            CGAL::make_grid(ni, nj, mesh, calculator, triangulated);
         })
     ;
 }

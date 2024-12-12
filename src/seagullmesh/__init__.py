@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overload, Tuple, \
-    Generic, List, Iterator, Type, Dict, Literal
+    Generic, List, Iterator, Type, Dict, Literal, Callable
 
 import numpy as np
 from seagullmesh._seagullmesh.mesh import (
@@ -327,6 +327,17 @@ class Mesh3:
         out = Mesh3()
         base_center = Point3(*base_center) if not isinstance(base_center, Point3) else base_center
         sgm.mesh.add_pyramid(out.mesh, n_base_pts, base_center, height, radius, closed)
+        return out
+
+    @staticmethod
+    def grid(
+            ni: int,
+            nj: int,
+            calculator: Callable[[int, int], Point3] = lambda i, j: Point3(i, j, 0),
+            triangulated: bool = False,
+    ):
+        out = Mesh3()
+        sgm.mesh.add_grid(out.mesh, ni, nj, calculator, triangulated)
         return out
 
     def estimate_geodesic_distances(
