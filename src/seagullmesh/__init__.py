@@ -204,7 +204,6 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
         return sgm.geometry.edge_lengths(self.mesh.mesh, self.indices)
 
 
-
 class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     index_type = Halfedge
     indices_type = sgm.mesh.Halfedges
@@ -681,7 +680,7 @@ class Mesh3:
         return is_border
 
     def extract_boundary_cycles(self) -> Halfedges:
-        return sgm.border.extract_boundary_cycles(self.mesh)
+        return Halfedges(self, sgm.border.extract_boundary_cycles(self.mesh))
 
     def has_boundary(self) -> bool:
         return sgm.border.has_boundary(self.mesh)
