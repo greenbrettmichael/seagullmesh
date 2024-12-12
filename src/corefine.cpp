@@ -1,108 +1,45 @@
 #include "seagullmesh.hpp"
 #include <CGAL/Polygon_mesh_processing/corefinement.h>
 #include <CGAL/Polygon_mesh_processing/clip.h>
+#include <boost/container/flat_map.hpp>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
 typedef Mesh3::Property_map<E, bool> EdgeBool;
+typedef Mesh3::Property_map<F, int64_t> FaceInt;
+
 
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
-    // https://github.com/CGAL/cgal/blob/master/Polygon_mesh_processing/examples/Polygon_mesh_processing/corefinement_mesh_union_with_attributes.cpp
+    boost::container::flat_map<const Mesh3*, FaceInt> face_id_maps;
+    int64_t face_id;
 
-    typedef std::map<F, F> FaceMap;
-    struct FaceOrigin {
-        size_t mesh_idx;
-        F face;
-    };
-    Mesh3& mesh1;
-    Mesh3& mesh2;
-    // std::array<std::vector<V>, 2> new_vertices;
-    std::array<FaceMap, 2> split_faces;     // subface -> original face for each source mesh
-    std::array<FaceMap, 2> copied_faces;    // subface in output -> orig_face
-    FaceOrigin face_origin;
-    std::optional<bool> success;
-    bool subface_created;
-    bool vertex_added;
-
-    CorefineTracker(Mesh3& m1, Mesh3& m2) : mesh1(m1), mesh2(m2),
-        success(std::nullopt), subface_created(false), vertex_added(false) {};
-
-    size_t mesh_idx(const Mesh3& mesh) const {
-        if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
+    CorefineTracker() {
+        face_id_maps.reserve(3);
+        face_id = -1;
+    }
+    void track_mesh(Mesh3& mesh, FaceInt& face_id_map) {
+        face_id_maps[&mesh] = face_id_map;
     }
 
-    void new_vertex_added (size_t i_id, V v, Mesh3& mesh) {
-        // either edge split or face interior
-        // auto i = mesh_idx(mesh);
-        // new_vertices[i].push_back(v);
-        vertex_added = true;
-    }
-//    void after_vertex_copy (V v_src, const Mesh3& &m_src, V v_tgt, const Mesh3& m_tgt) {
-// 	    // called after vertex v_src from tm_src is copied in tm_tgt.
-// 	}
+    void new_vertex_added (size_t i_id, V v, Mesh3& mesh) {}
 
-    F original_face(size_t mesh_idx, F face) const {
-        // return the face stored by after_subface_created if it's a subface, otherwise the identity function
-        auto it = split_faces[mesh_idx].find(face);
-        return (it != split_faces[mesh_idx].end()) ? it->second : face;
-    }
-    void before_subface_creations(F f, const Mesh3& mesh) {
-        // Going to split a face in mesh1 or mesh2 during the corefinement stage
-        auto i = mesh_idx(mesh);
-        if (i > 1) { throw std::runtime_error("Splitting face outside inputs?"); }
-        face_origin = {i, original_face(i, f)};
-        subface_created = true;
+    void before_subface_creations(F f_split, Mesh3& mesh) {
+        face_id = face_id_maps[&mesh][f_split] ;
     }
     void after_subface_created(F f_new, Mesh3& mesh) {
-        split_faces[face_origin.mesh_idx][f_new] = face_origin.face;
+        face_id_maps[&mesh][f_new] = face_id;
     }
     void after_face_copy(F f_src, Mesh3& m_src, F f_tgt, Mesh3& m_tgt) {
-        auto i = mesh_idx(m_src);
-        copied_faces[i][f_tgt] = original_face(i, f_src);
+        face_id_maps[&m_tgt][f_tgt] = face_id_maps[&m_src][f_src];
     }
 
-    auto get_split_faces(size_t mesh_idx, const Mesh3& mesh) const {
-        std::vector<F> old_faces;
-        std::vector<F> new_faces;
-        for (auto const& [f_new, f_orig] : split_faces[mesh_idx]) {
-//            if (!mesh.is_removed(f_new)) {
-                old_faces.push_back(f_orig);
-                new_faces.push_back(f_new);
-//            }
-        }
-        return std::make_pair(old_faces, new_faces);
-    }
-    auto get_copied_faces(size_t mesh_idx) const {
-        std::vector<F> old_faces;
-        std::vector<F> new_faces;
-        for (auto const& [f_new, f_orig] : copied_faces[mesh_idx]) {
-            old_faces.push_back(f_orig);
-            new_faces.push_back(f_new);
-        }
-        return std::make_pair(old_faces, new_faces);
-    }
-    // const std::vector<V>& get_new_vertices(size_t mesh_idx) const { return new_vertices[mesh_idx]; }
 };
 void init_corefine(py::module &m) {
     py::module sub = m.def_submodule("corefine");
 
     py::class_<CorefineTracker>(sub, "CorefineTracker")
-        .def(py::init<Mesh3&, Mesh3&>())
-        .def("get_split_faces", [](const CorefineTracker& tracker, size_t mesh_idx, const Mesh3& output) {
-            auto pair = tracker.get_split_faces(mesh_idx, output);
-            return std::make_pair(Indices<F>(pair.first), Indices<F>(pair.second));
-        })
-        .def("get_copied_faces", [](const CorefineTracker& tracker, size_t mesh_idx) {
-            auto pair = tracker.get_copied_faces(mesh_idx);
-            return std::make_pair(Indices<F>(pair.first), Indices<F>(pair.second));
-        })
-        .def_readonly("success", &CorefineTracker::success)
-        .def_readonly("vertex_added", &CorefineTracker::vertex_added)
-        .def_readonly("subface_created", &CorefineTracker::subface_created)
-//        .def("get_new_vertices", [](const CorefineTracker& tracker, size_t mesh_idx) {
-//            auto verts = tracker.get_new_vertices(mesh_idx);
-//            return Indices<V>(verts);
-//        })
+        .def(py::init<>())
+        .def("track_mesh", &CorefineTracker::track_mesh)
     ;
 
     sub
@@ -127,8 +64,7 @@ void init_corefine(py::module &m) {
         ) {
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
-            bool success = PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
-            tracker.success = success;
+            return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2); 
         })
     ;
 }

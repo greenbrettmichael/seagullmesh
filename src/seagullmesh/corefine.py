@@ -3,11 +3,12 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Sequence, Tuple
 
+from numpy import arange
 from pyvista.examples.cells import Vertex
 from seagullmesh._seagullmesh import corefine
 from typing_extensions import Self
 
-from seagullmesh import Mesh3, PropertyMap, Edge, sgm, Vertices
+from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Vertices
 
 from src.seagullmesh import Faces
 
@@ -17,27 +18,29 @@ class Corefiner:
             self,
             mesh0: Mesh3,
             mesh1: Mesh3,
-            edge_constrained0: str | PropertyMap[Edge, bool] | None = None,
-            edge_constrained1: str | PropertyMap[Edge, bool] | None = None,
+            edge_constrained0: str | PropertyMap[Edge, bool] = 'edge_is_constrained',
+            edge_constrained1: str | PropertyMap[Edge, bool] = 'edge_is_constrained',
+            face_idx0: str | PropertyMap[Face, int] = 'orig_face_idx',
+            face_idx1: str | PropertyMap[Face, int] = 'orig_face_idx',
     ):
         self.sources: Tuple[Mesh3, Mesh3] = (mesh0, mesh1)
         self.edge_constrained = (edge_constrained0, edge_constrained1)
+        self.face_idx = (face_idx0, face_idx1)
 
-    @contextmanager
-    def _inputs(self):
-        mesh0, mesh1 = self.sources
-        ecm0, ecm1 = self.edge_constrained
-        with (
-            mesh0.edge_data.get_or_temp(ecm0, '_temp_edge_is_constrained', default=False) as ecm0,
-            mesh1.edge_data.get_or_temp(ecm1, '_temp_edge_is_constrained', default=False) as ecm1
-        ):
-            yield mesh0.mesh, mesh1.mesh, ecm0.pmap, ecm1.pmap
+    def _get_inputs(self, i: int, tracker: corefine.CorefineTracker):
+        mesh = self.sources[i]
+        ecm = mesh.edge_data.get_or_create_property(self.edge_constrained[0], default=False)
+        face_idx = mesh.face_data.get_or_create_property(self.face_idx[0], default=-1, dtype='int64')
+        face_idx[mesh.faces] = arange(mesh.n_faces)
+        tracker.track_mesh(mesh.mesh, face_idx.pmap)
+        return mesh, ecm, face_idx
 
     def corefine(self) -> Corefined:
-        with self._inputs() as (mesh0, mesh1, ecm0, ecm1):
-            tracker = corefine.CorefineTracker(mesh0, mesh1)
-            sgm.corefine.corefine(mesh0, mesh1, ecm0, ecm1, tracker)
-            return Corefined(self, tracker)
+        tracker = corefine.CorefineTracker()
+        mesh0, ecm0, face_idx0 = self._get_inputs(0, tracker)
+        mesh1, ecm1, face_idx0 = self._get_inputs(1, tracker)
+        sgm.corefine.corefine(mesh0, mesh1, ecm0, ecm1, tracker)
+        return Corefined(self)  # TODO store pmap references
 
     def union(self) -> Corefined:
         """Corefines the two meshes and returns their boolean union"""
@@ -48,13 +51,8 @@ class Corefiner:
 
 
 class Corefined:
-    def __init__(
-            self,
-            corefiner: Corefiner,
-            tracker: corefine.CorefineTracker,
-    ):
+    def __init__(self, corefiner: Corefiner):
         self.corefiner = corefiner
-        self.tracker = tracker
 
     def get_new_vertices(self, i: int) -> Vertices:
         mesh = self.corefiner.sources[i]
