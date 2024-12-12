@@ -13,28 +13,28 @@ typedef CGAL::Aff_transformation_3<Kernel> Transform3;
 namespace PMP = CGAL::Polygon_mesh_processing;
 
 
-//Transform3 array_to_transform3(const py::array_t<double>& transform) {
-//    auto r = transform.unchecked<2>();
-//    if (r.shape(0) != r.shape(1)) {
-//        throw py::value_error("Must be a square matrix");
-//    }
-//    if (r.shape(0) == 3) {
-//        return Transform3(
-//            r(0, 0), r(0, 1), r(0, 2),
-//            r(1, 0), r(1, 1), r(1, 2),
-//            r(2, 0), r(2, 1), r(2, 2)
-//        );
-//    } else if (r.shape(0) == 4) {
-//        return Transform3(
-//            r(0, 0), r(0, 1), r(0, 2), r(0, 3),
-//            r(1, 0), r(1, 1), r(1, 2), r(1, 3),
-//            r(2, 0), r(2, 1), r(2, 2), r(2, 3),
-//                                       r(3, 3)
-//        );
-//    } else {
-//        throw py::value_error("Must be a 3x3 or 4x4 matrix");
-//    }
-//}
+Transform3 array_to_transform3(const py::array_t<double>& transform) {
+    auto r = transform.unchecked<2>();
+    if (r.shape(0) != r.shape(1)) {
+        throw py::value_error("Must be a square matrix");
+    }
+    if (r.shape(0) == 3) {
+        return Transform3(
+            r(0, 0), r(0, 1), r(0, 2),
+            r(1, 0), r(1, 1), r(1, 2),
+            r(2, 0), r(2, 1), r(2, 2)
+        );
+    } else if (r.shape(0) == 4) {
+        return Transform3(
+            r(0, 0), r(0, 1), r(0, 2), r(0, 3),
+            r(1, 0), r(1, 1), r(1, 2), r(1, 3),
+            r(2, 0), r(2, 1), r(2, 2), r(2, 3),
+                                       r(3, 3)
+        );
+    } else {
+        throw py::value_error("Must be a 3x3 or 4x4 matrix");
+    }
+}
 
 void init_geometry(py::module &m) {
     py::module sub = m.def_submodule("geometry");
@@ -80,18 +80,18 @@ void init_geometry(py::module &m) {
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
         .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
         .def("bounding_box", [](const Mesh3& mesh) { return PMP::bbox(mesh); })
-//        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
-//            Transform3 t = array_to_transform3(transform);
-//            auto points = mesh.points();
-//            for (V v : mesh.vertices() ) {
-//                points[v] = t(points[v]);
-//            }
-//        })
-//        .def("does_bound_a_volume", [](const Mesh3& mesh) {
-//            return PMP::does_bound_a_volume(mesh);
-//        })
-//        .def("is_outward_oriented", [](const Mesh3& mesh) {
-//            return PMP::is_outward_oriented(mesh);
-//        })
+        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
+            Transform3 t = array_to_transform3(transform);
+            auto points = mesh.points();
+            for (V v : mesh.vertices() ) {
+                points[v] = t(points[v]);
+            }
+        })
+        .def("does_bound_a_volume", [](const Mesh3& mesh) {
+            return PMP::does_bound_a_volume(mesh);
+        })
+        .def("is_outward_oriented", [](const Mesh3& mesh) {
+            return PMP::is_outward_oriented(mesh);
+        })
     ;
 }

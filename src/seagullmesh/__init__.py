@@ -337,10 +337,19 @@ class Mesh3:
         return out
 
     def volume(self) -> float:
-        return self.mesh.volume()
+        return sgm.geometry.volume(self.mesh)
+
+    def area(self) -> float:
+        return sgm.geometry.area(self.mesh)
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
-        return self.mesh.bounding_box()
+        return sgm.geometry.bounding_box(self.mesh)
+
+    def does_bound_a_volume(self) -> bool:
+        return sgm.geometry.does_bound_a_volume(self.mesh)
+
+    def is_outward_oriented(self) -> bool:
+        return sgm.geometry.is_outward_oriented(self.mesh)
 
     @staticmethod
     def from_pyvista(
@@ -792,12 +801,6 @@ class Mesh3:
     def reverse_face_orientation(self, faces: Faces | None = None):
         faces = self.faces if faces is None else faces
         sgm.triangulate.reverse_face_orientations(self.mesh, faces)
-
-    def does_bound_a_volume(self) -> bool:
-        return sgm.triangulate.does_bound_a_volume(self.mesh)
-
-    def is_outward_oriented(self) -> bool:
-        return sgm.triangulate.is_outward_oriented(self.mesh)
 
     def regularize_face_selection_borders(
             self,

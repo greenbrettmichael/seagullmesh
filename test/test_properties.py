@@ -7,10 +7,7 @@ from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, 
 
 props = pytest.importorskip("seagullmesh._seagullmesh.properties")
 
-
-@pytest.fixture
-def mesh():
-    return Mesh3.icosahedron()
+from .util import mesh
 
 
 @pytest.mark.parametrize(

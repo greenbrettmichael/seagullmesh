@@ -1,11 +1,8 @@
 import pytest
-from numpy import array, cos, sin
 
-from seagullmesh import sgm
+from seagullmesh import Mesh3
 
 
-def requires(module_name: str):
-    return pytest.mark.skipif(
-        not hasattr(sgm, module_name),
-        reason=f'{module_name} module not installed')
-
+@pytest.fixture
+def mesh():
+    return Mesh3.icosahedron()
