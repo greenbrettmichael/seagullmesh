@@ -1,8 +1,8 @@
 import pytest
 from numpy import pi
 
-from seagullmesh import Mesh3, sgm
-_ = pytest.importorskip("seagullmesh.corefine")
+from seagullmesh import Mesh3
+corefine = pytest.importorskip("seagullmesh._seagullmesh.corefine")
 
 
 def corefine_meshes():

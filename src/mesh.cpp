@@ -54,7 +54,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
     ;
 
     // Also provide a module-level free function
-    // m.def("make_indices", [](const std::vector<T>& idxs){ return Indices<T>(idxs); });
+    m.def("make_indices", [](const std::vector<T>& idxs){ return Indices<T>(idxs); });
 }
 
 

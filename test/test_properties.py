@@ -39,7 +39,7 @@ def test_add_property_map_typed(mesh, data_name, cls, default, dtype):
     data = getattr(mesh, data_name)
     pmap = data.add_property('foo', default=default, dtype=dtype)
     assert isinstance(pmap.pmap, cls)
-    dtype_name = pmap[data.mesh_keys].dtype.name
+    dtype_name = pmap[data.all_indices].dtype.name
     if dtype_name == 'float64':
         dtype_name = 'double'
     assert dtype_name == dtype
@@ -52,7 +52,7 @@ def test_scalar_properties(mesh, key_type, val_type):
 
     data['foo'] = full(data.n_mesh_keys, val_type(0))
 
-    keys = data.mesh_keys
+    keys = data.all_indices
     key = keys[0]
     data['foo'][key] = val_type(1)
 
@@ -90,8 +90,8 @@ def test_array_properties(mesh, key_type, val_type):
 
     data2 = data * 2
     objs = [val_type(*val) for val in data2]
-    d['foo'].set_objects(d.mesh_keys, objs)
-    objs2 = d['foo'].get_objects(d.mesh_keys)
+    d['foo'].set_objects(d.all_indices, objs)
+    objs2 = d['foo'].get_objects(d.all_indices)
 
     for (o1, o2) in zip(objs, objs2):
         assert o1 == o2
@@ -111,10 +111,26 @@ def test_copy_mesh_copies_properties(mesh):
     assert foo1[0] == 2
 
 
-def test_add_mesh_adds_properties(mesh):
-    mesh.vertex_data['foo'] = 1
-    mesh2 = Mesh3.pyramid()
-    mesh2.vertex_data['foo'] = 2
-    mesh += mesh2
-    assert set(mesh.vertex_data['foo']) == {1, 2}
+@pytest.mark.parametrize('inplace', (False, True))
+def test_add_mesh_adds_properties(inplace: bool):
+    orig = Mesh3.icosahedron()
+    nv0 = orig.n_vertices
+
+    orig.vertex_data['foo'] = 1
+    assert set(orig.vertex_data['foo'][:]) == {1}
+
+    other = Mesh3.pyramid()
+    other.vertex_data['foo'] = 2
+    assert set(other.vertex_data['foo'][:]) == {2}
+    assert type(orig.vertex_data['foo'].pmap) is type(other.vertex_data['foo'].pmap)
+
+    added = orig.add(other, inplace=inplace)
+    assert added.n_vertices == (nv0 + other.n_vertices)
+
+    if inplace:
+        assert added is orig
+    else:
+        assert added is not orig
+
+    assert set(added.vertex_data['foo']) == {1, 2}
 

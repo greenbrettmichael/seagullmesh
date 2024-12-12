@@ -25,7 +25,10 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-
+_IndexTypes = (Vertex, Face, Edge, Halfedge)
+_IndexUnion = Vertex | Face | Edge | Halfedge
+_IndicesTypes = (sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
+_CppIndicesUnion = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 
@@ -38,6 +41,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
 
     # Updated in __init__subclass__
     _cpp_indices_to_py_indices: Dict[Type[_indices_types], Type[Indices]] = {}
+    # _cpp_index_to_
 
     def __init__(self, mesh: Mesh3, indices: TIndices | Sequence[TIndex]):
         self._mesh = mesh
@@ -202,7 +206,10 @@ class Mesh3:
     # null_halfedge: Halfedge = _Mesh3.null_halfedge
 
     def __init__(self, mesh: _Mesh3 | None = None):
-        self._mesh = mesh if mesh else _Mesh3()
+        """Construct a python-wrapped mesh"""
+
+        """The C++ mesh object being wrapped"""
+        self.mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
             self.vertex_data = MeshData(self, Vertex, sgm.mesh.Vertices)
@@ -210,46 +217,38 @@ class Mesh3:
             self.edge_data = MeshData(self, Edge, sgm.mesh.Edges)
             self.halfedge_data = MeshData(self, Halfedge, sgm.mesh.Halfedges)
 
-    @property
-    def mesh(self) -> sgm.mesh.Mesh3:  # TODO who cares just make it public
-        """The C++ mesh object"""
-        return self._mesh
+    n_vertices = property(lambda self: self.mesh.n_vertices)
+    n_faces = property(lambda self: self.mesh.n_faces)
+    n_edges = property(lambda self: self.mesh.n_edges)
+    n_halfedges = property(lambda self: self.mesh.n_halfedges)
+    is_valid = property(lambda self: self.mesh.is_valid)
 
     @property
     def vertices(self) -> Vertices:
         """Vector of vertex indices"""
-        return Vertices(self, self._mesh.vertices)
+        return Vertices(self, self.mesh.vertices)
 
     @property
     def faces(self) -> Faces:
         """Vector of face indices"""
-        return Faces(self, self._mesh.faces)
+        return Faces(self, self.mesh.faces)
 
     @property
     def edges(self) -> Edges:
         """Vector of edge indices"""
-        return Edges(self, self._mesh.edges)
+        return Edges(self, self.mesh.edges)
 
     @property
     def halfedges(self) -> Halfedges:
         """Vector of halfedge indices"""
-        return Halfedges(self, self._mesh.halfedges)
-
-    def indices(self, cls: Type[Indices]):
-        pass
-
-    n_vertices = property(lambda self: self._mesh.n_vertices)
-    n_faces = property(lambda self: self._mesh.n_faces)
-    n_edges = property(lambda self: self._mesh.n_edges)
-    n_halfedges = property(lambda self: self._mesh.n_halfedges)
-    is_valid = property(lambda self: self._mesh.is_valid)
+        return Halfedges(self, self.mesh.halfedges)
 
     @property
     def has_garbage(self) -> bool:
-        return self._mesh.has_garbage
+        return self.mesh.has_garbage
 
     def collect_garbage(self) -> None:
-        self._mesh.collect_garbage()
+        self.mesh.collect_garbage()
 
     @cached_property
     def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
@@ -260,7 +259,7 @@ class Mesh3:
 
     def copy(self) -> Mesh3:
         """Deep-copy the mesh and all its properties"""
-        out = Mesh3(sgm.mesh.Mesh3(self._mesh))
+        out = Mesh3(sgm.mesh.Mesh3(self.mesh))
 
         # The properties have been copied, just need to create new pmap references
         for k in ('vertex_data', 'face_data', 'edge_data', 'halfedge_data'):
@@ -270,7 +269,7 @@ class Mesh3:
 
     def add(self, other: Mesh3, check_properties=True, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
-        out._mesh += other._mesh
+        out.mesh += other.mesh
         return out
 
     @staticmethod
@@ -284,7 +283,7 @@ class Mesh3:
 
     def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
-        return sgm.io.mesh3_to_polygon_soup(self._mesh)
+        return sgm.io.mesh3_to_polygon_soup(self.mesh)
 
     @staticmethod
     def from_file(filename: str) -> Mesh3:
@@ -294,16 +293,16 @@ class Mesh3:
     def to_file(self, filename: str):
         ext = Path(filename).suffix
         if ext == '.ply':
-            sgm.io.write_ply(self._mesh, filename)
+            sgm.io.write_ply(self.mesh, filename)
         elif ext == '.off':
-            sgm.io.write_off(self._mesh, filename)
+            sgm.io.write_off(self.mesh, filename)
         else:
             raise ValueError(f"Unsupported format '{ext}'")
 
     @staticmethod
     def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
         out = Mesh3()
-        sgm.mesh.add_icosahedron(out._mesh, *center, radius)
+        sgm.mesh.add_icosahedron(out.mesh, *center, radius)
         return out
 
     @staticmethod
@@ -316,7 +315,7 @@ class Mesh3:
     ):
         out = Mesh3()
         base_center = Point3(*base_center) if not isinstance(base_center, Point3) else base_center
-        sgm.mesh.add_pyramid(out._mesh, n_base_pts, base_center, height, radius, closed)
+        sgm.mesh.add_pyramid(out.mesh, n_base_pts, base_center, height, radius, closed)
         return out
 
     def estimate_geodesic_distances(
@@ -329,19 +328,19 @@ class Mesh3:
         Estimated distances are stored in the supplied vertex property map.
         """
         distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
-        self._mesh.estimate_geodesic_distances(distances.pmap, src)
+        self.mesh.estimate_geodesic_distances(distances.pmap, src)
         return distances
 
     def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
-        out._mesh.transform(transform)
+        out.mesh.transform(transform)
         return out
 
     def volume(self) -> float:
-        return self._mesh.volume()
+        return self.mesh.volume()
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
-        return self._mesh.bounding_box()
+        return self.mesh.bounding_box()
 
     @staticmethod
     def from_pyvista(
@@ -382,7 +381,7 @@ class Mesh3:
         naming property maps to copy, or the string 'all' for all of them.
         """
         import pyvista as pv
-        verts, faces = sgm.io.mesh3_to_polygon_soup(self._mesh)
+        verts, faces = sgm.io.mesh3_to_polygon_soup(self.mesh)
         mesh = pv.PolyData.from_regular_faces(verts, faces)
 
         if vertex_data:
@@ -428,7 +427,7 @@ class Mesh3:
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             args = [
-                self._mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
+                self.mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
 
             if face_patch_map:
                 sgm.meshing.uniform_isotropic_remeshing2(*args, face_patch_map.pmap)
@@ -463,7 +462,7 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
-            args = [self._mesh, faces, tolerance, ball_radius, edge_len_min_max,
+            args = [self.mesh, faces, tolerance, ball_radius, edge_len_min_max,
                n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
             if face_patch_map:
                 sgm.meshing.adaptive_isotropic_remeshing2(*args, face_patch_map.pmap)
@@ -472,7 +471,7 @@ class Mesh3:
 
     def fair(self, verts: Vertices, continuity=0) -> None:
         """Fair the specified mesh vertices"""
-        sgm.meshing.fair(self._mesh, verts, continuity)
+        sgm.meshing.fair(self.mesh, verts, continuity)
 
     def refine(self, faces: Faces, density=np.sqrt(3)) -> Tuple[Vertices, Faces]:
         """Refine the specified mesh faces
@@ -480,7 +479,7 @@ class Mesh3:
         The number of faces is increased by a factor of `density`.
         Returns indices to the newly created vertices and faces.
         """
-        return sgm.meshing.refine(self._mesh, faces, density)
+        return sgm.meshing.refine(self.mesh, faces, density)
 
     def smooth_angle_and_area(
             self,
@@ -503,7 +502,7 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.smooth_angle_and_area(
-                self._mesh, faces, n_iter, use_area_smoothing, use_angle_smoothing,
+                self.mesh, faces, n_iter, use_area_smoothing, use_angle_smoothing,
                 use_safety_constraints, do_project, vcm.pmap, ecm.pmap)
 
     def tangential_relaxation(
@@ -519,7 +518,7 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.tangential_relaxation(
-                self._mesh, verts, n_iter, relax_constraints, vcm.pmap, ecm.pmap)
+                self.mesh, verts, n_iter, relax_constraints, vcm.pmap, ecm.pmap)
 
     def smooth_shape(
             self,
@@ -534,18 +533,18 @@ class Mesh3:
          more iterations with a smaller step. Typical values scale in the interval (1e-6, 1]
         """
         with self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm:
-            sgm.meshing.smooth_shape(self._mesh, faces, time, n_iter, vcm.pmap)
+            sgm.meshing.smooth_shape(self.mesh, faces, time, n_iter, vcm.pmap)
 
     def does_self_intersect(self) -> bool:
         """Returns True if the mesh self-intersects"""
-        return sgm.meshing.does_self_intersect(self._mesh)
+        return sgm.meshing.does_self_intersect(self.mesh)
 
     def self_intersections(self) -> Tuple[Faces, Faces]:
         """Returns pairs of intersecting faces"""
-        return sgm.meshing.self_intersections(self._mesh)
+        return sgm.meshing.self_intersections(self.mesh)
 
     def remove_self_intersections(self) -> None:
-        return sgm.meshing.remove_self_intersections(self._mesh)
+        return sgm.meshing.remove_self_intersections(self.mesh)
 
     def get_vertex_point_map(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
         if vert_points is None:
@@ -562,7 +561,7 @@ class Mesh3:
         By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
         property map storing Point2 or Point3 locations.
         """
-        return sgm.locate.aabb_tree(self._mesh, self.get_vertex_point_map(vert_points))
+        return sgm.locate.aabb_tree(self.mesh, self.get_vertex_point_map(vert_points))
 
     def locate_points(
             self,
@@ -579,7 +578,7 @@ class Mesh3:
         """
         tree = aabb_tree or self.aabb_tree()
         pmap = self.get_vertex_point_map(vert_points)
-        surface_points = sgm.locate.locate_points(self._mesh, tree, points, pmap)
+        surface_points = sgm.locate.locate_points(self.mesh, tree, points, pmap)
         return surface_points.faces, surface_points.bary_coords
 
     def first_ray_intersections(
@@ -597,7 +596,7 @@ class Mesh3:
         If a ray doesn't intersect the mesh, the face is equal to `self.null_face` and the
         barycentric coordinates are all zero.
         """
-        surf_pts = sgm.locate.first_ray_intersections(self._mesh, aabb_tree, points, directions)
+        surf_pts = sgm.locate.first_ray_intersections(self.mesh, aabb_tree, points, directions)
         return surf_pts.faces, surf_pts.bary_coords
 
     def shortest_path(
@@ -611,7 +610,7 @@ class Mesh3:
 
         locations are specified as a face and barycentric coordinates
         """
-        return sgm.locate.shortest_path(self._mesh, src_face, src_bc, tgt_face, tgt_bc)
+        return sgm.locate.shortest_path(self.mesh, src_face, src_bc, tgt_face, tgt_bc)
 
     def lscm(self, uv_map: str | PropertyMap[Vertex, Point2], initial_verts: Tuple[Vertex, Vertex] = None) -> None:
         """Performs least-squares conformal mapping
@@ -623,9 +622,9 @@ class Mesh3:
         if isinstance(uv_map, str):
             uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
         if initial_verts is not None:
-            msg = sgm.parametrize.lscm(self._mesh, uv_map.pmap, *initial_verts)
+            msg = sgm.parametrize.lscm(self.mesh, uv_map.pmap, *initial_verts)
         else:
-            msg = sgm.parametrize.lscm(self._mesh, uv_map.pmap)
+            msg = sgm.parametrize.lscm(self.mesh, uv_map.pmap)
 
         if msg != "Success":
             raise ParametrizationError(msg)
@@ -636,28 +635,28 @@ class Mesh3:
         Raises a seagullmesh.ParametrizationError if parametrization fails.
         """
         uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
-        msg = sgm.parametrize.arap(self._mesh, uv_map.pmap)
+        msg = sgm.parametrize.arap(self.mesh, uv_map.pmap)
         if msg != "Success":
             raise ParametrizationError(msg)
 
     def label_border_vertices(self, is_border: str | PropertyMap[Vertex, bool]):
         is_border = self.vertex_data.get_or_create_property(is_border, default=False)
-        sgm.border.label_border_vertices(self._mesh, is_border.pmap)
+        sgm.border.label_border_vertices(self.mesh, is_border.pmap)
         return is_border
 
     def label_border_edges(self, is_border: str | PropertyMap[Edge, bool]):
         is_border = self.edge_data.get_or_create_property(is_border, default=False)
-        sgm.border.label_border_edges(self._mesh, is_border.pmap)
+        sgm.border.label_border_edges(self.mesh, is_border.pmap)
         return is_border
 
     def extract_boundary_cycles(self) -> Halfedges:
-        return sgm.border.extract_boundary_cycles(self._mesh)
+        return sgm.border.extract_boundary_cycles(self.mesh)
 
     def has_boundary(self) -> bool:
-        return sgm.border.has_boundary(self._mesh)
+        return sgm.border.has_boundary(self.mesh)
 
     def trace_boundary_from_vertex(self, vertex: Vertex) -> Vertices:
-        return sgm.border.trace_boundary_from_vertex(self._mesh, vertex)
+        return sgm.border.trace_boundary_from_vertex(self.mesh, vertex)
 
     def remesh_planar_patches(
             self,
@@ -669,7 +668,7 @@ class Mesh3:
             # fpm = self.face_data.get_or_create_property(face_patch_map, default=-1)
             # TODO see comments in c++ remesh_planar_patches regarding face_patch_map
             out = sgm.meshing.remesh_planar_patches(
-                self._mesh, ecm.pmap, cosine_of_maximum_angle)
+                self.mesh, ecm.pmap, cosine_of_maximum_angle)
 
         return Mesh3(out)
 
@@ -713,7 +712,7 @@ class Mesh3:
             raise ValueError(f"Unsupported stop policy mode {stop_policy_mode}")
 
         with self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm:
-            out = fn(self._mesh, stop_policy_thresh, ecm.pmap)
+            out = fn(self.mesh, stop_policy_thresh, ecm.pmap)
 
         return out
 
@@ -728,7 +727,7 @@ class Mesh3:
           edges : (m, 2) array of vertex indices
           vertex_map : dict[int, list[mesh vertex]] mapping skeleton vertices to mesh vertices
         """
-        skeleton = sgm.skeletonization.extract_mean_curvature_flow_skeleton(self._mesh)
+        skeleton = sgm.skeletonization.extract_mean_curvature_flow_skeleton(self.mesh)
         return Skeleton(mesh=self, skeleton=skeleton)
 
     def interpolated_corrected_curvatures(
@@ -744,7 +743,7 @@ class Mesh3:
             principal_curvature_map, sgm.properties.PrincipalCurvaturesAndDirections())
 
         sgm.meshing.interpolated_corrected_curvatures(
-            self._mesh, mcm.pmap, gcm.pmap, pcm.pmap, ball_radius)
+            self.mesh, mcm.pmap, gcm.pmap, pcm.pmap, ball_radius)
 
     @staticmethod
     def from_poisson_surface_reconstruction(
@@ -767,7 +766,7 @@ class Mesh3:
             alpha = diagonal / relative_alpha if alpha is None else alpha
             offset = diagonal / relative_offset if offset is None else offset
 
-        mesh = sgm.alpha_wrapping.wrap_mesh(self._mesh, alpha, offset)
+        mesh = sgm.alpha_wrapping.wrap_mesh(self.mesh, alpha, offset)
         return Mesh3(mesh)
 
     @staticmethod
@@ -788,17 +787,17 @@ class Mesh3:
 
     def triangulate_faces(self, faces: Faces | None = None):
         faces = self.faces if faces is None else faces
-        sgm.triangulate.triangulate_faces(self._mesh, faces)
+        sgm.triangulate.triangulate_faces(self.mesh, faces)
 
     def reverse_face_orientation(self, faces: Faces | None = None):
         faces = self.faces if faces is None else faces
-        sgm.triangulate.reverse_face_orientations(self._mesh, faces)
+        sgm.triangulate.reverse_face_orientations(self.mesh, faces)
 
     def does_bound_a_volume(self) -> bool:
-        return sgm.triangulate.does_bound_a_volume(self._mesh)
+        return sgm.triangulate.does_bound_a_volume(self.mesh)
 
     def is_outward_oriented(self) -> bool:
-        return sgm.triangulate.is_outward_oriented(self._mesh)
+        return sgm.triangulate.is_outward_oriented(self.mesh)
 
     def regularize_face_selection_borders(
             self,
@@ -806,7 +805,7 @@ class Mesh3:
             weight: float,
             prevent_unselection: bool = False,
     ):
-        sgm.border.regularize_face_selection_borders(self._mesh, is_selected, weight, prevent_unselection)
+        sgm.border.regularize_face_selection_borders(self.mesh, is_selected, weight, prevent_unselection)
 
     def vertex_degrees(self, vertices: Vertices | None = None) -> np.ndarray:
         vertices = self.vertices if vertices is None else vertices
@@ -815,19 +814,19 @@ class Mesh3:
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
         face_patch_idx = self.face_data.get_or_create_property(face_patch_idx, default=0, is_index=True)
-        sgm.connected.label_selected_face_patches(self._mesh, faces, face_patch_idx.pmap)
+        sgm.connected.label_selected_face_patches(self.mesh, faces, face_patch_idx.pmap)
         return face_patch_idx
 
     def label_connected_components(self, face_patches: PropertyMap[Face, int], edge_is_constrained: PropertyMap[Edge, bool]) -> int:
-        return sgm.connected.label_connected_components(self._mesh, face_patches.pmap, edge_is_constrained.pmap)
+        return sgm.connected.label_connected_components(self.mesh, face_patches.pmap, edge_is_constrained.pmap)
 
     def remove_connected_face_patches(self, to_remove: Sequence[int], face_patches: PropertyMap[Face, int]):
-        sgm.connected.remove_connected_face_patches(self._mesh, to_remove, face_patches.pmap)
+        sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
 
     def connected_component(
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
         with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
-            return sgm.connected.connected_component(self._mesh, seed_face, ecm.pmap)
+            return sgm.connected.connected_component(self.mesh, seed_face, ecm.pmap)
 
 
 class ParametrizationError(RuntimeError):
@@ -846,7 +845,7 @@ class Skeleton:
     (Which is itself a boost adjacency_list)
     """
     def __init__(self, mesh: Mesh3, skeleton):
-        self._mesh = mesh
+        self.mesh = mesh
         self._skeleton = skeleton
 
     @cached_property
@@ -863,7 +862,7 @@ class Skeleton:
 
     @cached_property
     def radii(self) -> np.ndarray:
-        return self._skeleton.compute_radii(self._mesh.mesh)
+        return self._skeleton.compute_radii(self.mesh.mesh)
 
     def to_pyvista(self):
         import pyvista as pv
@@ -910,22 +909,22 @@ class PropertyMap(Generic[Key, Val], ABC):
     def indices_t(self) -> type:
         return self._data.indices_t
 
-    def _to_indices(self, key: IntoIndices[Key]) -> _Indices:
+    def _to_cpp_indices(self, key: IntoIndices[Key]) -> _CppIndicesUnion:
         # Returns the C++ indexer -- sgm.mesh.Vertices, sgm.mesh.Faces, etc
-        if not isinstance(key, Indices):
-            # Two possibilities:
-            try:
-                # 1) list[key]
-                key = Indices.collect(self.key_t, key)
-            except TypeError:
-                # 2) index into indices, like a ndarray[bool]
-                key = self._data.mesh_keys[key]
+        if isinstance(key, Indices):
+            if key.index_type is self.key_t:
+                return key.indices
+            else:
+                msg = f'Tried to index a {self.key_t} property map with {key.index_type} indices'
+                raise TypeError(msg)
 
-        if key.index_type is self.key_t:
-            return key.indices
-        else:
-            msg = f'Tried to index a {self.key_t} property map with {key.index_type} indices'
-            raise TypeError(msg)
+        # Two possibilities:
+        try:
+            # 1) list[key]
+            return sgm.mesh.make_indices(key)
+        except TypeError:
+            # 2) index into indices, like a ndarray[bool]
+            return self._data.all_indices[key].indices
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...
@@ -935,7 +934,7 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
-            return self.pmap[self._data.mesh_keys[key]]
+            return self.pmap[self._data.all_indices[key]]
         elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
             if isinstance(key, self.key_t):
                 return self.pmap[key]
@@ -943,7 +942,7 @@ class PropertyMap(Generic[Key, Val], ABC):
                 msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
-            return self.pmap[self._to_indices(key)]
+            return self.pmap[self._to_cpp_indices(key)]
 
     @overload
     def __setitem__(self, key: int | Key, val: Val) -> None: ...
@@ -953,7 +952,7 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __setitem__(self, key, val) -> None:
         if isinstance(key, int):  # pmap[0] -> value for the first face
-            self.pmap[self._data.mesh_keys[key]] = val
+            self.pmap[self._data.all_indices[key]] = val
         elif isinstance(key, _IndexTypes):
             if isinstance(key, self.key_t):
                 self.pmap[key] = val
@@ -961,7 +960,7 @@ class PropertyMap(Generic[Key, Val], ABC):
                 msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
-            self.pmap[self._to_indices(key)] = val
+            self.pmap[self._to_cpp_indices(key)] = val
 
     for dunder in (
             '__add__',
@@ -993,7 +992,7 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
 class ArrayPropertyMap(PropertyMap[Key, Val]):
     def get_objects(self, key: IntoIndices[Key]) -> Sequence[Val]:
         # __getitem__ defaults to returning array(nk, ndim), also allow returning list[Point2]
-        return self.pmap.get_vector(self._to_indices(key))
+        return self.pmap.get_vector(self._to_cpp_indices(key))
 
     def set_objects(self, key: IntoIndices[Key], val: Sequence[Val]) -> None:
         # handled by the general case
@@ -1011,7 +1010,7 @@ class MeshData(Generic[Key]):
             indices_t: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
-        self._mesh = mesh  # python wrapped mesh
+        self.mesh = mesh  # python wrapped mesh
         self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
         self.indices_t = indices_t
@@ -1038,14 +1037,14 @@ class MeshData(Generic[Key]):
         return f'{self._key_name[0].upper()}_{dtype_name}_PropertyMap'
 
     @property
-    def mesh_keys(self) -> Indices[Key]:
+    def all_indices(self) -> Indices[Key]:
         # e.g. mesh.faces
-        return getattr(self._mesh, self._key_name)
+        return getattr(self.mesh, self._key_name)
 
     @property
     def n_mesh_keys(self) -> int:
         # e.g. mesh.n_faces
-        return getattr(self._mesh, f'n_{self._key_name}')
+        return getattr(self.mesh, f'n_{self._key_name}')
 
     @contextmanager
     def temp(
@@ -1107,12 +1106,12 @@ class MeshData(Generic[Key]):
             )
             raise TypeError(msg)
 
-        pmap = pmap_class(self._mesh.mesh, name, default)
+        pmap = pmap_class(self.mesh.mesh, name, default)
         return self.assign_property_map(name=name, pmap=pmap, dtype_name=dtype_name)  # The wrapped map
 
     def remove_property(self, key: str):
         pmap = self._data.pop(key)
-        sgm.properties.remove_property_map(self._mesh.mesh, pmap.pmap)
+        sgm.properties.remove_property_map(self.mesh.mesh, pmap.pmap)
 
     def find_property_map(
             self,
@@ -1122,7 +1121,7 @@ class MeshData(Generic[Key]):
             dtype_name: str = 'unknown',
     ) -> PropertyMap[Key]:
         # Finds a pre-existing pmap, wraps it, and returns it without adding it to self
-        pmap = pmap_cls.get_property_map(self._mesh.mesh, name)  # noqa
+        pmap = pmap_cls.get_property_map(self.mesh.mesh, name)  # noqa
         if pmap is None:
             raise KeyError(f"Property map {pmap_cls} {name} doesn't exist")
         return self.wrap_property_map(pmap, wrapper_cls=wrapper_cls, dtype_name=dtype_name)
@@ -1189,7 +1188,7 @@ class MeshData(Generic[Key]):
         # Implicit construction of a new property map with initial value(s) `value`
         default = np.zeros_like(value, shape=()).item()
         pmap = self.get_or_create_property(key, default)
-        pmap[self.mesh_keys] = value
+        pmap[self.all_indices] = value
 
     def items(self) -> Iterator[Tuple[str, PropertyMap[Key, Any]]]:
         yield from self._data.items()
