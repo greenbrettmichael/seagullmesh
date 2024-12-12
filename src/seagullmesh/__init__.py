@@ -30,34 +30,57 @@ TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 
 
-class Indices(Generic[TIndex, TIndices]):
+class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
     index_type: Type[TIndex]  # Set by subclass
-    indices_type: Type[TIndices]  # Set by subclass
+    indices_type: Type[TIndices]  # The C++ indices class, set by subclass
 
-    _indices_types =  sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
-    _cpp_indices_to_py_indices: Dict[Type[_indices_types], Type[Indices]]
+    _indices_types = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 
-    def __init__(self, mesh: Mesh3, indices: TIndices):
+    # Updated in __init__subclass__
+    _cpp_indices_to_py_indices: Dict[Type[_indices_types], Type[Indices]] = {}
+
+    def __init__(self, mesh: Mesh3, indices: TIndices | Sequence[TIndex]):
         self._mesh = mesh
-        self.indices = indices
+
+        if isinstance(indices, Indices._indices_types):
+            if isinstance(indices, self.indices_type):
+                self.indices = indices
+            else:
+                msg = f"Can't construct {type(self).__name__} from {type(indices.__name__)}"
+                raise TypeError(msg)
+        else:
+            # A sequence e.g. list[Face] we can coerce into Indices<Face>?
+            # Should raise a pybind11 type error otherwise
+            self.indices = self.indices_type(indices)
 
     def __init_subclass__(cls, **kwargs):
-        super().__init_subclass()
+        super().__init_subclass__()
         Indices._cpp_indices_to_py_indices[cls.indices_type] = cls
 
     @staticmethod
     def from_indices(mesh: Mesh3, indices: TIndices) -> Indices:
         return Indices._cpp_indices_to_py_indices[type(indices)](mesh, indices)
 
+    @property
+    def _array(self) -> np.ndarray:  # array of ints
+        return self.indices.indices  # mapped to Indices.get_indices() on the C++ side
+
+    def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
+        indices = self.indices_type(arr)
+        return type(self)(self._mesh, indices)
+
     def __repr__(self) -> str:
-        return f'Indices[{self.index_type.__name__}](n={len(self)})'
+        return f'{self.indices_type.__name__}(n={len(self)})'
 
     def __len__(self) -> int:
         return len(self._array)
 
     def __eq__(self, other: TIndex | Indices[TIndex]) -> np.ndarray:
+        # e.g. (these_faces == that_face) -> array[bool]
         if isinstance(other, self.index_type):
             return self._array == other.to_int()
+
+        # e.g. (these_faces == those_faces) -> array[bool]
         elif isinstance(other, Indices) and (other.index_type is self.index_type):
             return self._array == other._array
         else:
@@ -70,14 +93,6 @@ class Indices(Generic[TIndex, TIndices]):
     def __iter__(self) -> Iterator[TIndex]:
         for i in self._array:
             yield self.index_type(i)
-
-    def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
-        indices = self.indices_type(arr)
-        return type(self)(self._mesh, indices)
-
-    @property
-    def _array(self) -> np.ndarray:  # array of ints
-        return self.indices.get_indices()
 
     def copy(self) -> Self:
         return self._with_array(self._array.copy())
@@ -115,13 +130,6 @@ class Indices(Generic[TIndex, TIndices]):
 
     def unique(self) -> Self:
         return self._with_array(np.unique(self._array))
-
-    @classmethod
-    def collect(cls, mesh: Mesh3, idx_t: Type[TIndex], indices: list[TIndex]) -> Self:
-        idxs_cls = _index_to_indices[idx_t]
-        _indices = idxs_cls.from_indices(indices)  # static constructor
-        return cls(mesh=mesh, indices=_indices)
-
 
 
 class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
@@ -191,7 +199,7 @@ class Mesh3:
     null_vertex: Vertex = _Mesh3.null_vertex
     null_face: Face = _Mesh3.null_face
     null_edge: Edge = _Mesh3.null_edge
-    null_halfedge: Halfedge = _Mesh3.null_halfedge
+    # null_halfedge: Halfedge = _Mesh3.null_halfedge
 
     def __init__(self, mesh: _Mesh3 | None = None):
         self._mesh = mesh if mesh else _Mesh3()
@@ -870,7 +878,7 @@ Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
 Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
 
 """Something that can vector-index a property map"""
-IntoIndices = np.ndarray | Sequence[Key] | slice | Indices[Key]
+IntoIndices = np.ndarray | slice | Sequence[Key]
 
 
 class PropertyMap(Generic[Key, Val], ABC):

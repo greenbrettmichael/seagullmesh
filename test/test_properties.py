@@ -110,3 +110,11 @@ def test_copy_mesh_copies_properties(mesh):
     assert foo[0] == 1  # Should be unchanged
     assert foo1[0] == 2
 
+
+def test_add_mesh_adds_properties(mesh):
+    mesh.vertex_data['foo'] = 1
+    mesh2 = Mesh3.pyramid()
+    mesh2.vertex_data['foo'] = 2
+    mesh += mesh2
+    assert set(mesh.vertex_data['foo']) == {1, 2}
+

@@ -45,12 +45,16 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         .def("to_int", [](const T& idx) { return size_type(idx); })
     ;
 
+    // Vertices, Faces, Edges, Halfedges
     py::class_<Indices<T>>(m, idxs_name.c_str())
         .def(py::init< py::array_t<size_type> >() )
         .def(py::init< const std::vector<T>& >() )
         .def("from_indices", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
         .def_property_readonly("indices", [](const Indices<T>& idxs) { return idxs.get_indices(); })
     ;
+
+    // Also provide a module-level free function
+    // m.def("make_indices", [](const std::vector<T>& idxs){ return Indices<T>(idxs); });
 }
 
 
@@ -75,10 +79,16 @@ void init_mesh(py::module &m) {
         .def_property_readonly("has_garbage", [](const Mesh3& mesh) {return mesh.has_garbage();})
         .def("collect_garbage", [](Mesh3& mesh) {mesh.collect_garbage();})
 
-        .def_static("null_vertex", &Mesh3::null_vertex)
-        .def_static("null_face", &Mesh3::null_face)
-        .def_static("null_edge", &Mesh3::null_edge)
-        .def_static("null_halfedge", &Mesh3::null_halfedge)
+//        .def_static("null_vertex", &Mesh3::null_vertex)
+//        .def_static("null_face", &Mesh3::null_face)
+//        .def_static("null_edge", &Mesh3::null_edge)
+//        .def_static("null_halfedge", &Mesh3::null_halfedge)
+
+        .def_property_readonly_static("null_vertex",    [](py::object /* self */) { return Mesh3::null_vertex(); })
+        .def_property_readonly_static("null_face",      [](py::object /* self */) { return Mesh3::null_face(); })
+        .def_property_readonly_static("null_edge",      [](py::object /* self */) { return Mesh3::null_edge(); })
+        .def_property_readonly_static("null_halfedge",  [](py::object /* self */) { return Mesh3::null_halfedge(); })
+
         
         .def_property_readonly("is_valid", [](const Mesh3& mesh) {
             // verbose = False; true prints to cerr

@@ -1,8 +1,7 @@
 import pytest
 from pyvista import Cylinder, PolyData
 
-from seagullmesh import Mesh3
-from seagullmesh import _seagullmesh as sgm
+from seagullmesh import Mesh3, sgm
 
 
 def pv_border_edges(mesh: PolyData) -> PolyData:
