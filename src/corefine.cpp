@@ -25,11 +25,15 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     size_t mesh_idx(const Mesh3& mesh) const {
         if (&mesh == &mesh1) {return 0;} else if (&mesh == &mesh2) {return 1;} else {return 2;};
     }
-    void new_vertex_added (size_t i_id, V v, const Mesh3& mesh) {
-        // either edge split or face interior
-        auto i = mesh_idx(mesh);
-        new_vertices[i].push_back(v);
-    }
+
+//    void new_vertex_added (size_t i_id, V v, const Mesh3& mesh) {
+//        // either edge split or face interior
+//        auto i = mesh_idx(mesh);
+//        new_vertices[i].push_back(v);
+//    }
+//    void after_vertex_copy (V v_src, const Mesh3& &m_src, V v_tgt, const Mesh3& m_tgt) {
+// 	    // called after vertex v_src from tm_src is copied in tm_tgt.
+// 	}
 
     F original_face(size_t mesh_idx, F face) const {
         // return the face stored by after_subface_created if it's a subface, otherwise the identity function
@@ -69,7 +73,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         }
         return std::make_pair(old_faces, new_faces);
     }
-    const std::vector<V>& get_new_vertices(size_t mesh_idx) const { return new_vertices[mesh_idx]; }
+    // const std::vector<V>& get_new_vertices(size_t mesh_idx) const { return new_vertices[mesh_idx]; }
 };
 void init_corefine(py::module &m) {
     py::module sub = m.def_submodule("corefine");
@@ -83,10 +87,10 @@ void init_corefine(py::module &m) {
             auto pair = tracker.get_copied_faces(mesh_idx);
             return std::make_pair(Indices<F>(pair.first), Indices<F>(pair.second));
         })
-        .def("get_new_vertices", [](const CorefineTracker& tracker, size_t mesh_idx) {
-            auto verts = tracker.get_new_vertices(mesh_idx);
-            return Indices<V>(verts);
-        })
+//        .def("get_new_vertices", [](const CorefineTracker& tracker, size_t mesh_idx) {
+//            auto verts = tracker.get_new_vertices(mesh_idx);
+//            return Indices<V>(verts);
+//        })
     ;
 
     sub

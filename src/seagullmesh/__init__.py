@@ -15,10 +15,8 @@ from seagullmesh._seagullmesh.mesh import (
 )
 from typing_extensions import Self
 
-import seagullmesh.corefine
 from seagullmesh import _seagullmesh as sgm
 from ._version import version_info, __version__  # noqa
-from .skeleton import Skeleton
 
 if TYPE_CHECKING:
     try:
@@ -26,9 +24,9 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-_IndexTypes = (Vertex, Face, Edge, Halfedge)
-_IndexUnion = Vertex | Face | Edge | Halfedge
-_IndicesTypes = (sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
+_PyIndexTypes = (Vertex, Face, Edge, Halfedge)
+_PyIndexUnion = Vertex | Face | Edge | Halfedge
+_CppIndicesTypes = (sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 _CppIndicesUnion = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
@@ -452,8 +450,8 @@ class Mesh3:
             other: Mesh3,
             edge_constrained0: str | PropertyMap[Edge, bool] | None = None,
             edge_constrained1: str | PropertyMap[Edge, bool] | None = None,
-    ) -> seagullmesh.corefine.Corefiner:
-        from seagullmesh.corefine import Corefiner
+    ):
+        from .corefine import Corefiner
         return Corefiner(
             mesh0=self,
             mesh1=other,
@@ -941,6 +939,9 @@ class PropertyMap(Generic[Key, Val], ABC):
             else:
                 msg = f'Tried to index a {self.key_t} property map with {key.index_type} indices'
                 raise TypeError(msg)
+        elif isinstance(key, _CppIndicesTypes):
+            # This should only happen internally..
+            return key
 
         # Two possibilities:
         try:
@@ -959,7 +960,7 @@ class PropertyMap(Generic[Key, Val], ABC):
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
             return self.pmap[self._data.all_indices[key]]
-        elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
+        elif isinstance(key, _PyIndexTypes):  # e.g. pmap[Face] -> scalar value
             if isinstance(key, self.key_t):
                 return self.pmap[key]
             else:
@@ -977,7 +978,7 @@ class PropertyMap(Generic[Key, Val], ABC):
     def __setitem__(self, key, val) -> None:
         if isinstance(key, int):  # pmap[0] -> value for the first face
             self.pmap[self._data.all_indices[key]] = val
-        elif isinstance(key, _IndexTypes):
+        elif isinstance(key, _PyIndexTypes):
             if isinstance(key, self.key_t):
                 self.pmap[key] = val
             else:
@@ -1096,7 +1097,7 @@ class MeshData(Generic[Key]):
         pre-existing property map, it's not removed.
         """
         remove_after = isinstance(pmap, str) and pmap == temp_name
-        pmap = self.get_or_create_property(pmap, default=default, dtype=dtype)
+        pmap = self.get_or_create_property(pmap or temp_name, default=default, dtype=dtype)
         yield pmap
         if remove_after:
             self.remove_property(temp_name)

@@ -53,6 +53,7 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
         .def(py::init< const std::vector<T>& >() )
         .def("from_indices", [](const std::vector<T>& idxs) { return Indices<T>(idxs); })
         .def_property_readonly("indices", [](const Indices<T>& idxs) { return idxs.get_indices(); })
+        .def("__len__", [](const Indices<T>& idxs) { return idxs.size(); })
     ;
 
     // Also provide a module-level free function
