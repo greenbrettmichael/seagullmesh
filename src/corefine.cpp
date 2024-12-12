@@ -10,27 +10,35 @@ typedef Mesh3::Property_map<F, int64_t> FaceInt;
 
 
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
-    boost::container::flat_map<const Mesh3*, FaceInt> face_id_maps;
+    struct TrackedMesh {
+        FaceInt face_id_map;
+    };
+
+    boost::container::flat_map<const Mesh3*, TrackedMesh> tracked_meshes;
     int64_t face_id;
 
     CorefineTracker() {
-        face_id_maps.reserve(3);
+        tracked_meshes.reserve(3);
         face_id = -1;
     }
     void track_mesh(Mesh3& mesh, FaceInt& face_id_map) {
-        face_id_maps[&mesh] = face_id_map;
+        // face_id_maps[&mesh] = face_id_map;
+        tracked_meshes[&mesh] = TrackedMesh{face_id_map};
     }
 
     void new_vertex_added (size_t i_id, V v, Mesh3& mesh) {}
 
     void before_subface_creations(F f_split, Mesh3& mesh) {
-        face_id = face_id_maps[&mesh][f_split] ;
+        // face_id = face_id_maps[&mesh][f_split] ;
+        face_id = tracked_meshes[&mesh].face_id_map[f_split];
     }
     void after_subface_created(F f_new, Mesh3& mesh) {
-        face_id_maps[&mesh][f_new] = face_id;
+        // face_id_maps[&mesh][f_new] = face_id;
+        tracked_meshes[&mesh].face_id_map[f_new] = face_id;
     }
     void after_face_copy(F f_src, Mesh3& m_src, F f_tgt, Mesh3& m_tgt) {
-        face_id_maps[&m_tgt][f_tgt] = face_id_maps[&m_src][f_src];
+        // face_id_maps[&m_tgt][f_tgt] = face_id_maps[&m_src][f_src];
+        tracked_meshes[&m_tgt].face_id_map[f_tgt] = tracked_meshes[&m_src].face_id_map[f_src];
     }
 
 };
