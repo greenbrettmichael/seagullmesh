@@ -24,32 +24,27 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-_IndexTypes = (Vertex, Face, Edge, Halfedge)
-_IndexUnion = Vertex | Face | Edge | Halfedge
-_CppIndicesTypes = (sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
-_CppIndicesUnion = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
+_IndexTypes = Vertex | Face | Edge | Halfedge
+_CppIndicesTypes = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 
 
 class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
     index_type: Type[TIndex]  # Set by subclass
-    indices_type: Type[TIndices]  # The C++ indices class, set by subclass
-
-    _indices_types = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
+    indices_type: Type[_CppIndicesTypes]  # The C++ indices class, set by subclass
 
     # Updated in __init__subclass__
-    _cpp_indices_to_py_indices: Dict[Type[_indices_types], Type[Indices]] = {}
-    # _cpp_index_to_
+    _cpp_indices_to_py_indices: Dict[Type[_CppIndicesTypes], Type[_PyIndicesTypes]] = {}
 
     def __init__(self, mesh: Mesh3, indices: TIndices | Sequence[TIndex]):
         self.mesh = mesh
 
-        if isinstance(indices, Indices._indices_types):
+        if isinstance(indices, _CppIndicesTypes):
             if isinstance(indices, self.indices_type):
                 self.indices = indices
             else:
-                msg = f"Can't construct {type(self).__name__} from {type(indices.__name__)}"
+                msg = f"Can't construct {type(self).__name__} from {type(indices).__name__}"
                 raise TypeError(msg)
         else:
             # A sequence e.g. list[Face] we can coerce into Indices<Face>?
@@ -58,7 +53,22 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
-        Indices._cpp_indices_to_py_indices[cls.indices_type] = cls
+        Indices._cpp_indices_to_py_indices[cls.indices_type] = cls  # type: ignore
+
+    @classmethod
+    @abstractmethod
+    def all_indices(cls, mesh: Mesh3) -> Self: ...
+
+    @classmethod
+    @abstractmethod
+    def n_mesh_keys(cls, mesh: Mesh3) -> int: ...
+
+    @staticmethod
+    def py_indices_type(cpp_indices_type: _CppIndicesTypes) -> Type[_PyIndicesTypes]:
+        try:
+            return Indices._cpp_indices_to_py_indices[cpp_indices_type]
+        except KeyError:
+            raise TypeError(f"{cpp_indices_type} is not a seagullmesh C++ indices type")
 
     @staticmethod
     def from_indices(mesh: Mesh3, indices: TIndices) -> Indices:
@@ -78,7 +88,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
     def __len__(self) -> int:
         return len(self._array)
 
-    def __eq__(self, other: TIndex | Indices[TIndex]) -> np.ndarray:
+    def __eq__(self, other: TIndex | Self) -> np.ndarray:
         # e.g. (these_faces == that_face) -> array[bool]
         if isinstance(other, self.index_type):
             return self._array == other.to_int()
@@ -87,10 +97,10 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
         elif isinstance(other, Indices) and (other.index_type is self.index_type):
             return self._array == other._array
         else:
-            msg = f"Can only compare indices of the same type, got {self=} and {other=}"
+            msg = f"Can only compare indices of the same type, got self={self} and other={other}"
             raise TypeError(msg)
 
-    def __ne__(self, other: TIndex | Indices[TIndex]) -> np.ndarray:
+    def __ne__(self, other: TIndex | Self) -> np.ndarray:
         return np.logical_not((self == other))
 
     def __iter__(self) -> Iterator[TIndex]:
@@ -123,13 +133,16 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
         if isinstance(item, int) and isinstance(value, self.index_type):
             # faces[0] = some_face
             self._array[item] = value.to_int()
-        elif isinstance(value, type(self)):
+            return
+
+        if isinstance(value, type(self)):
             if value.mesh is self.mesh:
                 self._array[item] = value._array
             else:
                 raise ValueError("Assigning indices between different meshes, this is probably a mistake")
-        else:
-            raise TypeError("Can only assign indices of the same type")
+
+        msg = "Can only assign indices of the same type, got self={self} and value={vallue}"
+        raise TypeError(msg)
 
     def unique(self) -> Self:
         return self._with_array(np.unique(self._array))
@@ -138,6 +151,14 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
 class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
     index_type = Vertex
     indices_type = sgm.mesh.Vertices
+
+    @classmethod
+    def all_indices(cls, mesh: Mesh3) -> Self:
+        return cls(mesh, mesh.mesh.vertices)
+
+    @classmethod
+    def n_mesh_keys(cls, mesh: Mesh3) -> int:
+        return mesh.mesh.n_vertices
 
     def adjacent_faces(self) -> Faces:
         return Faces(self.mesh, sgm.connected.vertices_to_faces(self.mesh.mesh, self.indices))
@@ -158,6 +179,14 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
 class Faces(Indices[Face, sgm.mesh.Faces]):
     index_type = Face
     indices_type = sgm.mesh.Faces
+
+    @classmethod
+    def all_indices(cls, mesh: Mesh3) -> Self:
+        return cls(mesh, mesh.mesh.faces)
+
+    @classmethod
+    def n_mesh_keys(cls, mesh: Mesh3) -> int:
+        return mesh.mesh.n_faces
 
     def construct_points(
             self,
@@ -196,6 +225,14 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
     indices_type = sgm.mesh.Edges
 
+    @classmethod
+    def all_indices(cls, mesh: Mesh3) -> Self:
+        return cls(mesh, mesh.mesh.edges)
+
+    @classmethod
+    def n_mesh_keys(cls, mesh: Mesh3) -> int:
+        return mesh.mesh.n_edges
+
     def edge_soup(self) -> np.ndarray:
         return sgm.io.edge_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
 
@@ -207,8 +244,16 @@ class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     index_type = Halfedge
     indices_type = sgm.mesh.Halfedges
 
+    @classmethod
+    def all_indices(cls, mesh: Mesh3) -> Self:
+        return cls(mesh, mesh.mesh.halfedges)
 
-_PyIndicesUnion = Vertices | Faces | Edges | Halfedges
+    @classmethod
+    def n_mesh_keys(cls, mesh: Mesh3) -> int:
+        return mesh.mesh.n_halfedges
+
+
+_PyIndicesTypes = Vertices | Faces | Edges | Halfedges
 
 
 class Mesh3:
@@ -224,36 +269,23 @@ class Mesh3:
         self.mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
-            self.vertex_data = MeshData(self, Vertex, sgm.mesh.Vertices)
-            self.face_data = MeshData(self, Face, sgm.mesh.Faces)
-            self.edge_data = MeshData(self, Edge, sgm.mesh.Edges)
-            self.halfedge_data = MeshData(self, Halfedge, sgm.mesh.Halfedges)
+            # Allow installing seagullmesh without the properties modules
+            self.vertex_data = VertexData(self)
+            self.face_data = FaceData(self)
+            self.edge_data = EdgeData(self)
+            self.halfedge_data = HalfedgeData(self)
 
     n_vertices = property(lambda self: self.mesh.n_vertices)
     n_faces = property(lambda self: self.mesh.n_faces)
     n_edges = property(lambda self: self.mesh.n_edges)
     n_halfedges = property(lambda self: self.mesh.n_halfedges)
+
+    vertices = property(lambda self: Vertices.all_indices(self))
+    faces = property(lambda self: Faces.all_indices(self))
+    edges = property(lambda self: Edges.all_indices(self))
+    halfedges = property(lambda self: Halfedges.all_indices(self))
+
     is_valid = property(lambda self: self.mesh.is_valid)
-
-    @property
-    def vertices(self) -> Vertices:
-        """Vector of vertex indices"""
-        return Vertices(self, self.mesh.vertices)
-
-    @property
-    def faces(self) -> Faces:
-        """Vector of face indices"""
-        return Faces(self, self.mesh.faces)
-
-    @property
-    def edges(self) -> Edges:
-        """Vector of edge indices"""
-        return Edges(self, self.mesh.edges)
-
-    @property
-    def halfedges(self) -> Halfedges:
-        """Vector of halfedge indices"""
-        return Halfedges(self, self.mesh.halfedges)
 
     @property
     def has_garbage(self) -> bool:
@@ -879,38 +911,34 @@ class PropertyMap(Generic[Key, Val], ABC):
     def dtype_name(self) -> str:
         return self._dtype_name
 
-    @property
-    def key_type(self) -> Type[TIndex]:
-        return self.data.key_type
+    def _check_cpp_indices(self, idxs: _CppIndicesTypes) -> _CppIndicesTypes:
+        if isinstance(idxs, self.data.cpp_indices_type):
+            return idxs
 
-    @property
-    def py_indices_type(self) -> type:
-        return self.data.indices_t
+        msg = f"Tried to index a {self.data.key_type} property map with {idxs} indices"
+        raise TypeError(msg)
 
-    @property
-    def cpp_indices_type(self) -> type:
-        return self.data.indices_t
-
-    def _to_cpp_indices(self, key: IntoIndices[Key]) -> _CppIndicesUnion:
+    def _to_cpp_indices(self, key: IntoIndices[Key]) -> _CppIndicesTypes:
         # Returns the C++ indexer -- sgm.mesh.Vertices, sgm.mesh.Faces, etc
         if isinstance(key, Indices):
-            if key.index_type is self.key_type:
+            if key.index_type is self.data.key_type:
                 return key.indices
             else:
-                msg = f'Tried to index a {self.key_type} property map with {key.index_type} indices'
+                msg = f'Tried to index a {self.data.key_type} property map with {key.index_type} indices'
                 raise TypeError(msg)
-        elif isinstance(key, _CppIndicesTypes):
-            if isinstance(key, self.py_indices_type)
-            # This should only happen internally..
-            return key
+        elif isinstance(key, _CppIndicesTypes):  # This should only happen internally..
+            return self._check_cpp_indices(key)
 
-        # Two possibilities:
+        # Two remaining possibilities:
         try:
-            # 1) list[key]
-            return sgm.mesh.make_indices(key)
+            # 1) list[key] or similar
+            # Free function std::vector<Index> -> Indices<Index>
+            idxs = sgm.mesh.make_indices(key)
+            return self._check_cpp_indices(idxs)
         except TypeError:
             # 2) index into indices, like a ndarray[bool]
-            return self.data.all_indices[key].indices
+            all_idxs = self.data.py_indices_type.all_indices(self.data.mesh)
+            return all_idxs[key].indices
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...
@@ -920,12 +948,12 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
-            return self.pmap[self.data.all_indices[key]]
+            return self.pmap[self.data.py_indices_type.all_indices(self.data.mesh)[key]]
         elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
-            if isinstance(key, self.key_type):
+            if isinstance(key, self.data.key_type):
                 return self.pmap[key]
             else:
-                msg = f'Tried to index a {self.key_type} property map with {type(key)} index'
+                msg = f'Tried to index a {self.data.key_type} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
             return self.pmap[self._to_cpp_indices(key)]
@@ -938,12 +966,12 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __setitem__(self, key, val) -> None:
         if isinstance(key, int):  # pmap[0] -> value for the first face
-            self.pmap[self.data.all_indices[key]] = val
+            self.pmap[self.data.all_mesh_keys[key]] = val
         elif isinstance(key, _IndexTypes):
-            if isinstance(key, self.key_type):
+            if isinstance(key, self.data.key_type):
                 self.pmap[key] = val
             else:
-                msg = f'Tried to index a {self.key_type} property map with {type(key)} index'
+                msg = f'Tried to index a {self.data.key_type} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
             self.pmap[self._to_cpp_indices(key)] = val
@@ -990,23 +1018,41 @@ VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
 
 class MeshData(Generic[Key]):
-    def __init__(
-            self,
-            mesh: Mesh3,
-            indices_type: type,
-    ):
+    py_indices_type: Type[_PyIndicesTypes]  # set by subclass
+
+    # set in __init_subclass__
+    key_type: Type[Key]  # == py_indices_type.index_type
+    cpp_indices_type: Type[_CppIndicesTypes]
+    _key_name: str  # 'vertices', 'faces', 'edges', 'halfedges'
+    _prefix: str  # V, F, E, H
+
+    def __init__(self, mesh: Mesh3):
         self._data: Dict[str, PropertyMap[Key]] = {}
         assert isinstance(mesh, Mesh3)
         self.mesh = mesh  # python wrapped mesh
-        self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
-        self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
-        self.indices_t = indices_t
-        self.key_type = key_type
 
     _dtype_mappings: dict[type, str] = {
         float: 'double',
         int: 'int64',
     }
+
+    @property
+    def all_mesh_keys(self) -> Indices:
+        return self.py_indices_type.all_indices(self.mesh)
+
+    @property
+    def n_mesh_keys(self) -> int:
+        return self.py_indices_type.n_mesh_keys(self.mesh)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.key_type = cls.py_indices_type.index_type
+        cls.cpp_indices_type = cls.py_indices_type.indices_type
+        cls._key_name = cls.py_indices_type.__name__.lower()  # 'vertices', 'faces', etc
+        cls._prefix = cls._key_name[0].upper()  # 'V', 'F', 'E', 'H'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}[{self.key_type.__name__}](mesh={self.mesh})'
 
     def _dtype_name(self, dtype: _PMapDType) -> str:
         if isinstance(dtype, str):
@@ -1021,17 +1067,7 @@ class MeshData(Generic[Key]):
             return dtype.__name__
 
     def _pmap_class_name(self, dtype_name: str) -> str:
-        return f'{self._key_name[0].upper()}_{dtype_name}_PropertyMap'
-
-    @property
-    def all_indices(self) -> Indices[Key]:
-        # e.g. mesh.faces
-        return getattr(self.mesh, self._key_name)
-
-    @property
-    def n_mesh_keys(self) -> int:
-        # e.g. mesh.n_faces
-        return getattr(self.mesh, f'n_{self._key_name}')
+        return f'{self._prefix}_{dtype_name}_PropertyMap'
 
     @contextmanager
     def temp(
@@ -1135,11 +1171,9 @@ class MeshData(Generic[Key]):
         return wrapped_pmap
 
     def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
-        if pmap.key_type is not self.key_type:
-            raise TypeError(f"Trying to get a property map of {pmap.key_type} from {self}")
-
         if pmap.data is not self:
-            raise ValueError("Property map is assigned to another mesh")
+            msg = f'Trying to get {pmap} from {self}'
+            raise TypeError(msg)
 
         return pmap
 
@@ -1185,7 +1219,7 @@ class MeshData(Generic[Key]):
         # Implicit construction of a new property map with initial value(s) `value`
         default = np.zeros_like(value, shape=()).item()  # type: ignore
         pmap = self.get_or_create_property(key, default)
-        pmap[self.all_indices] = value
+        pmap[self.py_indices_type.all_indices(self.mesh)] = value
 
     def items(self) -> Iterator[Tuple[str, PropertyMap[Key, Any]]]:
         yield from self._data.items()
@@ -1201,10 +1235,26 @@ class MeshData(Generic[Key]):
 
     def check_has_same_properties(self, other: Self) -> None:
         if missing_keys := set(self.keys()).symmetric_difference(other.keys()):
-            msg = f"{self.key_type} properties {missing_keys} are not present in both meshes."
+            msg = f"{self.key_type} properties {missing_keys} are not present in both meshes."  # noqa
             raise ValueError(msg)
 
         for k, pmap in self.items():
             t0, t1 = type(pmap.pmap), type(other[k].pmap)
             if t0 is not t1:
                 raise TypeError(f"Property {k} has two different types: {t0} and {t1}")
+
+
+class VertexData(MeshData):
+    py_indices_type = Vertices
+
+
+class FaceData(MeshData):
+    py_indices_type = Faces
+
+
+class EdgeData(MeshData):
+    py_indices_type = Edges
+
+
+class HalfedgeData(MeshData):
+    py_indices_type = Halfedges

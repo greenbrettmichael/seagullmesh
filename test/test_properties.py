@@ -3,7 +3,7 @@ import pytest
 from numpy import full, arange, zeros, ones
 from numpy.testing import assert_array_equal
 
-from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex
+from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex, ArrayPropertyMap
 
 props = pytest.importorskip("seagullmesh._seagullmesh.properties")
 
@@ -35,8 +35,8 @@ def test_explicit_property_map_construction(mesh, data_name, cls, default):
 def test_add_property_map_typed(mesh, data_name, cls, default, dtype):
     data = getattr(mesh, data_name)
     pmap = data.add_property('foo', default=default, dtype=dtype)
-    assert isinstance(pmap.pmap, cls)
-    dtype_name = pmap[data.all_indices].dtype.name
+    assert isinstance(pmap.pmap, cls)  # type: ignore
+    dtype_name = pmap[:].dtype.name
     if dtype_name == 'float64':
         dtype_name = 'double'
     assert dtype_name == dtype
@@ -49,7 +49,7 @@ def test_scalar_properties(mesh, key_type, val_type):
 
     data['foo'] = full(data.n_mesh_keys, val_type(0))
 
-    keys = data.all_indices
+    keys = data.all_mesh_keys
     key = keys[0]
     data['foo'][key] = val_type(1)
 
@@ -77,7 +77,8 @@ def test_array_properties(mesh, key_type, val_type):
 
     ndims = int(val_type.__name__[-1])
     default = val_type(*[0.0 for _ in range(ndims)])
-    d.add_property('foo', default=default)
+    pmap = d.add_property('foo', default=default)
+    assert isinstance(pmap, ArrayPropertyMap)
 
     nkeys = d.n_mesh_keys
     data = np.random.uniform(-1, 1, (nkeys, ndims))
@@ -87,8 +88,8 @@ def test_array_properties(mesh, key_type, val_type):
 
     data2 = data * 2
     objs = [val_type(*val) for val in data2]
-    d['foo'].set_objects(d.all_indices, objs)
-    objs2 = d['foo'].get_objects(d.all_indices)
+    pmap.set_objects(d.all_mesh_keys, objs)
+    objs2 = pmap.get_objects(d.all_mesh_keys)
 
     for (o1, o2) in zip(objs, objs2):
         assert o1 == o2
