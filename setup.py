@@ -133,8 +133,8 @@ ext_modules = [
             # 'src/alpha_wrapping.cpp',
             # 'src/meshing.cpp',
             # 'src/triangulate.cpp',
-            'src/corefine.cpp',
-
+            # 'src/corefine.cpp',
+            'src/tube_mesher.cpp',
         ],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
