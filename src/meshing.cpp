@@ -55,7 +55,7 @@ struct TouchedVertPoint {
 
 
 void init_meshing(py::module &m) {
-
+    // TODO add collapse_constraints to remeshing opts
     m.def_submodule("meshing")
         .def("uniform_isotropic_remeshing", [](
                 Mesh3& mesh,
