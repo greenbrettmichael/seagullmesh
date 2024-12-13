@@ -31,6 +31,7 @@ class TubeMesher:
             self.tube_mesher.close_xs(True)
 
         if self.triangulate:
+            print(f'has garbage pre-triangulate', self.mesh.has_garbage)
             self.mesh.collect_garbage()  # clear untriangulated faces
 
         if reverse_orientation:
@@ -45,11 +46,11 @@ class TubeMesher:
             closed: bool = False,
             height: float = 1.0,
     ) -> Mesh3:
-        theta = np.linspace(0, 2 * np.pi, n_radial)
+        theta = np.linspace(0, 2 * np.pi, n_radial, endpoint=False)  # don't include 2pi
         pts = np.stack([np.cos(theta), np.sin(theta), 0 * theta], axis=1)
         tm = TubeMesher(closed=closed)
 
-        for z in np.linspace(0, height, n_axial, endpoint=True):
+        for z in np.linspace(0, height, n_axial):
             pts[:, 2] = z
             tm.add_xs(t=z, theta=theta, pts=pts)
 

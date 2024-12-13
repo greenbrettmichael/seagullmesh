@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     except ImportError:
         pv = None
 
-_PyIndexTypes = (Vertex, Face, Edge, Halfedge)
-_PyIndexUnion = Vertex | Face | Edge | Halfedge
+_IndexTypes = (Vertex, Face, Edge, Halfedge)
+_IndexUnion = Vertex | Face | Edge | Halfedge
 _CppIndicesTypes = (sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 _CppIndicesUnion = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
@@ -206,6 +206,9 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
 class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     index_type = Halfedge
     indices_type = sgm.mesh.Halfedges
+
+
+_PyIndicesUnion = Vertices | Faces | Edges | Halfedges
 
 
 class Mesh3:
@@ -442,6 +445,23 @@ class Mesh3:
         from .corefine import Corefiner
         return Corefiner(mesh0=self, mesh1=other, **kwargs)
 
+    def get_vertex_point_map(self, vpm: str | VertexPointMap | None) -> VertexPointMap:
+        if vpm is None:
+            return self.vertex_point_map
+        else:
+            return self.vertex_data.get_property_map(vpm)
+
+    def aabb_tree(self, vpm: str | VertexPointMap | None = None):
+        """Construct an axis-aligned bounding box tree for accelerated spatial queries
+
+        By default, the AABB tree is constructed for the default mesh vertex locations,
+        but also accepts a vertex property map storing Point2 or Point3 locations.
+        """
+        from .aabb import AabbTree
+        tree = sgm.locate.aabb_tree(self.mesh, self.get_vertex_point_map(vpm).pmap)
+        return AabbTree(self, tree)
+
+
     def estimate_geodesic_distances(
             self,
             src: Union[Vertex, Vertices],
@@ -602,59 +622,6 @@ class Mesh3:
 
     def remove_self_intersections(self) -> None:
         return sgm.meshing.remove_self_intersections(self.mesh)
-
-    def get_vertex_point_map(self, vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None):
-        if vert_points is None:
-            return self.mesh.points
-        else:
-            return self.vertex_data.get_property_map(vert_points).pmap
-
-    def aabb_tree(
-            self,
-            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
-    ) -> sgm.locate.AABB_Tree2 | sgm.locate.AABB_Tree3:
-        """Construct an axis-aligned bounding box tree for accelerated point location by `Mesh3.locate_points
-
-        By default, the AABB tree is constructed for the default mesh vertex locations, but also accepts a vertex
-        property map storing Point2 or Point3 locations.
-        """
-        return sgm.locate.aabb_tree(self.mesh, self.get_vertex_point_map(vert_points))
-
-    def locate_points(
-            self,
-            points: np.ndarray,
-            aabb_tree=None,
-            vert_points: str | PropertyMap[Vertex, Point2 | Point3] | None = None,
-    ) -> Tuple[Faces, np.ndarray]:
-        """Given an array of points, locate the nearest corresponding points on the mesh
-
-        `aabb_tree` is an optional axis-aligned bounding box from Mesh3.aabb_tree. If the tree was constructed with a
-        Point2 vertex property map, `points` is of shape (np, 2), otherwise (np, 3).
-
-        Returns a list of face indices of length np, and an array (np, 3) of barycentric coordinates within those faces.
-        """
-        tree = aabb_tree or self.aabb_tree()
-        pmap = self.get_vertex_point_map(vert_points)
-        surface_points = sgm.locate.locate_points(self.mesh, tree, points, pmap)
-        return surface_points.faces, surface_points.bary_coords
-
-    def first_ray_intersections(
-            self,
-            aabb_tree: sgm.locate.AABB_Tree3,
-            points: np.ndarray,
-            directions: np.ndarray,
-    ) -> Tuple[Faces, np.ndarray]:
-        """Find the first intersections of the rays with the mesh
-
-        The (n, 3) arrays `points` and `directions` define `n` rays.
-        Returns a `n` list of faces and a (n, 3) array of barycentric coordinates in the
-        corresponding faces.
-
-        If a ray doesn't intersect the mesh, the face is equal to `self.null_face` and the
-        barycentric coordinates are all zero.
-        """
-        surf_pts = sgm.locate.first_ray_intersections(self.mesh, aabb_tree, points, directions)
-        return surf_pts.faces, surf_pts.bary_coords
 
     def shortest_path(
             self,
@@ -871,8 +838,9 @@ class Mesh3:
     def remove_connected_face_patches(
             self,
             to_remove: Sequence[int | bool],
-            face_patches: PropertyMap[Face, int | bool],
+            face_patches: str | PropertyMap[Face, int | bool],
     ):
+        face_patches = self.face_data.get_property_map(face_patches)
         sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
 
     def connected_component(
@@ -900,42 +868,39 @@ IntoIndices = np.ndarray | slice | Sequence[Key]
 
 class PropertyMap(Generic[Key, Val], ABC):
     def __init__(self, pmap, data: MeshData[Key], dtype: str):
-        self._pmap = pmap  # the C++ object
-        self._data = data
+        self.pmap = pmap  # the C++ object
+        self.data = data
         self._dtype_name = dtype
 
     def __str__(self) -> str:
-        return f'PropertyMap[{self._data.key_type.__name__}, {self.dtype_name}]'
-
-    @property
-    def pmap(self):
-        return self._pmap
-
-    @property
-    def data(self) -> MeshData[Key]:
-        return self._data
+        return f'PropertyMap[{self.data.key_type.__name__}, {self.dtype_name}]'
 
     @property
     def dtype_name(self) -> str:
         return self._dtype_name
 
     @property
-    def key_t(self) -> Type[TIndex]:
-        return self._data.key_type
+    def key_type(self) -> Type[TIndex]:
+        return self.data.key_type
 
     @property
-    def indices_t(self) -> type:
-        return self._data.indices_t
+    def py_indices_type(self) -> type:
+        return self.data.indices_t
+
+    @property
+    def cpp_indices_type(self) -> type:
+        return self.data.indices_t
 
     def _to_cpp_indices(self, key: IntoIndices[Key]) -> _CppIndicesUnion:
         # Returns the C++ indexer -- sgm.mesh.Vertices, sgm.mesh.Faces, etc
         if isinstance(key, Indices):
-            if key.index_type is self.key_t:
+            if key.index_type is self.key_type:
                 return key.indices
             else:
-                msg = f'Tried to index a {self.key_t} property map with {key.index_type} indices'
+                msg = f'Tried to index a {self.key_type} property map with {key.index_type} indices'
                 raise TypeError(msg)
         elif isinstance(key, _CppIndicesTypes):
+            if isinstance(key, self.py_indices_type)
             # This should only happen internally..
             return key
 
@@ -945,7 +910,7 @@ class PropertyMap(Generic[Key, Val], ABC):
             return sgm.mesh.make_indices(key)
         except TypeError:
             # 2) index into indices, like a ndarray[bool]
-            return self._data.all_indices[key].indices
+            return self.data.all_indices[key].indices
 
     @overload
     def __getitem__(self, key: int | Key) -> Val: ...
@@ -955,12 +920,12 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
-            return self.pmap[self._data.all_indices[key]]
-        elif isinstance(key, _PyIndexTypes):  # e.g. pmap[Face] -> scalar value
-            if isinstance(key, self.key_t):
+            return self.pmap[self.data.all_indices[key]]
+        elif isinstance(key, _IndexTypes):  # e.g. pmap[Face] -> scalar value
+            if isinstance(key, self.key_type):
                 return self.pmap[key]
             else:
-                msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
+                msg = f'Tried to index a {self.key_type} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
             return self.pmap[self._to_cpp_indices(key)]
@@ -973,12 +938,12 @@ class PropertyMap(Generic[Key, Val], ABC):
 
     def __setitem__(self, key, val) -> None:
         if isinstance(key, int):  # pmap[0] -> value for the first face
-            self.pmap[self._data.all_indices[key]] = val
-        elif isinstance(key, _PyIndexTypes):
-            if isinstance(key, self.key_t):
+            self.pmap[self.data.all_indices[key]] = val
+        elif isinstance(key, _IndexTypes):
+            if isinstance(key, self.key_type):
                 self.pmap[key] = val
             else:
-                msg = f'Tried to index a {self.key_t} property map with {type(key)} index'
+                msg = f'Tried to index a {self.key_type} property map with {type(key)} index'
                 raise TypeError(msg)
         else:
             self.pmap[self._to_cpp_indices(key)] = val
@@ -1021,17 +986,17 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
 
 
 _PMapDType = str | np.dtype | type
+VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
 
 class MeshData(Generic[Key]):
     def __init__(
             self,
             mesh: Mesh3,
-            key_type: Type[TIndex],
-            indices_t: type,
+            indices_type: type,
     ):
         self._data: Dict[str, PropertyMap[Key]] = {}
-        assert mesh is not None
+        assert isinstance(mesh, Mesh3)
         self.mesh = mesh  # python wrapped mesh
         self._key_name = indices_t.__name__.lower()  # 'vertices', 'faces', 'edges', 'halfedges'
         self._prefix = self._key_name[0].upper()  # 'V', 'F', 'E', 'H'
@@ -1169,11 +1134,20 @@ class MeshData(Generic[Key]):
             pmap, wrapper_cls, dtype_name=dtype_name)
         return wrapped_pmap
 
-    def get_property_map(self, key: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
-        if isinstance(key, PropertyMap):
-            return key
+    def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
+        if pmap.key_type is not self.key_type:
+            raise TypeError(f"Trying to get a property map of {pmap.key_type} from {self}")
 
-        return self._data[key]
+        if pmap.data is not self:
+            raise ValueError("Property map is assigned to another mesh")
+
+        return pmap
+
+    def get_property_map(self, item: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
+        if isinstance(item, PropertyMap):
+            return self._check_property_map(item)
+
+        return self._data[item]
 
     def get_or_create_property(
             self,
@@ -1182,7 +1156,7 @@ class MeshData(Generic[Key]):
             dtype: _PMapDType | None = None,
     ) -> PropertyMap[Key, Val]:
         if isinstance(key, PropertyMap):
-            return key
+            return self._check_property_map(key)
 
         if key in self._data:
             return self._data[key]
@@ -1209,7 +1183,7 @@ class MeshData(Generic[Key]):
             return
 
         # Implicit construction of a new property map with initial value(s) `value`
-        default = np.zeros_like(value, shape=()).item()
+        default = np.zeros_like(value, shape=()).item()  # type: ignore
         pmap = self.get_or_create_property(key, default)
         pmap[self.all_indices] = value
 
