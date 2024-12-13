@@ -13,15 +13,31 @@ typedef Mesh3::Property_map<F, bool>            FaceBool;
 typedef Mesh3::Property_map<E, bool>            EdgeBool;
 
 typedef F::size_type                            FaceIdx;
-typedef Mesh3::Property_map<F, FaceIdx>         FacePatchMap;
+typedef Mesh3::Property_map<F, FaceIdx>         FaceIdxMap;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
 
-// Todo need to be generic over facepatch types?
+template<typename T>
+void define_face_patch_methods_for_property_map_type(py::module &m) {
+    typedef std::vector<T> Vals;
+    typedef Mesh3::Property_map<F, T> FaceMap;
+
+    m
+    .def("remove_connected_face_patches", [](Mesh3& mesh, const Vals& to_remove, const FaceMap& face_map) {
+        PMP::remove_connected_components(mesh, to_remove, face_map);
+    })
+    .def("keep_connected_components", [](Mesh3& mesh, const Vals& to_keep, const FaceMap& face_map) {
+        PMP::keep_connected_components(mesh, to_keep, face_map);
+    })
+    ;
+}
+
+
 
 void init_connected(py::module &m) {
-    m.def_submodule("connected")
+    py::module sub = m.def_submodule("connected");
+    sub
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
             for (V v : verts.to_vector()) {
@@ -66,12 +82,12 @@ void init_connected(py::module &m) {
             return verts.map_to_array_of_scalars<Mesh3::size_type>(
                 [&mesh](V v) { return mesh.degree(v); });
         })
-        .def("label_connected_components", [](const Mesh3& mesh, FacePatchMap& face_patch, EdgeBool& edge_is_constrained) {
+        .def("label_connected_components", [](const Mesh3& mesh, FaceIdxMap& face_map, EdgeBool& edge_is_constrained) {
             // Returns the number of connected components
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
-            return PMP::connected_components(mesh, face_patch, params);
+            return PMP::connected_components(mesh, face_map, params);
         })
-        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FacePatchMap& face_patch) {
+        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FaceIdxMap& face_map) {
             FilteredMesh filtered(mesh, faces.to_vector());
 
             std::map<F, F::size_type> filtered_face_patch;
@@ -79,12 +95,9 @@ void init_connected(py::module &m) {
             auto n_components = PMP::connected_components(filtered, filtered_face_patch_map);
 
             for (auto const& [f, i] : filtered_face_patch) {
-                face_patch[f] = i + 1;
+                face_map[f] = i + 1;
             }
             return n_components;
-        })
-        .def("keep_connected_components", [](Mesh3& mesh, const std::vector<F::size_type>& components_to_keep, const FacePatchMap& components) {
-            PMP::keep_connected_components(mesh, components_to_keep, components);
         })
         .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
             std::vector<F> out;
@@ -94,10 +107,6 @@ void init_connected(py::module &m) {
         })
         .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
             PMP::remove_connected_components(mesh, faces.to_vector());
-        })
-
-        .def("remove_connected_face_patches", [](Mesh3& mesh, const std::vector<FaceIdx>& components_to_remove, const FacePatchMap& components) {
-            PMP::remove_connected_components(mesh, components_to_remove, components);
         })
         .def("regularize_face_selection_borders", [](Mesh3& mesh, FaceBool& is_selected, double weight, bool prevent_unselection) {
             auto params = CGAL::parameters::prevent_unselection(prevent_unselection);
@@ -117,4 +126,9 @@ void init_connected(py::module &m) {
             return added;
         })
     ;
+
+    define_face_patch_methods_for_property_map_type<F::size_type>(sub);
+    define_face_patch_methods_for_property_map_type<bool>(sub);
+    define_face_patch_methods_for_property_map_type<int64_t>(sub);
+
 }

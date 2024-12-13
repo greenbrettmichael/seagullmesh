@@ -356,19 +356,6 @@ class Mesh3:
         sgm.mesh.add_grid(out.mesh, ni, nj, calculator, triangulated)
         return out
 
-    def estimate_geodesic_distances(
-            self,
-            src: Union[Vertex, Vertices],
-            distance_prop: str | PropertyMap[Vertex, float],
-    ) -> PropertyMap[Vertex, float]:
-        """Estimates the geodesic distance from the source vertex/vertices to all vertices in the mesh
-
-        Estimated distances are stored in the supplied vertex property map.
-        """
-        distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
-        self.mesh.estimate_geodesic_distances(distances.pmap, src)
-        return distances
-
     def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
         out = self if inplace else self.copy()
         sgm.geometry.transform(out.mesh, transform)
@@ -388,6 +375,12 @@ class Mesh3:
 
     def is_outward_oriented(self) -> bool:
         return sgm.geometry.is_outward_oriented(self.mesh)
+
+    def reverse_face_orientations(self, faces: Faces | None = None) -> None:
+        if faces is None:
+            sgm.orientation.reverse_face_orientations(self.mesh)
+        else:
+            sgm.orientation.reverse_face_orientations(self.mesh, faces)
 
     @staticmethod
     def from_pyvista(
@@ -419,8 +412,8 @@ class Mesh3:
 
     def to_pyvista(
             self,
-            vertex_data: Literal['all'] | Sequence[str] = (),
-            face_data: Literal['all'] | Sequence[str] = (),
+            vertex_data: Literal[True] | Sequence[str] = (),
+            face_data: Literal[True] | Sequence[str] = (),
     ) -> pv.PolyData:
         """Returns the mesh as a `pyvista.PolyData` object.
 
@@ -432,13 +425,13 @@ class Mesh3:
         mesh = pv.PolyData.from_regular_faces(verts, faces)
 
         if vertex_data:
-            keys = self.vertex_data.keys() if vertex_data == 'all' else vertex_data
+            keys = self.vertex_data.keys() if vertex_data is True else vertex_data
             vertices = self.vertices
             for k in keys:
                 mesh.point_data[k] = self.vertex_data[k][vertices]
 
         if face_data:
-            keys = self.face_data.keys() if face_data == 'all' else face_data
+            keys = self.face_data.keys() if face_data is True else face_data
             faces = self.faces
             for k in keys:
                 mesh.cell_data[k] = self.face_data[k][faces]
@@ -448,6 +441,19 @@ class Mesh3:
     def corefiner(self, other: Mesh3, **kwargs):
         from .corefine import Corefiner
         return Corefiner(mesh0=self, mesh1=other, **kwargs)
+
+    def estimate_geodesic_distances(
+            self,
+            src: Union[Vertex, Vertices],
+            distance_prop: str | PropertyMap[Vertex, float],
+    ) -> PropertyMap[Vertex, float]:
+        """Estimates the geodesic distance from the source vertex/vertices to all vertices in the mesh
+
+        Estimated distances are stored in the supplied vertex property map.
+        """
+        distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
+        self.mesh.estimate_geodesic_distances(distances.pmap, src)
+        return distances
 
     def remesh(
             self,

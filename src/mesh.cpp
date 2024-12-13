@@ -4,10 +4,7 @@
 #include <pybind11/functional.h>
 
 #include <CGAL/boost/graph/generators.h>
-#include <CGAL/Surface_mesh/IO/PLY.h>
-#include <CGAL/Surface_mesh/IO/OFF.h>
-#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
-#include <CGAL/Polygon_mesh_processing/polygon_mesh_to_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/orientation.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -88,17 +85,11 @@ void init_mesh(py::module &m) {
         .def_property_readonly("has_garbage", [](const Mesh3& mesh) {return mesh.has_garbage();})
         .def("collect_garbage", [](Mesh3& mesh) {mesh.collect_garbage();})
 
-//        .def_static("null_vertex", &Mesh3::null_vertex)
-//        .def_static("null_face", &Mesh3::null_face)
-//        .def_static("null_edge", &Mesh3::null_edge)
-//        .def_static("null_halfedge", &Mesh3::null_halfedge)
-
         .def_property_readonly_static("null_vertex",    [](py::object /* self */) { return Mesh3::null_vertex(); })
         .def_property_readonly_static("null_face",      [](py::object /* self */) { return Mesh3::null_face(); })
         .def_property_readonly_static("null_edge",      [](py::object /* self */) { return Mesh3::null_edge(); })
         .def_property_readonly_static("null_halfedge",  [](py::object /* self */) { return Mesh3::null_halfedge(); })
 
-        
         .def_property_readonly("is_valid", [](const Mesh3& mesh) {
             // verbose = False; true prints to cerr
             return mesh.is_valid( false); }

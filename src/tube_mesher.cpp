@@ -3,7 +3,6 @@
 
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
-#include <CGAL/Polygon_mesh_processing/orientation.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -13,49 +12,55 @@ typedef Mesh3::Property_map<F, bool>    FaceBool;
 
 class TubeMesher {
     private:
-
     Mesh3& mesh;
     VertDouble& t_map;
     VertDouble& theta_map;
     FaceBool& is_cap_map;
+    bool triangulate;
+    size_t nxs;
 
-    // TODO hold both next and prev and std:swap?
     std::map<double, V> prev_xs;
+    std::map<double, V> next_xs;
+    std::vector<V> face;
 
-    std::map<double, V> add_points_and_radial_edges(
+    public:
+    TubeMesher(Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map, bool triangulate)
+        : mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map), triangulate(triangulate), nxs(0) {}
+
+    size_t get_nxs() { return nxs; }
+
+
+    private:
+    void add_points_and_radial_edges(
             const double t,
             const py::array_t<double>& theta,
             const py::array_t<double>& pts
     ) {
+        nxs++;
+        next_xs.clear();
         const size_t n = pts.shape(0);
         auto r_pts = pts.unchecked<2>();
         auto r_theta = theta.unchecked<1>();
-        std::map<double, V> out;
 
         for (size_t i = 0; i < n; ++i) {
             Point3 pt = Point3(r_pts(i, 0), r_pts(i, 1), r_pts(i, 2));
             V v = mesh.add_vertex(pt);
             t_map[v] = t;
             theta_map[v] = r_theta(i);
-            out[r_theta(i)] = v;
+            next_xs[r_theta(i)] = v;
         }
-        out[2 * CGAL_PI] = out[0];  // Close the loop
-        return out;
+        next_xs[2 * CGAL_PI] = next_xs[0];  // Close the loop
     }
 
     public:
-
-    TubeMesher(Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map)
-        : mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map) {}
-
     void add_xs(double t, const py::array_t<double>& theta, const py::array_t<double>& pts) {
-        std::map<double, V> next_xs = add_points_and_radial_edges(t, theta, pts);
+        add_points_and_radial_edges(t, theta, pts);  // overwrites next_xs
+
         if (prev_xs.size() == 0) {  // Must be the first xs
-            prev_xs = std::move(next_xs);
+            std::swap(prev_xs, next_xs);
             return;
         }
 
-        std::vector<V> face;
         double theta0 = 0, theta1 = 0;
         while (theta0 < 2 * CGAL_PI) {
             // Initialize face with axial edge from prev_xs to next_xs
@@ -77,30 +82,36 @@ class TubeMesher {
                     break; // Finished this face
                 }
             }
-            mesh.add_face(face);
+            F f = mesh.add_face(face);
+            if (triangulate) {
+                PMP::triangulate_face(f, mesh);
+            }
             theta0 = theta1;
         }
-        prev_xs = std::move(next_xs);
+
+        std::swap(prev_xs, next_xs);
     }
     void close_xs(bool flip) {
-        std::vector<V> face;
-        face.reserve(prev_xs.size());
+        std::vector<V> cap_face;
+        cap_face.reserve(prev_xs.size());
 
         for (auto const& kv : prev_xs) {
             // NB the first vertex is stored twice, once at 0 and once at 2pi
             // don't add it twice
             if (kv.first != 2 * CGAL_PI) {
-                face.push_back(kv.second);
+                cap_face.push_back(kv.second);
             }
         }
 
         if (flip){
-            std::reverse(face.begin(), face.end());
+            std::reverse(cap_face.begin(), cap_face.end());
         }
 
-        F f = mesh.add_face(face);
-        TriangulateCapVisitor visitor(is_cap_map);
-        PMP::triangulate_face(f, mesh, PMP::parameters::visitor(visitor));
+        F f = mesh.add_face(cap_face);
+        if (triangulate) {
+            TriangulateCapVisitor visitor(is_cap_map);
+            PMP::triangulate_face(f, mesh, PMP::parameters::visitor(visitor));
+        }
     }
 
     private:
@@ -115,17 +126,9 @@ void init_tube_mesher(py::module &m) {
     py::module sub = m.def_submodule("tube_mesher");
 
     py::class_<TubeMesher>(sub, "TubeMesher")
-        .def(py::init<Mesh3&, VertDouble&, VertDouble&, FaceBool&>())
+        .def(py::init<Mesh3&, VertDouble&, VertDouble&, FaceBool&, bool>())
         .def("add_xs", &TubeMesher::add_xs)
         .def("close_xs", &TubeMesher::close_xs)
-    ;
-
-    sub
-        .def("triangulate_faces", [](Mesh3& mesh, const std::vector<F>& faces) {
-            PMP::triangulate_faces(faces, mesh);
-        })
-        .def("reverse_face_orientations", [](Mesh3& mesh, const std::vector<F>& faces) {
-            PMP::reverse_face_orientations(faces, mesh);
-        })
+        .def_property_readonly("nxs", &TubeMesher::get_nxs)
     ;
 }

@@ -1,6 +1,12 @@
 -- figure out what in misc.cpp belongs where
+  -- just triangulate_faces and reverse_orientation left
 -- eventually get around to pip install seagullmesh[core,corefine] etc
+-- pull out indices.hpp from seagullmesh.hpp
+
 -- move define_simple_type, define_array_type to hpp file so every module can define types
     - move princ_curv_etc into its own module
+
 -- rename .mesh to .core
 -- move Point2, Point3, etc out of .mesh into .core_types
+
+-- get rid of setup.py in favor of CMakeLists
