@@ -43,10 +43,6 @@ class TubeMesher {
         return out;
     }
 
-//    struct TriangulateCapVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
-//        void after_subface_created(F f) {is_cap_map[f] = true;}
-//    };
-
     public:
 
     TubeMesher(Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map)
@@ -103,8 +99,16 @@ class TubeMesher {
         }
 
         F f = mesh.add_face(face);
-        // PMP::triangulate_face(f, mesh, PMP::parameters::visitor(TriangulateCapVisitor()));
+        TriangulateCapVisitor visitor(is_cap_map);
+        PMP::triangulate_face(f, mesh, PMP::parameters::visitor(visitor));
     }
+
+    private:
+    struct TriangulateCapVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
+        FaceBool& is_cap_map;
+        TriangulateCapVisitor(FaceBool& is_cap_map) : is_cap_map(is_cap_map) {}
+        void after_subface_created(F f) {is_cap_map[f] = true;}
+    };
 };
 
 void init_tube_mesher(py::module &m) {
