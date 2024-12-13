@@ -11,5 +11,5 @@ def make_meshes():
 
 
 m0, m1 = make_meshes()
-c = m0.corefiner(m1).corefine()
-m0.to_pyvista(face_data='all').plot(scalars='orig_face_idx', show_edges=True)
+c = m0.corefiner(m1).union()
+m0.to_pyvista(face_data='all').plot(scalars='face_origin', show_edges=True)

@@ -63,10 +63,10 @@ void init_corefine(py::module &m) {
         .def("union", [](
                 Mesh3& mesh1,
                 Mesh3& mesh2,
-                Mesh3& output,
                 EdgeBool& ecm1,
                 EdgeBool& ecm2,
-                CorefineTracker &tracker
+                CorefineTracker &tracker,
+                Mesh3& output
         ) {
             auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);

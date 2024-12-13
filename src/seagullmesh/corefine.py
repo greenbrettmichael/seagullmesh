@@ -40,53 +40,15 @@ class Corefiner:
         tracker.track(mesh.mesh, i, face_origin.pmap, face_idx.pmap)
         return mesh, ecm, face_origin, face_idx
 
-    def corefine(self) -> Corefined:
+    def corefine(self):
         tracker = corefine.CorefineTracker()
         mesh0, ecm0, face_origin0, face_idx0 = self._get_inputs(0, tracker)
         mesh1, ecm1, face_origin1, face_idx1 = self._get_inputs(1, tracker)
         sgm.corefine.corefine(mesh0.mesh, mesh1.mesh, ecm0.pmap, ecm1.pmap, tracker)
-        return Corefined(self)  # TODO store pmap references
 
-    def union(self) -> Corefined:
-        """Corefines the two meshes and returns their boolean union"""
-        with self._inputs() as (mesh0, mesh1, ecm0, ecm1):
-            tracker = corefine.CorefineTracker(mesh0, mesh1)
-            sgm.corefine.union(mesh0, mesh1, mesh0, ecm0, ecm1, tracker)
-            return Corefined(self, tracker)
-
-
-class Corefined:
-    def __init__(self, corefiner: Corefiner):
-        self.corefiner = corefiner
-
-    def get_new_vertices(self, i: int) -> Vertices:
-        mesh = self.corefiner.sources[i]
-        return Vertices(mesh, self.tracker.get_new_vertices(i))
-
-    def label_new_vertices(self, i: int, pmap: str | PropertyMap[Vertex, bool]) -> Self:
-        pmap = self.corefiner.sources[i].vertex_data.get_or_create_property(pmap, default=False)
-        new_verts = self.tracker.get_new_vertices(i)
-        pmap[new_verts] = True
-        return self
-
-    def get_split_faces(self, i: int) -> Tuple[Faces, Faces]:
-        mesh = self.corefiner.sources[i]
-        old_faces, new_faces = self.tracker.get_split_faces(i, mesh.mesh)
-        return Faces(mesh, old_faces), Faces(mesh, new_faces)
-
-    def update_split_faces(self, i: int, property_names: Sequence[str] | None = None) -> Self:
-        mesh = self.corefiner.sources[i]
-        property_names = mesh.face_data.keys() if property_names is None else property_names
-        old_faces, new_faces = self.tracker.get_split_faces(i, mesh.mesh)
-        for k in property_names:
-            mesh.face_data[k].pmap.copy_values(old_faces, new_faces)
-        return self
-
-    def update_copied_faces(self, property_names: Sequence[str] | None = None) -> Self:
-        dest, src = self.corefiner.sources
-        if property_names is None:
-            property_names = set(src.face_data.keys()) & set(dest.face_data.keys())
-        old_faces, new_faces = self.tracker.get_copied_faces(1)
-
-        for k in property_names:
-            dest.face_data[k][new_faces] = src.face_data[k][old_faces]
+    def union(self):
+        tracker = corefine.CorefineTracker()
+        mesh0, ecm0, face_origin0, face_idx0 = self._get_inputs(0, tracker)
+        mesh1, ecm1, face_origin1, face_idx1 = self._get_inputs(1, tracker)
+        output = mesh0
+        sgm.corefine.union(mesh0.mesh, mesh1.mesh, ecm0.pmap, ecm1.pmap, tracker, output.mesh)
