@@ -23,9 +23,10 @@ m1 = sm1.to_pyvista(True)
 
 corefined = sm0.corefiner(sm1).track(0, edge_constrained='edge_constrained').corefine()
 
-me = sm0.to_pyvista().extract_all_edges()
+me = sm0.to_pyvista_edges(True)
+me.plot(line_width=2)
 # me.cell_data['constrained'] = sm0.edge_data['edge_constrained'][:]
-me.plot(scalars='constrained')
+# me.plot(scalars='constrained')
 
 # print(sm0.edge_data['edge_constrained'][:])
 

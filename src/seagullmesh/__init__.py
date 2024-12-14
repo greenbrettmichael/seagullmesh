@@ -489,15 +489,25 @@ class Mesh3:
             keys = self.vertex_data.keys() if vertex_data is True else vertex_data
             vertices = self.vertices
             for k in keys:
-                # TODO no way this copy is required
-                mesh.point_data[k] = self.vertex_data[k][vertices].copy()
+                mesh.point_data[k] = self.vertex_data[k][vertices]
 
         if face_data:
             keys = self.face_data.keys() if face_data is True else face_data
             faces = self.faces
             for k in keys:
-                # TODO no way this copy is required
-                mesh.cell_data[k] = self.face_data[k][faces].copy()
+                mesh.cell_data[k] = self.face_data[k][faces]
+
+        return mesh
+
+    def to_pyvista_edges(self, edge_data: Literal[True] | Sequence[str] = ()) -> pv.PolyData:
+        import pyvista as pv
+        mesh = pv.PolyData()
+        mesh.points, edges = self.to_edge_soup()
+        mesh.lines = pv.CellArray.from_regular_cells(edges)
+        eidx = self.edges
+        keys = self.edge_data.keys() if edge_data is True else edge_data
+        for k in keys:
+            mesh.cell_data[k] = self.edge_data[k][eidx]
 
         return mesh
 
