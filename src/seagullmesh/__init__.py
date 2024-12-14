@@ -270,20 +270,20 @@ class Mesh3:
 
         if hasattr(sgm, 'properties'):
             # Allow installing seagullmesh without the properties modules
-            self.vertex_data = VertexData(self)
-            self.face_data = FaceData(self)
-            self.edge_data = EdgeData(self)
-            self.halfedge_data = HalfedgeData(self)
+            self.vertex_data = self.vd = VertexData(self)
+            self.face_data = self.fd = FaceData(self)
+            self.edge_data = self.ed = EdgeData(self)
+            self.halfedge_data = self.hd = HalfedgeData(self)
 
-    n_vertices = property(lambda self: self.mesh.n_vertices)
-    n_faces = property(lambda self: self.mesh.n_faces)
-    n_edges = property(lambda self: self.mesh.n_edges)
-    n_halfedges = property(lambda self: self.mesh.n_halfedges)
+    n_vertices = nv = property(lambda self: self.mesh.n_vertices)
+    n_faces = nf = property(lambda self: self.mesh.n_faces)
+    n_edges = ne = property(lambda self: self.mesh.n_edges)
+    n_halfedges = nh = property(lambda self: self.mesh.n_halfedges)
 
-    vertices = property(lambda self: Vertices.all_indices(self))
-    faces = property(lambda self: Faces.all_indices(self))
-    edges = property(lambda self: Edges.all_indices(self))
-    halfedges = property(lambda self: Halfedges.all_indices(self))
+    vertices = vs = property(lambda self: Vertices.all_indices(self))
+    faces = fs = property(lambda self: Faces.all_indices(self))
+    edges = es = property(lambda self: Edges.all_indices(self))
+    halfedges = hs = property(lambda self: Halfedges.all_indices(self))
 
     is_valid = property(lambda self: self.mesh.is_valid)
 
@@ -447,6 +447,7 @@ class Mesh3:
 
     def to_pyvista(
             self,
+            data: Literal[True] | None = None,
             vertex_data: Literal[True] | Sequence[str] = (),
             face_data: Literal[True] | Sequence[str] = (),
     ) -> pv.PolyData:
@@ -459,19 +460,27 @@ class Mesh3:
         verts, faces = sgm.io.mesh3_to_polygon_soup(self.mesh)
         mesh = pv.PolyData.from_regular_faces(verts, faces)
 
+        if data:
+            vertex_data = face_data = True
+
         if vertex_data:
             keys = self.vertex_data.keys() if vertex_data is True else vertex_data
             vertices = self.vertices
             for k in keys:
-                mesh.point_data[k] = self.vertex_data[k][vertices]
+                # TODO no way this copy is required
+                mesh.point_data[k] = self.vertex_data[k][vertices].copy()
 
         if face_data:
             keys = self.face_data.keys() if face_data is True else face_data
             faces = self.faces
             for k in keys:
-                mesh.cell_data[k] = self.face_data[k][faces]
+                # TODO no way this copy is required
+                mesh.cell_data[k] = self.face_data[k][faces].copy()
 
         return mesh
+
+    def plot(self, **kwargs):
+        return self.to_pyvista(vertex_data=True, face_data=True).plot(**kwargs)
 
     def corefiner(self, other: Mesh3, **kwargs):
         from .corefine import Corefiner
@@ -871,9 +880,23 @@ class Mesh3:
             self,
             to_remove: Sequence[int | bool],
             face_patches: str | PropertyMap[Face, int | bool],
+            inplace=False,
     ):
+        out = self if inplace else self.copy()
         face_patches = self.face_data.get_property_map(face_patches)
         sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
+        return out
+
+    def keep_connected_face_patches(
+            self,
+            to_keep: Sequence[int | bool],
+            face_patches: str | PropertyMap[Face, int | bool],
+            inplace=False,
+    ):
+        out = self if inplace else self.copy()
+        face_patches = self.face_data.get_property_map(face_patches)
+        sgm.connected.keep_connected_face_patches(self.mesh, to_keep, face_patches.pmap)
+        return out
 
     def connected_component(
             self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
@@ -1028,7 +1051,6 @@ class MeshData(Generic[Key]):
 
     def __init__(self, mesh: Mesh3):
         self._data: Dict[str, PropertyMap[Key]] = {}
-        assert isinstance(mesh, Mesh3)
         self.mesh = mesh  # python wrapped mesh
 
     _dtype_mappings: dict[type, str] = {
@@ -1052,7 +1074,8 @@ class MeshData(Generic[Key]):
         cls._prefix = cls._key_name[0].upper()  # 'V', 'F', 'E', 'H'
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}[{self.key_type.__name__}](mesh={self.mesh})'
+        pmaps = ', '.join(f'{k}: {v}' for k, v in self.items())
+        return f'{self.__class__.__name__}[{self.key_type.__name__}]({self.mesh}): {pmaps}'
 
     def _dtype_name(self, dtype: _PMapDType) -> str:
         if isinstance(dtype, str):

@@ -27,7 +27,7 @@ void define_face_patch_methods_for_property_map_type(py::module &m) {
     .def("remove_connected_face_patches", [](Mesh3& mesh, const Vals& to_remove, const FaceMap& face_map) {
         PMP::remove_connected_components(mesh, to_remove, face_map);
     })
-    .def("keep_connected_components", [](Mesh3& mesh, const Vals& to_keep, const FaceMap& face_map) {
+    .def("keep_connected_face_patches", [](Mesh3& mesh, const Vals& to_keep, const FaceMap& face_map) {
         PMP::keep_connected_components(mesh, to_keep, face_map);
     })
     ;

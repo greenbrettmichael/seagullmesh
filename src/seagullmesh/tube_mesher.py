@@ -26,15 +26,14 @@ class TubeMesher:
         if self.closed and self.tube_mesher.nxs == 1:  # i.e. this was the first xs
             self.tube_mesher.close_xs(False)
 
-    def finish(self, reverse_orientation: bool = False) -> Mesh3:
+    def finish(self, flip_faces: bool = False) -> Mesh3:
         if self.closed:
             self.tube_mesher.close_xs(True)
 
-        if self.triangulate:
-            print(f'has garbage pre-triangulate', self.mesh.has_garbage)
-            self.mesh.collect_garbage()  # clear untriangulated faces
+        # if self.triangulate:
+        #     self.mesh.collect_garbage()  # clear untriangulated faces
 
-        if reverse_orientation:
+        if flip_faces:
             self.mesh.reverse_face_orientations()
 
         return self.mesh
@@ -45,6 +44,7 @@ class TubeMesher:
             n_axial: int = 5,
             closed: bool = False,
             height: float = 1.0,
+            flip_faces: bool = False,
     ) -> Mesh3:
         theta = np.linspace(0, 2 * np.pi, n_radial, endpoint=False)  # don't include 2pi
         pts = np.stack([np.cos(theta), np.sin(theta), 0 * theta], axis=1)
@@ -54,4 +54,4 @@ class TubeMesher:
             pts[:, 2] = z
             tm.add_xs(t=z, theta=theta, pts=pts)
 
-        return tm.finish()
+        return tm.finish(flip_faces=flip_faces)
