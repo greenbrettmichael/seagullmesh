@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Sequence
 
 import numpy as np
 
 from seagullmesh import (
-    sgm, Mesh3, Vertex, Point2, Point3, Faces, VertexPointMap
+    sgm, Mesh3, Vertex, Point2, Point3, Face, Faces, VertexPointMap
 )
 
+SurfacePoint = Tuple[Face, np.ndarray]
 SurfacePoints = Tuple[Faces, np.ndarray]
 
 
@@ -22,8 +23,13 @@ class AabbTree:
         Returns a list of face indices of length np, and an array (np, 3) of barycentric coordinates within those faces.
         """
         vpm = self.mesh.get_vertex_point_map(vpm)
-        surface_points = sgm.locate.locate_points(self.mesh.mesh, self.aabb_tree, points, vpm.pmap)
-        return surface_points.faces, surface_points.bary_coords
+        faces, bary_coords = sgm.locate.locate_points(
+            self.mesh.mesh, self.aabb_tree, points, vpm.pmap)
+        return Faces(self.mesh, faces), bary_coords
+
+    def locate_point(self, point: Sequence[float], vpm: str | VertexPointMap | None = None) -> SurfacePoint:
+        faces, bary_coords = self.locate_points(np.array([point]), vpm=vpm)
+        return faces[0], bary_coords[0]
 
     def first_ray_intersections(self, points: np.ndarray, directions: np.ndarray) -> SurfacePoints:
         """Find the first intersections of the rays with the mesh
@@ -37,4 +43,8 @@ class AabbTree:
         """
         faces, bary_coords = sgm.locate.first_ray_intersections(
             self.mesh, self.aabb_tree, points, directions)
-        return faces, bary_coords
+        return Faces(self.mesh, faces), bary_coords
+
+    def first_ray_intersection(self, point: np.ndarray, direction: np.ndarray) -> SurfacePoints:
+        faces, bary_coords = self.first_ray_intersections(np.array([point], np.array([direction])))
+        return faces[0], bary_coords[0]

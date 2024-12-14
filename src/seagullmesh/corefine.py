@@ -16,12 +16,12 @@ from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Faces
 class _TrackSpec:
     idx: int
     mesh: Mesh3
-    edge_constrained: str | PropertyMap[Edge, bool] = 'edge_is_constrained'
+    edge_is_constrained: str | PropertyMap[Edge, bool] = 'edge_is_constrained'
     face_origin: str | PropertyMap[Face, int] = 'face_origin'
     face_idx: str | PropertyMap[Face, int] = 'orig_face_idx'
 
     def realize(self):
-        ecm = self.mesh.edge_data.get(self.edge_constrained, default=False)
+        ecm = self.mesh.edge_data.get(self.edge_is_constrained, default=False)
         # Face origin defaults to -1 so original faces don't need to be updated
         face_origin = self.mesh.face_data.get(
             self.face_origin, default=-1, dtype='int64')
@@ -40,13 +40,13 @@ class _Tracked:
     idx: int
     mesh: Mesh3
     spec: _TrackSpec
-    edge_constrained: PropertyMap[Edge, bool]
+    edge_is_constrained: PropertyMap[Edge, bool]
     face_origin: PropertyMap[Face, int]
     face_idx: PropertyMap[Face, int]
 
     def to_tracker(self, tracker: corefine.CorefineTracker):
         tracker.track(self.mesh.mesh, self.idx, self.face_origin.pmap, self.face_idx.pmap)
-        return self.mesh.mesh, self.edge_constrained.pmap
+        return self.mesh.mesh, self.edge_is_constrained.pmap
 
     @cached_property
     def faces(self) -> Faces:

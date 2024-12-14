@@ -1,3 +1,5 @@
+import numpy as np
+from numpy import array, zeros
 from pyvista import Plotter
 
 from seagullmesh import Mesh3, Point3
@@ -20,17 +22,20 @@ sm1 = TubeMesher.cylinder(n_radial=4, n_axial=2, closed=False)
 m0 = sm0.to_pyvista(True)
 m1 = sm1.to_pyvista(True)
 
+corefined = sm0.corefiner(sm1).track(0, edge_is_constrained='edge_is_constrained').corefine()
 
-corefined = sm0.corefiner(sm1).track(0, edge_constrained='edge_constrained').corefine()
+face_patches = sm0.face_data.create('face_patch', default=0)
+n_components = sm0.label_connected_components(
+    face_patches=face_patches,
+    edge_is_constrained='edge_is_constrained'
+)
 
-me = sm0.to_pyvista_edges(True)
-me.plot(line_width=2)
-# me.cell_data['constrained'] = sm0.edge_data['edge_constrained'][:]
-# me.plot(scalars='constrained')
+tree = sm0.aabb_tree()
+face, _ = tree.locate_point(np.zeros(3))
+cmp_idx = face_patches[face]
+sm0.remove_connected_face_patches(to_remove=[cmp_idx], face_patches=face_patches)
 
-# print(sm0.edge_data['edge_constrained'][:])
-
-# n_components = sm0.label_connected_components(face_patches='face_patch')
+sm0.to_pyvista(True).plot(show_edges=True)
 #
 # c0 = sm0.to_pyvista(True)
 # c1 = sm1.to_pyvista(True)
