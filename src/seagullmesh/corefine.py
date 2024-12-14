@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, replace, field
 from functools import cached_property
 from typing import Tuple, List, Literal, Sequence
 
@@ -17,22 +17,26 @@ class _TrackSpec:
     idx: int
     mesh: Mesh3
     edge_is_constrained: str | PropertyMap[Edge, bool] = 'edge_is_constrained'
-    face_origin: str | PropertyMap[Face, int] = 'face_origin'
-    face_idx: str | PropertyMap[Face, int] = 'orig_face_idx'
+    face_mesh_map: str | PropertyMap[Face, int] = 'face_mesh_map'
+    face_face_map: str | PropertyMap[Face, Face] = 'face_face_map'
+    orig_face_properties: List[str] = field(init=False)
+
+    def __post_init__(self):
+        self.orig_face_properties = list(self.mesh.face_data.keys())
 
     def realize(self):
         ecm = self.mesh.edge_data.get(self.edge_is_constrained, default=False)
-        # Face origin defaults to -1 so original faces don't need to be updated
-        face_origin = self.mesh.face_data.get(
-            self.face_origin, default=-1, dtype='int64')
+        # Face mesh map defaults to -1 so original faces don't need to be updated
+        face_mesh_map = self.mesh.face_data.get(
+            self.face_mesh_map, default=-1, dtype='int32')
 
-        face_idx = self.mesh.face_data.get(
-            self.face_idx, default=-1, dtype='int64')
+        face_face_map = self.mesh.face_data.get(
+            self.face_face_map, default=Mesh3.null_face)
 
-        # Todo: PMap[Indices<T>, int] could have a assign-index method
-        face_idx[self.mesh.faces] = arange(self.mesh.n_faces)
+        faces = self.mesh.faces
+        face_face_map[faces] = faces
 
-        return _Tracked(self.idx, self.mesh, self, ecm, face_origin, face_idx)
+        return _Tracked(self.idx, self.mesh, self, ecm, face_mesh_map, face_face_map)
 
 
 @dataclass
@@ -41,11 +45,11 @@ class _Tracked:
     mesh: Mesh3
     spec: _TrackSpec
     edge_is_constrained: PropertyMap[Edge, bool]
-    face_origin: PropertyMap[Face, int]
-    face_idx: PropertyMap[Face, int]
+    face_mesh_map: PropertyMap[Face, int]
+    face_face_map: PropertyMap[Face, Face]
 
     def to_tracker(self, tracker: corefine.CorefineTracker):
-        tracker.track(self.mesh.mesh, self.idx, self.face_origin.pmap, self.face_idx.pmap)
+        tracker.track(self.mesh.mesh, self.idx, self.face_mesh_map.pmap, self.face_face_map.pmap)
         return self.mesh.mesh, self.edge_is_constrained.pmap
 
     @cached_property
@@ -53,12 +57,8 @@ class _Tracked:
         return self.mesh.faces
 
     @cached_property
-    def face_origin_(self) -> np.ndarray:
-        return self.face_origin[self.faces]
-
-    @cached_property
-    def face_idx_(self) -> np.ndarray:
-        return self.face_idx[self.faces]
+    def face_mesh_idx(self) -> np.ndarray:
+        return self.face_mesh_map[self.faces]
 
 
 class Corefiner:
@@ -94,19 +94,18 @@ class Corefined:
     def __init__(self, tracked: List[_Tracked]):
         self.tracked = tracked
 
-    # def update_face_properties(self, mesh_idx: int, property_names: Sequence['str']):
-    #     # TODO - can't default to face_data.keys() bc that would include face_idx and face_origin
-    #     dest_tracked = self.tracked[mesh_idx]
-    #
-    #     for k in property_names:
-    #         dest_pmap = dest_tracked.mesh.face_data[k]
-    #
-    #         for src_mesh_idx in unique(dest_tracked.face_origin_):
-    #             i = dest_tracked.face_origin_ == mesh_idx
-    #             dest_faces = dest_tracked.faces[]
-    #
-    #             if src_mesh_idx == mesh_idx:
-    #                 dest_pmap.copy_values(dest_tracked.face_origin_[i], des)
-    #             src_tracked = self.tracked[mesh_idx]
-    #             src_pmap = src_tracked.mesh.face_data[k]
-    #             pmap[tracked.faces[i]] = self.tracked[mesh_idx].mesh.
+    def update_face_properties(self, mesh_idx: int, property_names: Sequence['str'] | None):
+        dest = self.tracked[mesh_idx]
+        prop_names = property_names or dest.spec.orig_face_properties
+
+        for src_mesh_idx in unique(dest.face_mesh_idx):
+            if src_mesh_idx == -1:  # unoriginal, untouched faces
+                continue
+
+            src = self.tracked[src_mesh_idx]
+            i = dest.face_mesh_idx == src_mesh_idx
+
+            new_faces = dest.faces[i]
+            orig_faces = dest.face_face_map[new_faces]
+            for k in prop_names:
+                dest.mesh.face_data[k][new_faces] = src.mesh.face_data[k][orig_faces]
