@@ -22,12 +22,19 @@ m1 = sm1.to_pyvista(True)
 
 
 corefined = sm0.corefiner(sm1).track(0, edge_constrained='edge_constrained').corefine()
-n_components = sm0.label_connected_components(face_patches='face_patch')
 
-c0 = sm0.to_pyvista(True)
-c1 = sm1.to_pyvista(True)
+me = sm0.to_pyvista().extract_all_edges()
+# me.cell_data['constrained'] = sm0.edge_data['edge_constrained'][:]
+me.plot(scalars='constrained')
 
-p = Plotter()
-p.add_mesh(c0, show_edges=True, scalars='face_patch')
-# p.add_mesh(c1, show_edges=True)
-p.show()
+# print(sm0.edge_data['edge_constrained'][:])
+
+# n_components = sm0.label_connected_components(face_patches='face_patch')
+#
+# c0 = sm0.to_pyvista(True)
+# c1 = sm1.to_pyvista(True)
+#
+# p = Plotter()
+# p.add_mesh(c0, show_edges=True, scalars='face_patch')
+# # p.add_mesh(c1, show_edges=True)
+# p.show()

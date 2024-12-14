@@ -4,11 +4,11 @@
 typedef CGAL::Polygon_mesh_processing::Principal_curvatures_and_directions<Kernel>    PrincipalCurvDir;
 
 template <typename Key, typename Val>
-auto add_property_map(Mesh3& mesh, std::string name, const Val default_val) {
+auto find_or_create_property_map(Mesh3& mesh, std::string name, const Val default_val, bool allow_preexisting) {
     typename Mesh3::Property_map<Key, Val> pmap;
     bool created;
     std::tie(pmap, created) = mesh.add_property_map<Key, Val>(name, default_val);
-    if (!created) {
+    if (!created && !allow_preexisting) {
         throw std::runtime_error("Property map already exists");
     }
     return pmap;
@@ -24,9 +24,14 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
 
     return py::class_<PMap>(m, name.c_str(), py::buffer_protocol())
         .def(py::init([](Mesh3& mesh, std::string name, const Val default_val) {
-                return add_property_map<Key, Val>(mesh, name, default_val);
+                // Make the constructor prevent pre-existing pmaps
+                return find_or_create_property_map<Key, Val>(mesh, name, default_val, false);
             })
         )
+        .def("get_or_create", [](Mesh3& mesh, std::string name, const Val default_val) {
+            // Same as the constructor but allow pre-existing
+            return find_or_create_property_map<Key, Val>(mesh, name, default_val, true);
+        })
         .def("get_property_map", [](const Mesh3& mesh, const std::string& name) {
             return mesh.property_map<Key, Val>(name);  // returns std::optional<pmap>
         })
@@ -59,9 +64,9 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
 }
 
 template <typename Key, typename Val>
-void define_scalar_property_map(py::module &m, std::string name) {
+auto define_scalar_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
-    define_property_map<Key, Val>(m, name, true)
+    return define_property_map<Key, Val>(m, name, true)
         // get array of keys, return array of values
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
             return indices.map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
@@ -77,10 +82,10 @@ void define_scalar_property_map(py::module &m, std::string name) {
 
 // Properties mapping one key type to another, e.g. PMap[F, F] or PMap[F, V] etc
 template <typename Key, typename Val>
-void define_index_property_map(py::module &m, std::string name) {
+auto define_index_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
-    define_property_map<Key, Val>(m, name, true)
+    return define_property_map<Key, Val>(m, name, true)
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
             auto idxs_out = indices.map_to_array_of_scalars<uint32_t>([&pmap](Key k) { return uint32_t(pmap[k]); });
             return Indices<Val>(idxs_out);
@@ -94,10 +99,10 @@ void define_index_property_map(py::module &m, std::string name) {
 // For Point2/3 and Vector2/3
 // template variable U here could be hardcoded to double but left generic for future int-valued vectors
 template <typename Key, typename Val, size_t Dim, typename U>
-void define_array_property_map(py::module &m, std::string name) {
+auto define_array_property_map(py::module &m, std::string name) {
     using PMap = typename Mesh3::Property_map<Key, Val>;
 
-    define_property_map<Key, Val>(m, name, false)
+    return define_property_map<Key, Val>(m, name, false)
         // Get array of indices, return 2d array of values
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
             return indices.map_to_array_of_vectors<Val, Dim, U>( [&pmap](Key k) { return pmap[k]; });
@@ -179,7 +184,13 @@ void init_properties(py::module &m) {
     define_scalar_property_map<E, int64_t  >(sub, "E_int64_PropertyMap");
     define_scalar_property_map<H, int64_t  >(sub, "H_int64_PropertyMap");
 
-    define_scalar_property_map<V, uint32_t >(sub, "V_uint32_PropertyMap");
+    define_scalar_property_map<V, uint32_t >(sub, "V_uint32_PropertyMap")
+        .def("index", [](const Mesh3::Property_map<V, uint32_t>& pmap, const Mesh3& mesh) {
+            size_t i = 0;
+            for ( V v : mesh.vertices() ) {
+                pmap[v] = i++;
+            }
+        });
     define_scalar_property_map<F, uint32_t >(sub, "F_uint32_PropertyMap");
     define_scalar_property_map<E, uint32_t >(sub, "E_uint32_PropertyMap");
     define_scalar_property_map<H, uint32_t >(sub, "H_uint32_PropertyMap");

@@ -8,7 +8,7 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-typedef Mesh3::Property_map<V, size_t>  VertexIndexMap;
+typedef Mesh3::Property_map<V, uint32_t>  VertexIndexMap;
 
 
 template<typename Edges>
@@ -82,6 +82,22 @@ void init_io(py::module &m) {
                 throw std::runtime_error("Failed to load mesh");
             }
             return mesh;
+        })
+        .def("point_soup", [](const Mesh3& mesh) {
+            size_t n = mesh.number_of_vertices();
+            auto pts = mesh.points();
+            py::array_t<double> out({py::ssize_t(n), py::ssize_t(3)});
+            auto r = out.mutable_unchecked<2>();
+            size_t i = 0;
+
+            for (V v : mesh.vertices()) {
+                Point3 pt = pts[v];
+                for (size_t j = 0; j < 3; ++j) {
+                    r(i, j) = pt[j];
+                }
+                i++;
+            }
+            return out;
         })
         .def("edge_soup", [](const Mesh3& mesh, const VertexIndexMap& vidx) {
             return edge_soup<Mesh3::Edge_range>(mesh, mesh.edges(), mesh.number_of_edges(), vidx);

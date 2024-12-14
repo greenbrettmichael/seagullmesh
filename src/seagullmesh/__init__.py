@@ -233,9 +233,6 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_edges
 
-    def edge_soup(self) -> np.ndarray:
-        return sgm.io.edge_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
-
     def lengths(self) -> np.ndarray:
         return sgm.geometry.edge_lengths(self.mesh.mesh, self.indices)
 
@@ -296,10 +293,19 @@ class Mesh3:
 
     @cached_property
     def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
-        return self.vertex_data.find(
-            sgm.properties.V_Point3_PropertyMap,
-            name='v:point',
-        )
+        # This is maintained internally by cgal
+        return self.vertex_data.find(sgm.properties.V_Point3_PropertyMap, name='v:point')
+
+    @cached_property
+    def _vertex_index_map(self) -> VertexIndexMap:
+        cpp_pmap = sgm.properties.V_uint32_PropertyMap.get_or_create(self.mesh, 'v:index', 0)
+        return self.vertex_data.wrap(cpp_pmap, dtype_name='uint32')
+
+    @property
+    def vertex_index_map(self) -> VertexIndexMap:
+        pmap = self._vertex_index_map
+        pmap.pmap.index(self.mesh)  # Make sure indices are up-to-date
+        return pmap
 
     def iter_meshdata(self) -> Iterator[MeshData]:
         yield self.vertex_data
@@ -346,6 +352,22 @@ class Mesh3:
     def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
+
+    def to_edge_soup(
+            self,
+            vim: VertexIndexMap | None = None,
+            edges_only: bool = False,
+    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+        vim = vim or self.vertex_index_map
+        edges = sgm.io.edge_soup(self.mesh, vim.pmap)
+        if edges_only:
+            return edges
+
+        pts = sgm.io.point_soup(self.mesh)
+        return pts, edges
+
+    def point_soup(self) -> np.ndarray:
+        return sgm.io.point_soup(self.mesh)
 
     @staticmethod
     def from_file(filename: str) -> Mesh3:
@@ -1051,6 +1073,7 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
 
 
 _PMapDType = str | np.dtype | type
+VertexIndexMap = PropertyMap[Vertex, int]
 VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
 
