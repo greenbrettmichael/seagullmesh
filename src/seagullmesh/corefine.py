@@ -7,6 +7,7 @@ from typing import Tuple, List, Literal, Sequence
 import numpy as np
 from numpy import arange, unique
 from seagullmesh._seagullmesh import corefine
+from typing_extensions import Self
 
 from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Faces
 
@@ -20,12 +21,12 @@ class _TrackSpec:
     face_idx: str | PropertyMap[Face, int] = 'orig_face_idx'
 
     def realize(self):
-        ecm = self.mesh.edge_data.get_or_create_property(self.edge_constrained, default=False)
+        ecm = self.mesh.edge_data.get(self.edge_constrained, default=False)
         # Face origin defaults to -1 so original faces don't need to be updated
-        face_origin = self.mesh.face_data.get_or_create_property(
+        face_origin = self.mesh.face_data.get(
             self.face_origin, default=-1, dtype='int64')
 
-        face_idx = self.mesh.face_data.get_or_create_property(
+        face_idx = self.mesh.face_data.get(
             self.face_idx, default=-1, dtype='int64')
 
         # Todo: PMap[Indices<T>, int] could have a assign-index method
@@ -66,10 +67,11 @@ class Corefiner:
         if kwargs:
             self.track(**kwargs)
 
-    def track(self, mesh_idx: int | None = None, **kwargs):
+    def track(self, mesh_idx: int | None = None, **kwargs) -> Self:
         mesh_idxs = range(2) if mesh_idx is None else (mesh_idx,)
         for i in mesh_idxs:
             self._spec[i] = replace(self._spec[i], **kwargs)
+        return self
 
     def _apply(self, fn, *args):
         tracked0 = self._spec[0].realize()

@@ -5,6 +5,8 @@
 #include <CGAL/Polygon_mesh_processing/measure.h>
 #include <CGAL/Polygon_mesh_processing/bbox.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
+#include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
+#include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 
 typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
@@ -92,6 +94,18 @@ void init_geometry(py::module &m) {
         })
         .def("is_outward_oriented", [](const Mesh3& mesh) {
             return PMP::is_outward_oriented(mesh);
+        })
+        .def("reverse_face_orientations", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::reverse_face_orientations(faces.to_vector(), mesh);
+        })
+        .def("reverse_face_orientations", [](Mesh3& mesh) {
+            PMP::reverse_face_orientations(mesh);
+        })
+        .def("triangulate_faces", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::triangulate_faces(faces.to_vector(), mesh);
+        })
+        .def("triangulate_faces", [](Mesh3& mesh) {
+            PMP::triangulate_faces(mesh);
         })
     ;
 }

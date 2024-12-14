@@ -1,6 +1,6 @@
 from seagullmesh import sgm, Mesh3
 m = Mesh3.icosahedron()
-foo = m.face_data.add_property('foo', default=False)
+foo = m.face_data.create('foo', default=False)
 fs = m.faces
 print(fs[0], foo[fs[0]])
 print(foo.pmap.get_vector(fs.indices))

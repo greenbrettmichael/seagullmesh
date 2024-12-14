@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from seagullmesh import Mesh3
+from seagullmesh import Mesh3, PropertyMap, Vertex, Face
 from seagullmesh._seagullmesh import tube_mesher
 
 
@@ -10,11 +10,15 @@ from seagullmesh._seagullmesh import tube_mesher
 
 
 class TubeMesher:
-    def __init__(self, closed=False, triangulate=True):
+    def __init__(
+            self,
+            closed=False,
+            triangulate=True,
+    ):
         mesh = self.mesh = Mesh3()
-        t_map = mesh.vertex_data.add_property('t', default=-1.0)
-        theta_map = mesh.vertex_data.add_property('theta', default=-1.0)
-        is_cap_map = mesh.face_data.add_property('is_cap', default=False)
+        t_map = mesh.vertex_data.create('t', default=-1.0)
+        theta_map = mesh.vertex_data.create('theta', default=-1.0)
+        is_cap_map = mesh.face_data.create('is_cap', default=False)
         self.tube_mesher = tube_mesher.TubeMesher(
             mesh.mesh, t_map.pmap, theta_map.pmap, is_cap_map.pmap, triangulate)
         self.closed = closed
@@ -30,9 +34,6 @@ class TubeMesher:
         if self.closed:
             self.tube_mesher.close_xs(True)
 
-        # if self.triangulate:
-        #     self.mesh.collect_garbage()  # clear untriangulated faces
-
         if flip_faces:
             self.mesh.reverse_face_orientations()
 
@@ -43,14 +44,16 @@ class TubeMesher:
             n_radial: int = 5,
             n_axial: int = 5,
             closed: bool = False,
+            radius: float = 1.0,
             height: float = 1.0,
             flip_faces: bool = False,
+            **kwargs
     ) -> Mesh3:
         theta = np.linspace(0, 2 * np.pi, n_radial, endpoint=False)  # don't include 2pi
-        pts = np.stack([np.cos(theta), np.sin(theta), 0 * theta], axis=1)
-        tm = TubeMesher(closed=closed)
+        pts = np.stack([radius * np.cos(theta), radius * np.sin(theta), 0 * theta], axis=1)
+        tm = TubeMesher(closed=closed, **kwargs)
 
-        for z in np.linspace(0, height, n_axial):
+        for z in np.linspace(-height / 2, height / 2, n_axial):
             pts[:, 2] = z
             tm.add_xs(t=z, theta=theta, pts=pts)
 

@@ -1,22 +1,36 @@
 import sys
 
-from numpy import linspace, pi, stack, cos, sin
+from numpy import linspace, pi, stack, cos, sin, arange
 from pyvista import Plotter
 
 from seagullmesh.tube_mesher import TubeMesher
-sm = TubeMesher.cylinder(n_radial=4, n_axial=10, closed=True)
 
-m0 = sm.to_pyvista(vertex_data=True, face_data=True)
+# TODO: default behavior is flipped?
+sm = TubeMesher.cylinder(n_radial=5, n_axial=3, closed=True, flip_faces=True, radius=0.5)
+sm.vertex_data['idx'] = arange(sm.n_vertices)
+assert sm.is_valid
+assert sm.does_bound_a_volume()
+assert sm.is_outward_oriented()
 
-print(sm.face_data['is_cap'][sm.faces])
-sm.remove_connected_face_patches(to_remove=[True], face_patches=sm.face_data['is_cap'])
-print(sm.face_data['is_cap'][sm.faces])
-sys.exit()
-m1 = sm.to_pyvista(vertex_data=True, face_data=True)
 
-p = Plotter(shape=(1, 2))
+points, faces = sm.to_polygon_soup()
+centroids = points[faces].mean(axis=1)
+
+normals = sm.faces.normals()
+m = sm.to_pyvista(True)
+p = Plotter(shape=(2, 2))
 p.subplot(0, 0)
-p.add_mesh(m0, scalars='is_cap', show_edges=True)
+p.add_mesh(m.copy(), show_edges=True, scalars='t')
+
 p.subplot(0, 1)
-p.add_mesh(m1, scalars='is_cap', show_edges=True)
+p.add_mesh(m.copy(), show_edges=True, scalars='theta')
+
+p.subplot(1, 0)
+p.add_mesh(m.copy(), show_edges=True, scalars='idx')
+
+p.subplot(1, 1)
+p.add_mesh(m.copy(), show_edges=True, scalars='is_cap')
+p.add_arrows(m.cell_centers().points, normals * 0.5)
+
+p.link_views()
 p.show()

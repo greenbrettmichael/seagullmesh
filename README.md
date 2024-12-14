@@ -69,16 +69,17 @@ property maps and specifying regions for further processing. (See below.)
 
 Property maps are stored in the python properties `mesh.vertex_data`, 
 `edge_data`, etc. They can be manually created by specifying a default value:
+
 ```python
-mesh.vertex_data.add_property('my_property1', default=1)
-mesh.edge_data.add_property('my_bool', default=False)
+mesh.vertex_data.create('my_property1', default=1)
+mesh.edge_data.create('my_bool', default=False)
 ```
 
 Because it may be necessary to distinguish between C++ signed and unsigned integer value types, an additional `signed` 
 kwarg is supported for integer types:
 
 ```python
-mesh.vertex_data.add_property('my_uint', default=0, signed=False)
+mesh.vertex_data.create('my_uint', default=0, signed=False)
 ```
 
 Properties can also be created by assigned an array directly to a new property map name, 
@@ -103,8 +104,9 @@ as the python classes `seagullmesh.Point2`, `Point3`, `Vector2` and `Vector3`.
 
 ```python
 from seagullmesh import Point2
-mesh.vertex_data.add_property('uv_map', default=Point2(0, 0))
-mesh.vertex_data['uv_map'] =  np.random.uniform(-1, 1, (mesh.n_vertices, 2))
+
+mesh.vertex_data.create('uv_map', default=Point2(0, 0))
+mesh.vertex_data['uv_map'] = np.random.uniform(-1, 1, (mesh.n_vertices, 2))
 ```
 
 ## Mesh processing

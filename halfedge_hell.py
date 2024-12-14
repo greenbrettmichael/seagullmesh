@@ -18,6 +18,6 @@ def tetrahedron_mesh() -> Mesh3:
 
 
 m = tetrahedron_mesh()
-foo = m.halfedge_data.add_property('foo', default=3)
+foo = m.halfedge_data.create('foo', default=3)
 foo[m.halfedges] = 3
 print(m.edges, foo[m.halfedges])

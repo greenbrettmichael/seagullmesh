@@ -296,7 +296,7 @@ class Mesh3:
 
     @cached_property
     def vertex_point_map(self) -> PropertyMap[Vertex, Point3]:
-        return self.vertex_data.find_property_map(
+        return self.vertex_data.find(
             sgm.properties.V_Point3_PropertyMap,
             name='v:point',
         )
@@ -314,7 +314,7 @@ class Mesh3:
         # The properties have been copied, just need to create new pmap references
         for src_data, dest_data in zip(self.iter_meshdata(), out.iter_meshdata()):
             for name, src_wrapper in src_data.items():
-                wrapped = dest_data.find_property_map(
+                wrapped = dest_data.find(
                     pmap_cls=type(src_wrapper.pmap),
                     name=name,
                     wrapper_cls=type(src_wrapper),
@@ -490,7 +490,7 @@ class Mesh3:
         if vpm is None:
             return self.vertex_point_map
         else:
-            return self.vertex_data.get_property_map(vpm)
+            return self.vertex_data.check(vpm)
 
     def aabb_tree(self, vpm: str | VertexPointMap | None = None):
         """Construct an axis-aligned bounding box tree for accelerated spatial queries
@@ -512,7 +512,7 @@ class Mesh3:
 
         Estimated distances are stored in the supplied vertex property map.
         """
-        distances = self.vertex_data.get_or_create_property(distance_prop, default=0.0)
+        distances = self.vertex_data.get(distance_prop, default=0.0)
         self.mesh.estimate_geodesic_distances(distances.pmap, src)
         return distances
 
@@ -685,7 +685,7 @@ class Mesh3:
 
         """
         if isinstance(uv_map, str):
-            uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
+            uv_map = self.vertex_data.get(uv_map, default=Point2(0, 0))
         if initial_verts is not None:
             msg = sgm.parametrize.lscm(self.mesh, uv_map.pmap, *initial_verts)
         else:
@@ -699,18 +699,18 @@ class Mesh3:
 
         Raises a seagullmesh.ParametrizationError if parametrization fails.
         """
-        uv_map = self.vertex_data.get_or_create_property(uv_map, default=Point2(0, 0))
+        uv_map = self.vertex_data.get(uv_map, default=Point2(0, 0))
         msg = sgm.parametrize.arap(self.mesh, uv_map.pmap)
         if msg != "Success":
             raise ParametrizationError(msg)
 
     def label_border_vertices(self, is_border: str | PropertyMap[Vertex, bool]):
-        is_border = self.vertex_data.get_or_create_property(is_border, default=False)
+        is_border = self.vertex_data.get(is_border, default=False)
         sgm.border.label_border_vertices(self.mesh, is_border.pmap)
         return is_border
 
     def label_border_edges(self, is_border: str | PropertyMap[Edge, bool]):
-        is_border = self.edge_data.get_or_create_property(is_border, default=False)
+        is_border = self.edge_data.get(is_border, default=False)
         sgm.border.label_border_edges(self.mesh, is_border.pmap)
         return is_border
 
@@ -803,9 +803,9 @@ class Mesh3:
             gaussian_curvature_map: str | PropertyMap[Vertex, float] = 'gaussian_curvature',
             principal_curvature_map: str | PropertyMap[Vertex, sgm.properties.PrincipalCurvaturesAndDirections] = 'principal_curvature',
     ):
-        mcm = self.vertex_data.get_or_create_property(mean_curvature_map, 0.0)
-        gcm = self.vertex_data.get_or_create_property(gaussian_curvature_map, 0.0)
-        pcm = self.vertex_data.get_or_create_property(
+        mcm = self.vertex_data.get(mean_curvature_map, 0.0)
+        gcm = self.vertex_data.get(gaussian_curvature_map, 0.0)
+        pcm = self.vertex_data.get(
             principal_curvature_map, sgm.properties.PrincipalCurvaturesAndDirections())
 
         sgm.meshing.interpolated_corrected_curvatures(
@@ -851,13 +851,19 @@ class Mesh3:
         mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
         return Mesh3(mesh)
 
-    def triangulate_faces(self, faces: Faces | None = None):
-        faces = self.faces if faces is None else faces
-        sgm.triangulate.triangulate_faces(self.mesh, faces)
+    def triangulate_faces(self, faces: Faces | None = None) -> Mesh3:
+        if faces:
+            sgm.geometry.triangulate_faces(self.mesh, faces)
+        else:
+            sgm.geometry.triangulate_faces(self.mesh)
+        return self
 
-    def reverse_face_orientation(self, faces: Faces | None = None):
-        faces = self.faces if faces is None else faces
-        sgm.triangulate.reverse_face_orientations(self.mesh, faces)
+    def reverse_face_orientation(self, faces: Faces | None = None) -> Mesh3:
+        if faces:
+            sgm.geometry.reverse_face_orientations(self.mesh, faces)
+        else:
+            sgm.geometry.reverse_face_orientations(self.mesh)
+        return self
 
     def regularize_face_selection_borders(
             self,
@@ -869,12 +875,20 @@ class Mesh3:
 
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
-        face_patch_idx = self.face_data.get_or_create_property(face_patch_idx, default=0, is_index=True)
+        face_patch_idx = self.face_data.get(face_patch_idx, default=0, is_index=True)
         sgm.connected.label_selected_face_patches(self.mesh, faces, face_patch_idx.pmap)
         return face_patch_idx
 
-    def label_connected_components(self, face_patches: PropertyMap[Face, int], edge_is_constrained: PropertyMap[Edge, bool]) -> int:
-        return sgm.connected.label_connected_components(self.mesh, face_patches.pmap, edge_is_constrained.pmap)
+    def label_connected_components(
+            self,
+            face_patches: str | PropertyMap[Face, int] | None = None,
+            edge_is_constrained: str | PropertyMap[Edge, bool] | None = None,
+    ) -> int:
+        # Returns number of components
+        face_patches = self.face_data.get(face_patches, default=0, dtype='uint32')
+        with self.edge_data.get_or_temp(edge_is_constrained, '_ecm', default=False) as ecm:
+            return sgm.connected.label_connected_components(
+                self.mesh, face_patches.pmap, ecm.pmap)
 
     def remove_connected_face_patches(
             self,
@@ -883,7 +897,7 @@ class Mesh3:
             inplace=False,
     ):
         out = self if inplace else self.copy()
-        face_patches = self.face_data.get_property_map(face_patches)
+        face_patches = self.face_data.check(face_patches)
         sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
         return out
 
@@ -894,7 +908,7 @@ class Mesh3:
             inplace=False,
     ):
         out = self if inplace else self.copy()
-        face_patches = self.face_data.get_property_map(face_patches)
+        face_patches = self.face_data.check(face_patches)
         sgm.connected.keep_connected_face_patches(self.mesh, to_keep, face_patches.pmap)
         return out
 
@@ -1100,9 +1114,9 @@ class MeshData(Generic[Key]):
             dtype: _PMapDType | None = None,
     ) -> Iterator[PropertyMap[Key, Val]]:
         """Create a temporary property map and remove it after exiting the contextmanager"""
-        pmap = self.add_property(name=name, default=default, dtype=dtype)
+        pmap = self.create(name=name, default=default, dtype=dtype)
         yield pmap
-        self.remove_property(name)
+        self.remove(name)
 
     @contextmanager
     def get_or_temp(
@@ -1118,12 +1132,12 @@ class MeshData(Generic[Key]):
         pre-existing property map, it's not removed.
         """
         remove_after = isinstance(pmap, str) and pmap == temp_name
-        pmap = self.get_or_create_property(pmap or temp_name, default=default, dtype=dtype)
+        pmap = self.get(pmap or temp_name, default=default, dtype=dtype)
         yield pmap
         if remove_after:
-            self.remove_property(temp_name)
+            self.remove(temp_name)
 
-    def add_property(
+    def create(
             self,
             name: str,
             default: Val,
@@ -1152,14 +1166,15 @@ class MeshData(Generic[Key]):
             )
             raise TypeError(msg)
 
-        pmap = pmap_class(self.mesh.mesh, name, default)
-        return self.assign_property_map(name=name, pmap=pmap, dtype_name=dtype_name)  # The wrapped map
+        cpp_pmap = pmap_class(self.mesh.mesh, name, default)
+        wrapped_pmap = self._data[name] = self.wrap(cpp_pmap=cpp_pmap, dtype_name=dtype_name)
+        return wrapped_pmap
 
-    def remove_property(self, key: str):
+    def remove(self, key: str):
         pmap = self._data.pop(key)
         sgm.properties.remove_property_map(self.mesh.mesh, pmap.pmap)
 
-    def find_property_map(
+    def find(
             self,
             pmap_cls: type,
             name: str,
@@ -1170,28 +1185,21 @@ class MeshData(Generic[Key]):
         pmap = pmap_cls.get_property_map(self.mesh.mesh, name)  # noqa
         if pmap is None:
             raise KeyError(f"Property map {pmap_cls} {name} doesn't exist")
-        return self.wrap_property_map(pmap, wrapper_cls=wrapper_cls, dtype_name=dtype_name)
+        return self.wrap(pmap, wrapper_cls=wrapper_cls, dtype_name=dtype_name)
 
-    def wrap_property_map(
+    def check(self, item: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
+        pmap = self[item] if isinstance(item, str) else item
+        return self._check_property_map(pmap)
+
+    def wrap(
             self,
-            pmap,  # the c++ class,
+            cpp_pmap,  # the c++ class,
             wrapper_cls: Type[PropertyMap] | None = None,
             dtype_name: str = 'unknown',
     ) -> PropertyMap[Key]:
         if wrapper_cls is None:
-            wrapper_cls = ScalarPropertyMap if pmap.is_scalar else ArrayPropertyMap
-        return wrapper_cls(pmap=pmap, data=self, dtype=dtype_name)
-
-    def assign_property_map(
-            self,
-            name: str,
-            pmap,  # The C++ property map
-            wrapper_cls: Type[PropertyMap] | None = None,
-            dtype_name: str = 'unknown',
-    ) -> PropertyMap:
-        wrapped_pmap = self._data[name] = self.wrap_property_map(
-            pmap, wrapper_cls, dtype_name=dtype_name)
-        return wrapped_pmap
+            wrapper_cls = ScalarPropertyMap if cpp_pmap.is_scalar else ArrayPropertyMap
+        return wrapper_cls(pmap=cpp_pmap, data=self, dtype=dtype_name)
 
     def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
         if pmap.data is not self:
@@ -1200,13 +1208,7 @@ class MeshData(Generic[Key]):
 
         return pmap
 
-    def get_property_map(self, item: str | PropertyMap[Key, Val]) -> PropertyMap[Key, Val]:
-        if isinstance(item, PropertyMap):
-            return self._check_property_map(item)
-
-        return self._data[item]
-
-    def get_or_create_property(
+    def get(
             self,
             key: str | PropertyMap[Key, Val],
             default: Val,
@@ -1219,13 +1221,13 @@ class MeshData(Generic[Key]):
             return self._data[key]
         else:
             assert isinstance(key, str), key
-            return self.add_property(name=key, default=default, dtype=dtype)
+            return self.create(name=key, default=default, dtype=dtype)
 
     def __getitem__(self, item: str) -> PropertyMap[Key, Any]:
         return self._data[item]
 
     def __delitem__(self, item: str):
-        self.remove_property(item)
+        self.remove(item)
 
     def __setitem__(self, key: str, value: Any) -> None:
         if isinstance(value, PropertyMap):  # An already wrapped pmap
@@ -1236,12 +1238,12 @@ class MeshData(Generic[Key]):
 
         if hasattr(value, "is_sgm_property_map"):
             # Assigning the bare C++ property map
-            self.assign_property_map(name=key, pmap=value)
+            self._data[key] = self.wrap(cpp_pmap=value)
             return
 
         # Implicit construction of a new property map with initial value(s) `value`
         default = np.zeros_like(value, shape=()).item()  # type: ignore
-        pmap = self.get_or_create_property(key, default)
+        pmap = self.get(key, default)
         pmap[self.py_indices_type.all_indices(self.mesh)] = value
 
     def items(self) -> Iterator[Tuple[str, PropertyMap[Key, Any]]]:

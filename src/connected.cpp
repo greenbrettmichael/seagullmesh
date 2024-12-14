@@ -12,23 +12,31 @@ typedef Mesh3::Property_map<V, bool>            VertBool;
 typedef Mesh3::Property_map<F, bool>            FaceBool;
 typedef Mesh3::Property_map<E, bool>            EdgeBool;
 
-typedef F::size_type                            FaceIdx;
-typedef Mesh3::Property_map<F, FaceIdx>         FaceIdxMap;
-
 namespace PMP = CGAL::Polygon_mesh_processing;
 
 
 template<typename T>
-void define_face_patch_methods_for_property_map_type(py::module &m) {
+void define_keep_or_remove_connected_components_for_property_map_type(py::module &m) {
     typedef std::vector<T> Vals;
     typedef Mesh3::Property_map<F, T> FaceMap;
 
-    m
-    .def("remove_connected_face_patches", [](Mesh3& mesh, const Vals& to_remove, const FaceMap& face_map) {
+    m.def("remove_connected_face_patches", [](Mesh3& mesh, const Vals& to_remove, const FaceMap& face_map) {
         PMP::remove_connected_components(mesh, to_remove, face_map);
     })
     .def("keep_connected_face_patches", [](Mesh3& mesh, const Vals& to_keep, const FaceMap& face_map) {
         PMP::keep_connected_components(mesh, to_keep, face_map);
+    })
+    ;
+}
+
+template<typename T>
+void define_label_connected_components_for_property_map_type(py::module &m) {
+    typedef Mesh3::Property_map<F, T> FaceMap;
+
+    m.def("label_connected_components", [](const Mesh3& mesh, FaceMap& face_map, EdgeBool& edge_is_constrained) {
+        // Returns the number of connected components
+        auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
+        return PMP::connected_components(mesh, face_map, params);
     })
     ;
 }
@@ -82,14 +90,12 @@ void init_connected(py::module &m) {
             return verts.map_to_array_of_scalars<Mesh3::size_type>(
                 [&mesh](V v) { return mesh.degree(v); });
         })
-        .def("label_connected_components", [](const Mesh3& mesh, FaceIdxMap& face_map, EdgeBool& edge_is_constrained) {
-            // Returns the number of connected components
-            auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);
-            return PMP::connected_components(mesh, face_map, params);
-        })
-        .def("label_selected_face_patches", [](Mesh3& mesh, const Indices<F>& faces, FaceIdxMap& face_map) {
+        .def("label_selected_face_patches", [](
+                Mesh3& mesh,
+                const Indices<F>& faces,
+                Mesh3::Property_map<F, F::size_type>& face_map
+            ) {
             FilteredMesh filtered(mesh, faces.to_vector());
-
             std::map<F, F::size_type> filtered_face_patch;
             boost::associative_property_map< std::map<F, F::size_type> > filtered_face_patch_map(filtered_face_patch);
             auto n_components = PMP::connected_components(filtered, filtered_face_patch_map);
@@ -127,8 +133,12 @@ void init_connected(py::module &m) {
         })
     ;
 
-    define_face_patch_methods_for_property_map_type<F::size_type>(sub);
-    define_face_patch_methods_for_property_map_type<bool>(sub);
-    define_face_patch_methods_for_property_map_type<int64_t>(sub);
+    define_keep_or_remove_connected_components_for_property_map_type<F::size_type>(sub);
+    define_keep_or_remove_connected_components_for_property_map_type<int64_t>(sub);
+    define_keep_or_remove_connected_components_for_property_map_type<bool>(sub);
+
+    // Requires ++ so doesn't work with bools
+    define_label_connected_components_for_property_map_type<F::size_type>(sub);
+    define_label_connected_components_for_property_map_type<int64_t>(sub);
 
 }

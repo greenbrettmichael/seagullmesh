@@ -61,6 +61,10 @@ class TubeMesher {
             return;
         }
 
+        // TODO this is backwards
+        // Walk forward on xs0 first, then cross
+        // TODO: store the actual iterators instead of search/find each time
+
         double theta0 = 0, theta1 = 0;
         while (theta0 < 2 * CGAL_PI) {
             // Initialize face with axial edge from prev_xs to next_xs

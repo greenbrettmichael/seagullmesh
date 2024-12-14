@@ -6,7 +6,7 @@ from pyvista import Plotter
 from seagullmesh.tube_mesher import TubeMesher
 sm = TubeMesher.cylinder(n_radial=4, n_axial=10, closed=True)
 # sm.fd['is_cap1'] = sm.fd['is_cap'][:].astype(int)
-ic1 = sm.fd.add_property('is_cap1', default=-10)
+ic1 = sm.fd.create('is_cap1', default=-10)
 ic1[sm.fs] = sm.fd['is_cap'][:].astype(int).copy()
 
 assert set(sm.fd['is_cap1']) == {0, 1}

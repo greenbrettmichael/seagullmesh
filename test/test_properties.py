@@ -34,7 +34,7 @@ def test_explicit_property_map_construction(mesh, data_name, cls, default):
 )
 def test_add_property_map_typed(mesh, data_name, cls, default, dtype):
     data = getattr(mesh, data_name)
-    pmap = data.add_property('foo', default=default, dtype=dtype)
+    pmap = data.create('foo', default=default, dtype=dtype)
     assert isinstance(pmap.pmap, cls)  # type: ignore
     dtype_name = pmap[:].dtype.name
     if dtype_name == 'float64':
@@ -65,7 +65,7 @@ def test_scalar_properties(mesh, key_type, val_type):
     data['foo'][keys[:2]] = [val_type(1), val_type(1)]
     assert data['foo'][keys[0]] == val_type(1) and data['foo'][keys[1]] == val_type(1)
 
-    data.remove_property('foo')
+    data.remove('foo')
     assert 'foo' not in data.keys()
     assert 'foo' not in data
 
@@ -77,7 +77,7 @@ def test_array_properties(mesh, key_type, val_type):
 
     ndims = int(val_type.__name__[-1])
     default = val_type(*[0.0 for _ in range(ndims)])
-    pmap = d.add_property('foo', default=default)
+    pmap = d.create('foo', default=default)
     assert isinstance(pmap, ArrayPropertyMap)
 
     nkeys = d.n_mesh_keys
@@ -96,7 +96,7 @@ def test_array_properties(mesh, key_type, val_type):
 
 
 def test_copy_mesh_copies_properties(mesh):
-    foo = mesh.vertex_data.add_property('foo', default=0)
+    foo = mesh.vertex_data.create('foo', default=0)
     foo[0] = 1
 
     mesh1 = mesh.copy()
