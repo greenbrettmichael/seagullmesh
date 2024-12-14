@@ -5,19 +5,9 @@ from pyvista import Plotter
 from seagullmesh import Mesh3, Point3
 from seagullmesh.tube_mesher import TubeMesher
 
-ni = nj = 3
-w = h = 5
-z = 0
 
-
-def calculator(i: int, j: int):
-    x = w * (i / ni - 0.5)
-    y = h * (j / nj - 0.5)
-    return Point3(x, y, z)
-
-
-sm0 = Mesh3.grid(ni=ni, nj=nj, calculator=calculator).triangulate_faces()
-sm1 = TubeMesher.cylinder(n_radial=4, n_axial=2, closed=False)
+sm0 = TubeMesher.cylinder(n_radial=4, n_axial=5, closed=True, flip_faces=True, height=5)
+sm1 = TubeMesher.cylinder(n_radial=5, n_axial=5, closed=True, flip_faces=True, height=5).transform()
 
 m0 = sm0.to_pyvista(True)
 m1 = sm1.to_pyvista(True)

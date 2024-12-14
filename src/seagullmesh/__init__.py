@@ -282,7 +282,14 @@ class Mesh3:
     edges = es = property(lambda self: Edges.all_indices(self))
     halfedges = hs = property(lambda self: Halfedges.all_indices(self))
 
-    is_valid = property(lambda self: self.mesh.is_valid)
+    is_valid = property(lambda self: self.mesh.is_valid(False))
+
+    def is_mesh_valid(self, verbose=False):
+        return self.mesh.mesh(verbose)
+
+    @property
+    def is_closed(self):
+        return self.mesh.is_closed()
 
     @property
     def has_garbage(self) -> bool:
@@ -413,7 +420,7 @@ class Mesh3:
         sgm.mesh.add_grid(out.mesh, ni, nj, calculator, triangulated)
         return out
 
-    def transform(self, transform: np.ndarray, inplace=False) -> Mesh3:
+    def transform(self, transform: np.ndarray, inplace=True) -> Mesh3:
         out = self if inplace else self.copy()
         sgm.geometry.transform(out.mesh, transform)
         return out
@@ -427,17 +434,19 @@ class Mesh3:
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return sgm.geometry.bounding_box(self.mesh)
 
+    @property
     def does_bound_a_volume(self) -> bool:
         return sgm.geometry.does_bound_a_volume(self.mesh)
 
+    @property
     def is_outward_oriented(self) -> bool:
         return sgm.geometry.is_outward_oriented(self.mesh)
 
     def reverse_face_orientations(self, faces: Faces | None = None) -> None:
         if faces is None:
-            sgm.orientation.reverse_face_orientations(self.mesh)
+            sgm.geometry.reverse_face_orientations(self.mesh)
         else:
-            sgm.orientation.reverse_face_orientations(self.mesh, faces)
+            sgm.geometry.reverse_face_orientations(self.mesh, faces)
 
     @staticmethod
     def from_pyvista(
@@ -533,7 +542,6 @@ class Mesh3:
         from .aabb import AabbTree
         tree = sgm.locate.aabb_tree(self.mesh, self.get_vertex_point_map(vpm).pmap)
         return AabbTree(self, tree)
-
 
     def estimate_geodesic_distances(
             self,

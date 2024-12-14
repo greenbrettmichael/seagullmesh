@@ -90,10 +90,6 @@ void init_mesh(py::module &m) {
         .def_property_readonly_static("null_edge",      [](py::object /* self */) { return Mesh3::null_edge(); })
         .def_property_readonly_static("null_halfedge",  [](py::object /* self */) { return Mesh3::null_halfedge(); })
 
-        .def_property_readonly("is_valid", [](const Mesh3& mesh) {
-            // verbose = False; true prints to cerr
-            return mesh.is_valid( false); }
-        )
         .def_property_readonly("n_vertices", &Mesh3::number_of_vertices)
         .def_property_readonly("n_faces", &Mesh3::number_of_faces)
         .def_property_readonly("n_edges", &Mesh3::number_of_edges)
@@ -121,6 +117,8 @@ void init_mesh(py::module &m) {
             const std::vector<H> idxs(hs.begin(), hs.end());
             return Indices<H>(idxs);
         })
+        .def("is_valid", [](const Mesh3& mesh, bool verbose) { return mesh.is_valid(verbose); })
+        .def("is_closed", [](const Mesh3& mesh) { return CGAL::is_closed(mesh); })
     ;
 
     sub
