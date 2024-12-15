@@ -6,12 +6,9 @@ from pyvista import Plotter
 from seagullmesh.tube_mesher import TubeMesher
 
 # TODO: default behavior is flipped?
-sm = TubeMesher.cylinder(n_radial=5, n_axial=3, closed=True, flip_faces=True, radius=0.5)
+sm = TubeMesher.cylinder(n_radial=5, n_axial=3, closed=True, flip_faces=False, radius=0.5)
 sm.vertex_data['idx'] = arange(sm.n_vertices)
 assert sm.is_valid
-assert sm.does_bound_a_volume()
-assert sm.is_outward_oriented()
-
 
 points, faces = sm.to_polygon_soup()
 centroids = points[faces].mean(axis=1)

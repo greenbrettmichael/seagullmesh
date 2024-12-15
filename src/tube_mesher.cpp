@@ -16,9 +16,6 @@ class TubeMesher {
     VertDouble& t_map;
     VertDouble& theta_map;
     FaceBool& is_cap_map;
-    bool closed;
-    bool triangulate;
-    size_t nxs;
 
     std::vector<V> verts;           // of next xs
     std::vector<H> radial_edges;    // of next xs
@@ -119,8 +116,10 @@ class TubeMesher {
 
     struct TriangulateCapVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
         FaceBool& is_cap_map;
+        bool is_cap;
         TriangulateCapVisitor(FaceBool& is_cap_map) : is_cap_map(is_cap_map) {}
-        void after_subface_created(F f) {is_cap_map[f] = true;}
+        void before_subface_creations (F f) {is_cap = is_cap_map[f];}
+        void after_subface_created(F f) {is_cap_map[f] = is_cap;}
     };
 
     void add_cap_face() {
@@ -133,12 +132,7 @@ class TubeMesher {
             mesh.set_halfedge(f, mesh.opposite(radial_edges[0]));
             for (H h : radial_edges) { mesh.set_face(mesh.opposite(h), f); }
         }
-
-        if (triangulate) {
-            PMP::triangulate_face(f, mesh, PMP::parameters::visitor(TriangulateCapVisitor(is_cap_map)));
-        } else {
-            is_cap_map[f] = true;
-        }
+        is_cap_map[f] = true;
     }
 
     public:
@@ -163,46 +157,40 @@ class TubeMesher {
         } while (mesh.source(incoming) != verts[0]);
 
         prev_xs = mesh.opposite(radial_edges[0]);
-
-        for (H h : mesh.halfedges()) {
-            std::cout << h << " " << mesh.source(h) << "->" << mesh.target(h) << " next=" << mesh.next(h) << "\n";
-        }
-        for (V v : mesh.vertices()) {
-            std::cout << v << " " << mesh.halfedge(v) << "\n";
-        }
-        for (F f : mesh.faces()) {
-            std::cout << f << " ";
-            for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-                std::cout << h << " ";
-            }
-            std::cout << "\n";
-        }
-        mesh.is_valid(true);
     }
     void finish() {
         if (closed){
             add_cap_face();
         }
-        mesh.is_valid(true);
+        if (triangulate) {
+            TriangulateCapVisitor visitor(is_cap_map);
+            PMP::triangulate_faces(mesh, PMP::parameters::visitor(visitor));
+        }
     }
 
     TubeMesher(
         Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map,
-        bool closed, bool triangulate
+        bool closed, bool triangulate, bool flip_normals
     )
     : mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map),
-        closed(closed), triangulate(triangulate), nxs(0) {}
+        closed(closed), triangulate(triangulate), flip_normals(flip_normals), nxs(0) {}
 
-    size_t get_nxs() { return nxs; }
+    size_t nxs;
+    bool closed;
+    bool triangulate;
+    bool flip_normals;
 };
 
 void init_tube_mesher(py::module &m) {
     py::module sub = m.def_submodule("tube_mesher");
 
     py::class_<TubeMesher>(sub, "TubeMesher")
-        .def(py::init<Mesh3&, VertDouble&, VertDouble&, FaceBool&, bool, bool>())
+        .def(py::init<Mesh3&, VertDouble&, VertDouble&, FaceBool&, bool, bool, bool>())
         .def("add_xs", &TubeMesher::add_xs)
         .def("finish", &TubeMesher::finish)
-        .def_property_readonly("nxs", &TubeMesher::get_nxs)
+        .def_readonly("nxs", &TubeMesher::nxs)
+        .def_readwrite("closed", &TubeMesher::closed)
+        .def_readwrite("triangulate", &TubeMesher::triangulate)
+        .def_readwrite("flip_normals", &TubeMesher::flip_normals)
     ;
 }
