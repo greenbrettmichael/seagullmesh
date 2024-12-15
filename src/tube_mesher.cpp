@@ -125,7 +125,7 @@ class TubeMesher {
 
     void add_cap_face() {
         F f = mesh.add_face();
-        if (nxs == 1) != (flip_normals) {  // The two caps have opposite orientation
+        if ((nxs == 1) != flip_normals) {  // The two caps have opposite orientation
             mesh.set_halfedge(f, radial_edges[0]);
             for (H h : radial_edges) { mesh.set_face(h, f); }
         } else {
