@@ -98,8 +98,10 @@ class TubeMesher {
         */
         double theta_p = theta_map[mesh.target(p)];
         double theta_q = theta_map[mesh.target(q)];
-        size_t i = 0;
+        size_t nhe = 4;
+
         while (theta_p != theta_q) {
+            nhe++;
             if ( (theta_p == 0) || (theta_q < theta_p ) ) {  // Further ahead on prev xs, so advance on next xs
                 q = mesh.next(q);
                 CGAL_assertion( q != Mesh3::null_halfedge() );
@@ -113,7 +115,6 @@ class TubeMesher {
                 mesh.set_face(mesh.opposite(p), f);
                 theta_p = theta_map[mesh.target(p)];
             }
-            if (++i > 3) { throw std::runtime_error("missed the theta"); }
         }
 
         // Save state for next iter
@@ -138,6 +139,10 @@ class TubeMesher {
         std::cout << "Creating face at "
             << mesh.source(outgoing) << " " << theta_p0 << " " << mesh.target(outgoing) << " " << theta_q0 << " " << outgoing << ", "
             << mesh.target(incoming) << " " << theta_p  << " " << mesh.source(incoming) << " " << theta_q  << " " << incoming << "\n";
+
+        size_t i = 0;
+        for (H h : halfedges_around_face(outgoing, mesh)) { i++;}
+        CGAL_assertion ( i == nhe );
 
         if (closed) { PMP::triangulate_face(f, mesh); }
         return incoming;
@@ -201,6 +206,12 @@ class TubeMesher {
                 break;
             }
             outgoing = mesh.opposite(incoming);
+
+            std::cout << mesh.face(incoming);
+            for (H h : halfedges_around_face(incoming, mesh)) {
+                std::cout << h << " ";
+            }
+            std::cout << "\n";
         }
 
         prev_xs = edges[0];  // reset prev_xs to the first radial edge on next_xs
@@ -211,6 +222,14 @@ class TubeMesher {
         for (V v : mesh.vertices()) {
             std::cout << v << " " << mesh.halfedge(v) << "\n";
         }
+        for (F f : mesh.faces()) {
+            std::cout << f << " ";
+            for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+                std::cout << h << " ";
+            }
+            std::cout << "\n";
+        }
+
     }
     void finish() {
         // add_cap_face(false);

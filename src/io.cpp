@@ -64,17 +64,7 @@ void init_io(py::module &m) {
             std::vector<std::vector<size_t>> faces;
             PMP::polygon_mesh_to_polygon_soup(mesh, verts, faces);
             auto points = points_to_array(verts);
-
-            // Convert vector<vector<size_t>> to array
-            const size_t nf = mesh.number_of_faces();
-            py::array_t<size_t, py::array::c_style> faces_out({nf, size_t(3)});
-            auto rf = faces_out.mutable_unchecked<2>();
-            for (size_t i = 0; i < nf; i++) {
-                for (size_t j = 0; j < 3; j++) {
-                    rf(i, j) = faces[i][j];
-                }
-            }
-            return std::make_tuple(points, faces_out);
+            return std::make_tuple(points, faces);
         })
         .def("load_mesh_from_file", [](const std::string filename) {
             Mesh3 mesh;
