@@ -20,23 +20,17 @@ class TubeMesher:
         theta_map = mesh.vertex_data.create('theta', default=-1.0)
         is_cap_map = mesh.face_data.create('is_cap', default=False)
         self.tube_mesher = tube_mesher.TubeMesher(
-            mesh.mesh, t_map.pmap, theta_map.pmap, is_cap_map.pmap, triangulate)
+            mesh.mesh, t_map.pmap, theta_map.pmap, is_cap_map.pmap, closed, triangulate)
         self.closed = closed
         self.triangulate = triangulate
 
     def add_xs(self, t: float, theta: np.ndarray, pts: np.ndarray):
         self.tube_mesher.add_xs(t, theta, pts)
 
-        if self.closed and self.tube_mesher.nxs == 1:  # i.e. this was the first xs
-            self.tube_mesher.close_xs(False)
-
     def finish(self, flip_faces: bool = False) -> Mesh3:
-        if self.closed:
-            self.tube_mesher.close_xs(True)
-
+        self.tube_mesher.finish()
         if flip_faces:
             self.mesh.reverse_face_orientations()
-
         return self.mesh
 
     @staticmethod

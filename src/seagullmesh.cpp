@@ -24,12 +24,12 @@ void init_orientation(py::module&);
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
     init_mesh(m);
-    init_geometry(m);
+//    init_geometry(m);
     init_properties(m);
     init_io(m);
 //    init_geodesic_distances(m);
-    init_locate(m);
-    init_connected(m);
+//    init_locate(m);
+//    init_connected(m);
 //    init_border(m);
 //    init_skeletonization(m);
 //    init_simplification(m);
@@ -38,7 +38,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
 //    init_alpha_wrapping(m);
 //    init_meshing(m);
 //    init_triangulate(m);
-    init_corefine(m);
+//    init_corefine(m);
     init_tube_mesher(m);
 
 }
