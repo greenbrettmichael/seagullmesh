@@ -101,6 +101,7 @@ class TubeMesher {
         size_t nhe = 4;
 
         while (theta_p != theta_q) {
+            std::cout << "This shouldn't happen with exact xss.";
             nhe++;
             if ( (theta_p == 0) || (theta_q < theta_p ) ) {  // Further ahead on prev xs, so advance on next xs
                 q = mesh.next(q);
@@ -229,6 +230,7 @@ class TubeMesher {
             }
             std::cout << "\n";
         }
+        CGAL_assertion(mesh.is_valid(true));
 
     }
     void finish() {
