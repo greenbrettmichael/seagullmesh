@@ -16,23 +16,28 @@ from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Faces
 class _TrackSpec:
     idx: int
     mesh: Mesh3
-    edge_is_constrained: str | PropertyMap[Edge, bool] = 'edge_is_constrained'
-    face_mesh_map: str | PropertyMap[Face, int] = 'face_mesh_map'
-    face_face_map: str | PropertyMap[Face, Face] = 'face_face_map'
+    edge_is_constrained: str | PropertyMap[Edge, bool] | None = None
+    face_mesh_map: str | PropertyMap[Face, int] | None = None
+    face_face_map: str | PropertyMap[Face, Face] = None
     orig_face_properties: List[str] = field(init=False)
+    orig_edge_properties: List[str] = field(init=False)
 
     def __post_init__(self):
         self.orig_face_properties = list(self.mesh.face_data.keys())
+        self.orig_face_properties = list(self.mesh.edge_data.keys())
 
     def realize(self):
-        ecm = self.mesh.edge_data.get(self.edge_is_constrained, default=False)
+        ecm = self.mesh.edge_data.get(
+            self.edge_is_constrained or '_temp_edge_is_constrained', default=False)
+
         # Face mesh map defaults to -1 so original faces don't need to be updated
         face_mesh_map = self.mesh.face_data.get(
-            self.face_mesh_map, default=-1, dtype='int32')
+            self.face_mesh_map or '_temp_face_mesh_map', default=-1, dtype='int32')
 
         face_face_map = self.mesh.face_data.get(
-            self.face_face_map, default=Mesh3.null_face)
+            self.face_face_map or '_temp_face_face_map', default=Mesh3.null_face)
 
+        # Initialize the face-face map to the identity function
         faces = self.mesh.faces
         face_face_map[faces] = faces
 
@@ -109,3 +114,12 @@ class Corefined:
             orig_faces = dest.face_face_map[new_faces]
             for k in prop_names:
                 dest.mesh.face_data[k][new_faces] = src.mesh.face_data[k][orig_faces]
+
+    def remove_temporary_properties(self, mesh_idx: int):
+        spec = self.tracked[mesh_idx].spec
+        if spec.edge_is_constrained is None:
+            spec.mesh.edge_data.remove('_temp_edge_is_constrained')
+        if spec.face_mesh_map is None:
+            spec.mesh.face_data.remove('_temp_face_mesh_map')
+        if spec.face_face_map is None:
+            spec.mesh.face_data.remove('_temp_face_face_map')

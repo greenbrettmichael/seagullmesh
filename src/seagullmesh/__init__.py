@@ -363,6 +363,9 @@ class Mesh3:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
 
+    def triangle_soup(self) -> np.ndarray:
+        return sgm.io.triangle_soup(self.mesh, self.vertex_index_map)
+
     def to_edge_soup(
             self,
             vim: VertexIndexMap | None = None,
