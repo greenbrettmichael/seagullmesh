@@ -98,24 +98,16 @@ void init_mesh(py::module &m) {
         .def_property_readonly("points", [](const Mesh3& mesh) { return mesh.points(); })
 
         .def_property_readonly("vertices", [](const Mesh3& mesh) {
-            auto vs = mesh.vertices();
-            const std::vector<V> idxs(vs.begin(), vs.end());
-            return Indices<V>(idxs);
+            return Indices<V>::from_range<Mesh3::Vertex_range>(mesh.number_of_vertices(), mesh.vertices());
         })
         .def_property_readonly("faces", [](const Mesh3& mesh) {
-            auto fs = mesh.faces();
-            const std::vector<F> idxs(fs.begin(), fs.end());
-            return Indices<F>(idxs);
+            return Indices<F>::from_range<Mesh3::Face_range>(mesh.number_of_faces(), mesh.faces());
         })
         .def_property_readonly("edges", [](const Mesh3& mesh) {
-            auto es = mesh.edges();
-            const std::vector<E> idxs(es.begin(), es.end());
-            return Indices<E>(idxs);
+            return Indices<E>::from_range<Mesh3::Edge_range>(mesh.number_of_edges(), mesh.edges());
         })
         .def_property_readonly("halfedges", [](const Mesh3& mesh) {
-            auto hs = mesh.halfedges();
-            const std::vector<H> idxs(hs.begin(), hs.end());
-            return Indices<H>(idxs);
+            return Indices<H>::from_range<Mesh3::Halfedge_range>(mesh.number_of_halfedges(), mesh.halfedges());
         })
         .def("is_valid", [](const Mesh3& mesh, bool verbose) { return mesh.is_valid(verbose); })
         .def("is_closed", [](const Mesh3& mesh) { return CGAL::is_closed(mesh); })
@@ -152,5 +144,6 @@ void init_mesh(py::module &m) {
         ){
             CGAL::make_grid(ni, nj, mesh, calculator, triangulated);
         })
+
     ;
 }

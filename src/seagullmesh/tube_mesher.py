@@ -13,7 +13,7 @@ class TubeMesher:
     def __init__(
             self,
             closed: bool = False,
-            triangulate: bool = True,
+            triangulate: bool = False,
             flip_faces: bool = False,
     ):
         mesh = self.mesh = Mesh3()

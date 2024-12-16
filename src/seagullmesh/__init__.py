@@ -188,6 +188,9 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_faces
 
+    def degrees(self) -> np.ndarray:
+        return sgm.connected.face_degrees(self.mesh, self.indices)
+
     def construct_points(
             self,
             bary_coords: np.ndarray,
@@ -489,7 +492,11 @@ class Mesh3:
         """
         import pyvista as pv
         verts, faces = sgm.io.mesh3_to_polygon_soup(self.mesh)
-        mesh = pv.PolyData.from_regular_faces(verts, faces)
+
+        if len(set(len(f) for f in faces)) == 1:
+            mesh = pv.PolyData.from_regular_faces(verts, faces)
+        else:
+            mesh = pv.PolyData.from_irregular_faces(verts, faces)
 
         if data:
             vertex_data = face_data = True

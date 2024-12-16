@@ -147,6 +147,17 @@ class Indices {
         }
     }
 
+    template<typename R>
+    static Indices<T> from_range(size_t n, R& range) {
+        py::array_t<size_type> indices({py::ssize_t(n)});
+        auto r = indices.mutable_unchecked<1>();
+        py::ssize_t i = 0;
+        for (T idx : range) {
+            r(i++) = size_type(idx);
+        }
+        return Indices<T>(indices);
+    }
+
     private:
     py::array_t<size_type> indices;
 };

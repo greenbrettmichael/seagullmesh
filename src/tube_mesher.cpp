@@ -33,6 +33,7 @@ class TubeMesher {
         auto r_pts = pts.unchecked<2>();
         auto r_theta = theta.unchecked<1>();
         CGAL_assertion(r_theta(0) == 0);
+        CGAL_assertion(pts.shape(0) == theta.shape(0));
 
         verts.resize(n + 1);
         for (size_t i = 0; i < n; ++i) {
@@ -87,19 +88,27 @@ class TubeMesher {
         
         double theta_q = theta_map[mesh.source(q)];
         double theta_p = theta_map[mesh.target(p)];
+        std::cout << "init face: theta_p " << theta_p << " theta_q " << theta_q << "\n";
+
         while (theta_p != theta_q) {
-            if ( (theta_q < theta_p) || (theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
+            if ( theta_q != 0 && (theta_p > theta_q || theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
                 q = mesh.prev(q);
                 mesh.set_face(q, f);
-                theta_q = theta_map[mesh.source(q)];
-            } else if ( (theta_p < theta_q) || (theta_q == 0)) {  // Further ahead on next xs, so advance on prev xs
+                double theta_q1 = theta_map[mesh.source(q)];
+                CGAL_assertion((theta_q1 > theta_q) || (theta_q1 == 0));
+                theta_q = theta_q1;
+            } else if (theta_p != 0 && (theta_q > theta_p || theta_q == 0)) {  // Further ahead on next xs, so advance on prev xs
                 p = mesh.next(p);
                 mesh.set_face(p, f);
-                theta_p = theta_map[mesh.target(p)];
+                double theta_p1 = theta_map[mesh.target(p)];
+                CGAL_assertion((theta_p1 > theta_p) || (theta_p1 == 0));
+                theta_p = theta_p1;
             } else {
                 throw std::runtime_error("theta values do not align");
             }
+            std::cout << "theta_p " << theta_p << " theta_q " << theta_q << "\n";
         }
+        std::cout << "\n";
 
         // Save state for next face
         prev_radial_edge = mesh.next(p);
@@ -127,13 +136,17 @@ class TubeMesher {
         void after_subface_created(F f) {is_cap_map[f] = is_cap;}
     };
 
-    void add_cap_face(H radial_edge) {
+    void add_cap_face(H h) {
         F f = mesh.add_face();
+        mesh.set_halfedge(f, h);
         is_cap_map[f] = true;
-        
-        for (H h : CGAL::halfedges_around_face(radial_edge, mesh)) { // border loop around the null face
+        H h0 = h;
+
+        do {
+            CGAL_assertion(mesh.face(h) == Mesh3::null_face());
             mesh.set_face(h, f);
-        }
+            h = mesh.next(h);
+        } while (h != h0);
     }
 
     public:
