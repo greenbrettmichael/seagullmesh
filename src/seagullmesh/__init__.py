@@ -138,10 +138,11 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
         if isinstance(value, type(self)):
             if value.mesh is self.mesh:
                 self._array[item] = value._array
+                return
             else:
                 raise ValueError("Assigning indices between different meshes, this is probably a mistake")
 
-        msg = "Can only assign indices of the same type, got self={self} and value={vallue}"
+        msg = f"Can only assign indices of the same type, got self={self} and value={value}"
         raise TypeError(msg)
 
     def unique(self) -> Self:

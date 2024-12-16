@@ -19,7 +19,7 @@ def test_index_indexing(mesh):
     i = idxs[0]
     assert isinstance(i, Vertex)
 
-    i_np = idxs[np.integer(0)]
+    i_np = idxs[np.int64(0)]
     assert isinstance(i_np, Vertex) and i == i_np
 
     assert i.to_int() != mesh.null_vertex.to_int()
@@ -43,6 +43,11 @@ def test_index_indexing(mesh):
     set_ = set(idxs)
     assert len(set_) == n
     assert i in set_
+
+
+def test_subsetting_overwrite(mesh):
+    vs = mesh.vertices
+    vs[1:] = vs[1:][::-1]
 
 
 def test_vertex_points(mesh: Mesh3):
