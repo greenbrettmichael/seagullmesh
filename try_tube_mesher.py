@@ -6,7 +6,7 @@ from pyvista import Plotter
 from seagullmesh.tube_mesher import TubeMesher
 
 # TODO: default behavior is flipped?
-sm = TubeMesher.cylinder(n_radial=5, n_axial=3, closed=True, flip_faces=False, radius=0.5)
+sm = TubeMesher.cylinder(n_radial=5, n_axial=8, closed=True, flip_faces=False, radius=0.5)
 sm.vertex_data['idx'] = arange(sm.n_vertices)
 assert sm.is_valid
 
@@ -27,7 +27,7 @@ p.add_mesh(m.copy(), show_edges=True, scalars='idx')
 
 p.subplot(1, 1)
 p.add_mesh(m.copy(), show_edges=True, scalars='is_cap')
-p.add_arrows(m.cell_centers().points, normals * 0.5)
+p.add_arrows(m.cell_centers().points, normals * 0.1)
 
 p.link_views()
 p.show()

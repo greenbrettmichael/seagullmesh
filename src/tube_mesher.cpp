@@ -3,6 +3,7 @@
 #include <iostream>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
+#include <CGAL/Polygon_mesh_processing/orientation.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -20,12 +21,8 @@ class TubeMesher {
     std::vector<V> verts;           // of next xs
     std::vector<H> radial_edges;    // of next xs
 
-    H prev_xs;
-    H next_xs;
-
-    private:
-    H add_edge(V u, V v) { return flip_normals ? mesh.add_edge(v, u) : mesh.add_edge(u, v); }
-    H halfedge(V u, V v) { return flip_normals ? mesh.halfedge(v, u) : mesh.halfedge(u, v); }
+    H prev_radial_edge;             // on prev_xs
+    H next_radial_edge;             // on next_xs
 
     void add_points_and_radial_edges(
             const double t,
@@ -35,6 +32,7 @@ class TubeMesher {
         const size_t n = pts.shape(0);
         auto r_pts = pts.unchecked<2>();
         auto r_theta = theta.unchecked<1>();
+        CGAL_assertion(r_theta(0) == 0);
 
         verts.resize(n + 1);
         for (size_t i = 0; i < n; ++i) {
@@ -47,92 +45,95 @@ class TubeMesher {
 
         radial_edges.resize(n + 1);
         for (size_t i = 0; i < n; ++i) {
-            radial_edges[i] = add_edge(verts[i], verts[i + 1]);
+            H h = mesh.add_edge(verts[i], verts[i + 1]);
+            radial_edges[i] = h;
+            mesh.set_halfedge(verts[i + 1], h);
         }
         radial_edges[n] = radial_edges[0];
 
         for (size_t i = 0; i < n; ++i) {
             mesh.set_next(radial_edges[i], radial_edges[i + 1]);
             mesh.set_next(mesh.opposite(radial_edges[i + 1]), mesh.opposite(radial_edges[i]));
-            mesh.set_halfedge(verts[i + 1], radial_edges[i]);
         }
-
-        radial_edges.resize(n);  // More convenient for capping
     }
-    H add_axial_face(H p, H q, H outgoing) {
-        F f = mesh.add_face();
-        mesh.set_face(p, f);
-        mesh.set_face(outgoing, f);
-        mesh.set_face(q, f);
-        mesh.set_next(outgoing, q);
-        mesh.set_next(p, outgoing);
+    H add_axial_face(H p, H q, H incoming) {
         /*
-        The outgoing edge connects two vertices on adjacent cross-sections
+        The incoming edge connects two vertices on adjacent cross-sections
         with the same theta value. Incrementally walk in the positive theta
         direction until we find another pair of vertices with the same
-        theta values and add an incoming edge to close the loop around the
+        theta values and add an outgoing axial edge to close the loop around the
         newly created face.
 
-                    <== positive theta
-                            q (halfedge on next_xs)
-                    + <------------ +          positive t
-                theta_q             ^              /\
-                                    |              ||
-                                    |  outgoing    ||
-                theta_p             |              ||
-                    +  -----------> +
-                            p (halfedge on prev_xs)
+        positive t
+            ^                   q (halfedge on next_xs)
+            |             +<----------- +
+            |             |          theta_q
+            |             |
+            |    incoming |
+            |             v          theta_p
+            |             +-----------> +
+            |                   p (halfedge on prev_xs)
+            |
+             -----------------------> positive theta
         */
-        double theta_p = theta_map[mesh.source(p)];
-        double theta_q = theta_map[mesh.target(q)];
+        
+        F f = mesh.add_face();
+        mesh.set_face(q, f);
+        mesh.set_face(incoming, f);
+        mesh.set_face(p, f);
+        
+        mesh.set_next(q, incoming);
+        mesh.set_next(incoming, p);
+        
+        double theta_q = theta_map[mesh.source(q)];
+        double theta_p = theta_map[mesh.target(p)];
         while (theta_p != theta_q) {
-            if ( (theta_p == 0) || (theta_q < theta_p ) ) {  // Further ahead on prev xs, so advance on next xs
-                q = mesh.next(q);
+            if ( (theta_q < theta_p) || (theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
+                q = mesh.prev(q);
                 mesh.set_face(q, f);
-                theta_q = theta_map[mesh.target(q)];
-            } else {  // Further ahead on next xs, so advance on prev xs
-                p = mesh.prev(p);
+                theta_q = theta_map[mesh.source(q)];
+            } else if ( (theta_p < theta_q) || (theta_q == 0)) {  // Further ahead on next xs, so advance on prev xs
+                p = mesh.next(p);
                 mesh.set_face(p, f);
-                theta_p = theta_map[mesh.source(p)];
+                theta_p = theta_map[mesh.target(p)];
+            } else {
+                throw std::runtime_error("theta values do not align");
             }
         }
 
         // Save state for next face
-        prev_xs = mesh.prev(p);
-        next_xs = mesh.next(q);
+        prev_radial_edge = mesh.next(p);
+        next_radial_edge = mesh.prev(q);
 
         // The axial edge from q back to p
-        H incoming;
+        H outgoing;
         if (theta_p == 0) {  // Should already exist -- the first axial edge
-            incoming = halfedge(mesh.target(q), mesh.source(p));
+            outgoing = mesh.halfedge(mesh.target(p), mesh.source(q));
         } else {
-            incoming = add_edge(mesh.target(q), mesh.source(p));
+            outgoing = mesh.add_edge(mesh.target(p), mesh.source(q));
         }
-        mesh.set_face(incoming, f);
-        mesh.set_next(q, incoming);
-        mesh.set_next(incoming, p);
-        mesh.set_halfedge(f, incoming);
-        return incoming;
+        mesh.set_next(p, outgoing);
+        mesh.set_next(outgoing, q);
+        mesh.set_face(outgoing, f);
+        mesh.set_halfedge(f, outgoing);
+        return outgoing;
     }
 
-    struct TriangulateCapVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
+    struct TriangulateTubeVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
         FaceBool& is_cap_map;
         bool is_cap;
-        TriangulateCapVisitor(FaceBool& is_cap_map) : is_cap_map(is_cap_map) {}
+        TriangulateTubeVisitor(FaceBool& is_cap_map) : is_cap_map(is_cap_map) {}
         void before_subface_creations (F f) {is_cap = is_cap_map[f];}
         void after_subface_created(F f) {is_cap_map[f] = is_cap;}
     };
 
-    void add_cap_face() {
+    void add_cap_face(H radial_edge) {
         F f = mesh.add_face();
-        if ((nxs == 1) != flip_normals) {  // The two caps have opposite orientation
-            mesh.set_halfedge(f, radial_edges[0]);
-            for (H h : radial_edges) { mesh.set_face(h, f); }
-        } else {
-            mesh.set_halfedge(f, mesh.opposite(radial_edges[0]));
-            for (H h : radial_edges) { mesh.set_face(mesh.opposite(h), f); }
-        }
         is_cap_map[f] = true;
+        
+        for (H h : CGAL::halfedges_around_face(radial_edge, mesh)) { // border loop around the null face
+            mesh.set_face(h, f);
+        }
     }
 
     public:
@@ -141,27 +142,28 @@ class TubeMesher {
         add_points_and_radial_edges(t, theta, pts);
         
         if (nxs == 1) {
-            prev_xs = mesh.opposite(radial_edges[0]);
-            if (closed) { add_cap_face(); }
+            prev_radial_edge = radial_edges[0];
+            if (closed) { add_cap_face(mesh.opposite(prev_radial_edge)); }
             return;
         }
 
-        // The first outgoing edge between adjacent cross-sections at theta=0
-        next_xs = radial_edges[0];
-        H outgoing = add_edge(mesh.target(prev_xs), mesh.source(next_xs));
-        H incoming;
+        // The first incoming edge between adjacent cross-sections at theta=0
+        next_radial_edge = mesh.opposite(radial_edges[0]);
+        H incoming = mesh.add_edge(verts[0], mesh.source(prev_radial_edge));
+        H outgoing;
 
         do {
-            incoming = add_axial_face(prev_xs, next_xs, outgoing);
-            outgoing = mesh.opposite(incoming);
-        } while (mesh.source(incoming) != verts[0]);
+            outgoing = add_axial_face(prev_radial_edge, next_radial_edge, incoming);
+            incoming = mesh.opposite(outgoing);
+        } while (mesh.target(outgoing) != verts[0]);
 
-        prev_xs = mesh.opposite(radial_edges[0]);
+        prev_radial_edge = radial_edges[0];
     }
     void finish() {
-        if (closed){ add_cap_face(); }
+        if (closed){ add_cap_face(radial_edges[0]); }
+        if (flip_normals) { PMP::reverse_face_orientations(mesh); }
         if (triangulate) {
-            TriangulateCapVisitor visitor(is_cap_map);
+            TriangulateTubeVisitor visitor(is_cap_map);
             PMP::triangulate_faces(mesh, PMP::parameters::visitor(visitor));
         }
     }
