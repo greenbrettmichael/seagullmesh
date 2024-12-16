@@ -35,7 +35,7 @@ def irregular(
 
 # sm = TubeMesher.cylinder(closed=False, flip_faces=False, n_axial=2, n_radial=3)
 sm = irregular(
-    closed=False, flip_faces=False, n_axial=10, n_radial=20, triangulate=True, n_extra_range=(10, 20))
+    closed=True, flip_faces=False, n_axial=10, n_radial=20, triangulate=True, n_extra_range=(10, 20))
 
 # print(sm.n_faces)
 m = sm.to_pyvista(True)
