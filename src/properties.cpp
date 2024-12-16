@@ -55,10 +55,10 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         })
         // array of keys, return vector<Val>
         .def("get_vector", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_vector<Val>([&pmap](Key k) { return pmap[k]; });
+            return indices.template map_to_vector<Val>([&pmap](Key k) { return pmap[k]; });
         })
         .def("copy_values", [](const PMap& pmap, const Indices<Key>& src_idxs, const Indices<Key>& dest_idxs) {
-            src_idxs.zip<Key>(dest_idxs, [&pmap](Key src, Key dest) { pmap[dest] = pmap[src];});
+            src_idxs.template zip<Key>(dest_idxs, [&pmap](Key src, Key dest) { pmap[dest] = pmap[src];});
         })
     ;
 }
@@ -69,11 +69,11 @@ auto define_scalar_property_map(py::module &m, std::string name) {
     return define_property_map<Key, Val>(m, name, true)
         // get array of keys, return array of values
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
+            return indices.template map_to_array_of_scalars<Val>([&pmap](Key k) { return pmap[k]; });
         })
         // set array of keys from array of values
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<Val>& vals) {
-            auto r = vals.unchecked<1>();
+            auto r = vals.template unchecked<1>();
             indices.apply([&pmap, &r](size_t i, Key k) { pmap[k] = r(i); });
         })
     ;
@@ -87,11 +87,11 @@ auto define_index_property_map(py::module &m, std::string name) {
 
     return define_property_map<Key, Val>(m, name, true)
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
-            auto idxs_out = indices.map_to_array_of_scalars<uint32_t>([&pmap](Key k) { return uint32_t(pmap[k]); });
+            auto idxs_out = indices.template map_to_array_of_scalars<uint32_t>([&pmap](Key k) { return uint32_t(pmap[k]); });
             return Indices<Val>(idxs_out);
         })
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& keys, const Indices<Val>& vals) {
-            keys.zip<Val>(vals, [&pmap](Key k, Val v){ pmap[k] = v; });
+            keys.template zip<Val>(vals, [&pmap](Key k, Val v){ pmap[k] = v; });
         })
     ;
 }
@@ -105,11 +105,11 @@ auto define_array_property_map(py::module &m, std::string name) {
     return define_property_map<Key, Val>(m, name, false)
         // Get array of indices, return 2d array of values
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_array_of_vectors<Val, Dim, U>( [&pmap](Key k) { return pmap[k]; });
+            return indices.template map_to_array_of_vectors<Val, Dim, U>( [&pmap](Key k) { return pmap[k]; });
         })
         // Set array of indices from array of values
         .def("__setitem__", [](PMap& pmap, const Indices<Key>& indices, const py::array_t<U>& vals) {
-            auto r = vals.unchecked<2>();
+            auto r = vals.template unchecked<2>();
             indices.apply([&pmap, &r](size_t i, Key k) {
                 if constexpr ( Dim == 3 ) {
                     pmap[k] = Val(r(i, 0), r(i, 1), r(i, 2));
@@ -136,7 +136,7 @@ void define_princ_curv_dir_property_map(py::module &m, std::string name) {
 
     define_property_map<Key, PrincipalCurvDir>(m, name, false)
         .def("__getitem__", [](const PMap& pmap, const Indices<Key>& indices) {
-            return indices.map_to_vector<PrincipalCurvDir>([&pmap] (Key k) { return pmap[k]; });
+            return indices.template map_to_vector<PrincipalCurvDir>([&pmap] (Key k) { return pmap[k]; });
         })
         .def("get_expanded", [](const PMap& pmap, const Indices<Key>& indices) {
             const size_t n = indices.size();
@@ -145,10 +145,10 @@ void define_princ_curv_dir_property_map(py::module &m, std::string name) {
             py::array_t<double> min_direction({n, size_t(3)});
             py::array_t<double> max_direction({n, size_t(3)});
 
-            auto r_min_cur = min_curvature.mutable_unchecked<1>();
-            auto r_max_cur = max_curvature.mutable_unchecked<1>();
-            auto r_min_dir = min_direction.mutable_unchecked<2>();
-            auto r_max_dir = max_direction.mutable_unchecked<2>();
+            auto r_min_cur = min_curvature.template mutable_unchecked<1>();
+            auto r_max_cur = max_curvature.template mutable_unchecked<1>();
+            auto r_min_dir = min_direction.template mutable_unchecked<2>();
+            auto r_max_dir = max_direction.template mutable_unchecked<2>();
 
             indices.apply([&pmap, &r_min_cur, &r_max_cur, &r_min_dir, &r_max_dir] (size_t i, Key k){
                 PrincipalCurvDir x = pmap[k];

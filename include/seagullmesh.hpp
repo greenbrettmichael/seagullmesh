@@ -83,8 +83,8 @@ class Indices {
     py::array_t<U> map_to_array_of_scalars(const std::function<U (T)> fn) const {
         size_t n = indices.size();
         py::array_t<U> out({ py::ssize_t(n) });
-        auto rout = out.mutable_unchecked<1>();
-        auto ridxs = indices.unchecked<1>();
+        auto rout = out.template mutable_unchecked<1>();
+        auto ridxs = indices.template unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             T idx = T( ridxs(i) );
             rout(i) = fn(idx);
@@ -96,8 +96,8 @@ class Indices {
     py::array_t<U> map_to_array_of_vectors(const std::function<Vec (T)> fn) const {
         size_t n = indices.size();
         py::array_t<U> out( {n, Dim} );
-        auto rout = out.mutable_unchecked<2>();
-        auto ridxs = indices.unchecked<1>();
+        auto rout = out.template mutable_unchecked<2>();
+        auto ridxs = indices.template unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             Vec vec = fn(T(ridxs(i)));
             for (size_t j = 0; j < Dim; ++j) {
@@ -111,8 +111,8 @@ class Indices {
     py::array_t<U> map_to_array_of_vectors(const std::function<Vec (size_t, T)> fn) const {
         size_t n = indices.size();
         py::array_t<U> out( {n, Dim} );
-        auto rout = out.mutable_unchecked<2>();
-        auto ridxs = indices.unchecked<1>();
+        auto rout = out.template mutable_unchecked<2>();
+        auto ridxs = indices.template unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             Vec vec = fn(i, T(ridxs(i)));
             for (size_t j = 0; j < Dim; ++j) {
@@ -124,14 +124,14 @@ class Indices {
 
     void apply(const std::function<void (T)> fn) const {
         size_t n = indices.size();
-        auto ridxs = indices.unchecked<1>();
+        auto ridxs = indices.template unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             fn( T( ridxs(i) ) );
         }
     }
     void apply(const std::function<void (size_t, T)> fn) const {
         size_t n = indices.size();
-        auto ridxs = indices.unchecked<1>();
+        auto ridxs = indices.template unchecked<1>();
         for (size_t i = 0; i < n; ++i) {
             fn(i, T(ridxs(i)));
         }
@@ -140,17 +140,17 @@ class Indices {
     template<typename U>
     void zip(const Indices<U>& other, std::function<void (T, U)> fn) const {
         py::ssize_t n = indices.size();
-        auto rt = indices.unchecked<1>();
-        auto ru = indices.unchecked<1>();
+        auto rt = indices.template unchecked<1>();
+        auto ru = indices.template unchecked<1>();
         for (py::ssize_t i = 0; i < n; ++i) {
             fn(T(rt(i)), U(ru(i)));
         }
     }
 
     template<typename R>
-    static Indices<T> from_range(size_t n, R& range) {
+    static Indices<T> from_range(size_t n, R range) {
         py::array_t<size_type> indices({py::ssize_t(n)});
-        auto r = indices.mutable_unchecked<1>();
+        auto r = indices.template mutable_unchecked<1>();
         py::ssize_t i = 0;
         for (T idx : range) {
             r(i++) = size_type(idx);
