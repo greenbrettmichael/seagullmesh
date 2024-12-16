@@ -351,12 +351,12 @@ class Mesh3:
         return out
 
     @staticmethod
-    def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True) -> Mesh3:
+    def from_polygon_soup(verts: np.ndarray, faces: np.ndarray, orient=True, validate=False) -> Mesh3:
         """Constructs a surface mesh from vertices (nv * 3) and faces (nf * 3) arrays
 
         If `orient` is True (default), the faces are reindexed to represent a consistent manifold surface.
         """
-        mesh = sgm.io.polygon_soup_to_mesh3(verts, faces, orient)
+        mesh = sgm.io.polygon_soup_to_mesh3(verts, faces, orient, validate)
         return Mesh3(mesh)
 
     def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:

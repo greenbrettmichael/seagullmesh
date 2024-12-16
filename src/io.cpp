@@ -46,7 +46,8 @@ void init_io(py::module &m) {
         .def("polygon_soup_to_mesh3", [](
                 py::array_t<double> &points,
                 std::vector<std::vector<size_t>>& faces,
-                const bool orient
+                const bool orient,
+                const bool validate = False,
         ) {
             Mesh3 mesh;
             std::vector<Point3> vertices = array_to_points_3(points);
@@ -54,6 +55,10 @@ void init_io(py::module &m) {
                 bool success = PMP::orient_polygon_soup(vertices, faces);
                 if (!success) {
                     throw std::runtime_error("Polygon orientation failed");
+                }
+            } else if (validate) {
+                if (!PMP::is_polygon_soup_a_polygon_mesh(faces)) {
+                    throw std::runtime_error("Polygon soup is not a polygon mesh");
                 }
             }
             PMP::polygon_soup_to_polygon_mesh(vertices, faces, mesh);
