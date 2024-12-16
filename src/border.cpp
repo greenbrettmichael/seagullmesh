@@ -57,6 +57,7 @@ void init_border(py::module &m) {
                     return Indices<V>(verts);
                 }
             }
+            throw py::runtime_error("Vertex is not on the boundary");
         })
         .def("face_patch_border", [](const Mesh3& mesh, const std::vector<F>& faces) {
             std::vector<H> out;
