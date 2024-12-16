@@ -27,18 +27,17 @@ PYBIND11_MODULE(_seagullmesh, m) {
     init_geometry(m);
     init_properties(m);
     init_io(m);
+    init_locate(m);
+    init_connected(m);
+    init_border(m);
+    init_meshing(m);
+    init_corefine(m);
+    init_tube_mesher(m);
 //    init_geodesic_distances(m);
-//    init_locate(m);
-//    init_connected(m);
-//    init_border(m);
 //    init_skeletonization(m);
 //    init_simplification(m);
 //    init_parametrize(m);
 //    init_poisson_reconstruct(m);
 //    init_alpha_wrapping(m);
-//    init_meshing(m);
-//    init_triangulate(m);
-//    init_corefine(m);
-    init_tube_mesher(m);
 
 }

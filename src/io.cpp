@@ -47,7 +47,7 @@ void init_io(py::module &m) {
                 py::array_t<double> &points,
                 std::vector<std::vector<size_t>>& faces,
                 const bool orient,
-                const bool validate = False,
+                const bool validate = false
         ) {
             Mesh3 mesh;
             std::vector<Point3> vertices = array_to_points_3(points);
