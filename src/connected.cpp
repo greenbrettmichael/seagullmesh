@@ -90,7 +90,7 @@ void init_connected(py::module &m) {
             return verts.map_to_array_of_scalars<Mesh3::size_type>(
                 [&mesh](V v) { return mesh.degree(v); });
         })
-        .def("face_degrees", [](const Mesh3& mesh, const Indices<V>& faces) {
+        .def("face_degrees", [](const Mesh3& mesh, const Indices<F>& faces) {
             return faces.map_to_array_of_scalars<Mesh3::size_type>(
                 [&mesh](F f) { return mesh.degree(f); });
         })

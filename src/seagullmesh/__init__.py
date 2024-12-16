@@ -595,7 +595,7 @@ class Mesh3:
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             args = [
-                self.mesh, faces, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
+                self.mesh, faces.indices, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
 
             if face_patch_map:
                 sgm.meshing.uniform_isotropic_remeshing2(*args, face_patch_map.pmap)

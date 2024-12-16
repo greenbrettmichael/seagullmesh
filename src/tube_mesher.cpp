@@ -88,7 +88,7 @@ class TubeMesher {
         
         double theta_q = theta_map[mesh.source(q)];
         double theta_p = theta_map[mesh.target(p)];
-        std::cout << "init face: theta_p " << theta_p << " theta_q " << theta_q << "\n";
+        // std::cout << "init face: theta_p " << theta_p << " theta_q " << theta_q << "\n";
 
         while (theta_p != theta_q) {
             if ( theta_q != 0 && (theta_p > theta_q || theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
@@ -106,9 +106,9 @@ class TubeMesher {
             } else {
                 throw std::runtime_error("theta values do not align");
             }
-            std::cout << "theta_p " << theta_p << " theta_q " << theta_q << "\n";
+            // std::cout << "theta_p " << theta_p << " theta_q " << theta_q << "\n";
         }
-        std::cout << "\n";
+        // std::cout << "\n";
 
         // Save state for next face
         prev_radial_edge = mesh.next(p);
