@@ -11,6 +11,7 @@
 #include <CGAL/Polygon_mesh_processing/smooth_shape.h>
 #include <CGAL/Polygon_mesh_processing/refine.h>
 #include <CGAL/Polygon_mesh_processing/self_intersections.h>
+#include <CGAL/Polygon_mesh_processing/intersection.h>
 #include <CGAL/Polygon_mesh_processing/tangential_relaxation.h>
 #include <CGAL/Polygon_mesh_processing/remesh_planar_patches.h>
 #include <CGAL/Polygon_mesh_processing/interpolated_corrected_curvatures.h>
@@ -235,6 +236,9 @@ void init_meshing(py::module &m) {
         })
         .def("does_self_intersect", [](const Mesh3& mesh) {
             return PMP::does_self_intersect(mesh);
+        })
+        .def("do_intersect", [](const Mesh3& mesh, const Mesh3& other) {
+            return PMP::do_intersect(mesh, other);
         })
         .def("self_intersections", [](const Mesh3& mesh) {
             std::vector<std::pair<F, F>> pairs;

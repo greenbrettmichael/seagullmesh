@@ -1,6 +1,7 @@
 #include "seagullmesh.hpp"
-#include <CGAL/Polygon_mesh_processing/border.h>
 #include <boost/iterator/function_output_iterator.hpp>
+#include <CGAL/Polygon_mesh_processing/border.h>
+#include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -69,5 +70,8 @@ void init_border(py::module &m) {
             auto output_iter = boost::make_function_output_iterator(touch_border_edges(mesh, edge_is_border));
             PMP::border_halfedges(faces(mesh), mesh, output_iter);
         })
+        .def("merge_duplicated_vertices_in_boundary_cycles", [](Mesh3& mesh) {
+            PMP::merge_duplicated_vertices_in_boundary_cycles(mesh);
+        });
     ;
 }

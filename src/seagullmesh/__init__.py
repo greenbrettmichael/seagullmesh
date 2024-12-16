@@ -708,6 +708,9 @@ class Mesh3:
         """Returns True if the mesh self-intersects"""
         return sgm.meshing.does_self_intersect(self.mesh)
 
+    def do_intersect(self, other: Mesh3) -> bool:
+        return sgm.meshing.do_intersect(self.mesh, other.mesh)
+
     def self_intersections(self) -> Tuple[Faces, Faces]:
         """Returns pairs of intersecting faces"""
         return sgm.meshing.self_intersections(self.mesh)
@@ -773,6 +776,9 @@ class Mesh3:
 
     def trace_boundary_from_vertex(self, vertex: Vertex) -> Vertices:
         return Vertices(self, sgm.border.trace_boundary_from_vertex(self.mesh, vertex))
+
+    def merge_duplicated_vertices_in_boundary_cycles(self):
+        sgm.border.merge_duplicated_vertices_in_boundary_cycles(self.mesh)
 
     def remesh_planar_patches(
             self,
