@@ -111,13 +111,13 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
         return self._with_array(self._array.copy())
 
     @overload
-    def __getitem__(self, item: int) -> TIndex: ...  # Vertex, Face, Edge, Halfedge
+    def __getitem__(self, item: int | np.integer) -> TIndex: ...  # Vertex, Face, Edge, Halfedge
 
     @overload
     def __getitem__(self, item: slice | Sequence[int] | np.ndarray) -> Self: ...  # slice self to get another Self
 
     def __getitem__(self, item):
-        if isinstance(item, int):
+        if isinstance(item, (int, np.integer)):
             return self.index_type(self._array[item])  # Convert int to descriptor
         else:
             # As long as it can slice an array we're happy
@@ -771,7 +771,7 @@ class Mesh3:
         return sgm.border.has_boundary(self.mesh)
 
     def trace_boundary_from_vertex(self, vertex: Vertex) -> Vertices:
-        return sgm.border.trace_boundary_from_vertex(self.mesh, vertex)
+        return Vertices(self, sgm.border.trace_boundary_from_vertex(self.mesh, vertex))
 
     def remesh_planar_patches(
             self,

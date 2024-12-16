@@ -19,6 +19,9 @@ def test_index_indexing(mesh):
     i = idxs[0]
     assert isinstance(i, Vertex)
 
+    i_np = idxs[np.integer(0)]
+    assert isinstance(i_np, Vertex) and i == i_np
+
     assert i.to_int() != mesh.null_vertex.to_int()
     assert i != mesh.null_vertex
     assert i < mesh.null_vertex
