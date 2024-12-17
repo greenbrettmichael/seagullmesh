@@ -18,7 +18,8 @@ class SurfacePoints:
 
     def __getitem__(self, item) -> SurfacePoints | SurfacePoint:
         if isinstance(item, (int, np.integer)):
-            return SurfacePoint(face=self.faces[item], bary_coords=self.bary_coords[item], faces=self.faces[item:item])
+            return SurfacePoint(
+                face=self.faces[item], bary_coords=self.bary_coords[item], faces=self.faces[item:(item + 1)])
         else:
             return SurfacePoints(face=self.faces[item], bary_coords=self.bary_coords[item])
 

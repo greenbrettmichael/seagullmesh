@@ -206,5 +206,15 @@ void init_locate(py::module &m) {
             }
             return std::make_pair(Indices<F>(faces), bary_coords);
         })
+        .def("is_point_in_faces", [](
+            const Mesh3& mesh,
+            const Point3& point,
+            const Indices<F>& faces
+        ) {
+            return faces.map_to_array_of_scalars<bool>([&mesh, &point](F f) {
+                FaceLocation loc = PMP::locate_in_face(point, f, mesh);
+                return PMP::is_in_face(loc, mesh);
+            });
+        })
     ;
 }

@@ -227,6 +227,9 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
     def is_null(self) -> np.ndarray:
         return self == Mesh3.null_face
 
+    def contains_point(self, point: Point3) -> np.ndarray:
+        return sgm.locate.is_point_in_faces(self.mesh.mesh, point, self.indices)
+
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
