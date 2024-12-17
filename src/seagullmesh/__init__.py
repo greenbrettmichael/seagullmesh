@@ -371,7 +371,7 @@ class Mesh3:
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
 
     def triangle_soup(self) -> np.ndarray:
-        return sgm.io.triangle_soup(self.mesh, self.vertex_index_map)
+        return sgm.io.triangle_soup(self.mesh, self.vertex_index_map.pmap)
 
     def to_edge_soup(
             self,

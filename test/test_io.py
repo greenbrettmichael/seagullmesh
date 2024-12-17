@@ -41,3 +41,6 @@ def test_pyvista_roundtrip():
     mesh = Mesh3.from_pyvista(pvmesh0)
     _pvmesh1 = mesh.to_pyvista()
 
+
+def test_triangle_soup():
+    _ = Mesh3.icosahedron().triangle_soup()
