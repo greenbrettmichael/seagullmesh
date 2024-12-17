@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overload, Tuple, \
-    Generic, Iterator, Type, Dict, Literal, Callable
+    Generic, Iterator, Type, Dict, Literal, Callable, Sized
 
 import numpy as np
 from seagullmesh._seagullmesh.mesh import (
@@ -30,7 +30,7 @@ TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
 
 
-class Indices(Generic[TIndex, TIndices], Sequence[TIndex]):
+class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
     index_type: Type[TIndex]  # Set by subclass
     indices_type: Type[_CppIndicesTypes]  # The C++ indices class, set by subclass
 
@@ -204,8 +204,8 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         By default, points are constructed using the default mesh vertex points. An optional vertex point map of value
         Point2 or Point3 can also be supplied. The returned array if of shape (len(faces), 2 or 3) as appropriate.
         """
-        pmap = self.mesh.get_vertex_point_map(vert_points)
-        return sgm.locate.construct_points(self.mesh, self.indices, bary_coords, pmap)
+        vpm = self.mesh.get_vertex_point_map(vert_points)
+        return sgm.locate.construct_points(self.mesh.mesh, self.indices, bary_coords, vpm.pmap)
 
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
@@ -223,6 +223,9 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
 
     def adjacent_vertices(self) -> Vertices:
         return Vertices(self.mesh, sgm.connected.faces_to_vertices(self.mesh.mesh, self.indices))
+
+    def is_null(self) -> np.ndarray:
+        return self == Mesh3.null_face
 
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
@@ -779,6 +782,9 @@ class Mesh3:
 
     def merge_duplicated_vertices_in_boundary_cycles(self):
         sgm.border.merge_duplicated_vertices_in_boundary_cycles(self.mesh)
+
+    def stitch_borders(self):
+        sgm.border.stitch_borders(self.mesh)
 
     def remesh_planar_patches(
             self,

@@ -2,6 +2,7 @@
 #include <boost/iterator/function_output_iterator.hpp>
 #include <CGAL/Polygon_mesh_processing/border.h>
 #include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
+#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -72,6 +73,9 @@ void init_border(py::module &m) {
         })
         .def("merge_duplicated_vertices_in_boundary_cycles", [](Mesh3& mesh) {
             PMP::merge_duplicated_vertices_in_boundary_cycles(mesh);
-        });
+        })
+        .def("stitch_borders", [](Mesh3& mesh) {
+            PMP::stitch_borders(mesh);
+        })
     ;
 }
