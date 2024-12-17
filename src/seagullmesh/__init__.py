@@ -438,11 +438,18 @@ class Mesh3:
         sgm.geometry.transform(out.mesh, transform)
         return out
 
+    def scale(self, scale: float | Sequence[float], inplace=True) -> Mesh3:
+        transform = np.diag(np.broadcast_to(scale, (3, )))
+        return self.transform(transform, inplace=inplace)
+
     def volume(self) -> float:
         return sgm.geometry.volume(self.mesh)
 
     def area(self) -> float:
         return sgm.geometry.area(self.mesh)
+
+    def centroid(self) -> float:
+        return sgm.geometry.centroid(self.mesh)
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return sgm.geometry.bounding_box(self.mesh)
@@ -962,9 +969,12 @@ class Mesh3:
             face_patches: str | PropertyMap[Face, int | bool],
             inplace=False,
     ):
+        if not inplace and not isinstance(face_patches, str):
+            raise TypeError("Can't supply a pre-existing property map if the mesh is to be copied")
+
         out = self if inplace else self.copy()
-        face_patches = self.face_data.check(face_patches)
-        sgm.connected.remove_connected_face_patches(self.mesh, to_remove, face_patches.pmap)
+        face_patches = out.face_data.check(face_patches)
+        sgm.connected.remove_connected_face_patches(out.mesh, to_remove, face_patches.pmap)
         return out
 
     def keep_connected_face_patches(
