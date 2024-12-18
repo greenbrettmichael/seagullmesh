@@ -19,6 +19,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
 
     boost::container::flat_map<const Mesh3*, Tracked> tracked;
     F orig_face;
+    size_t mesh_idx;
 
     CorefineTracker() {
         tracked.reserve(3);  //input mesh 0, input mesh1, maybe output mesh
@@ -32,8 +33,10 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
 
     void before_subface_creations(F f_split, Mesh3& mesh) {
         orig_face = tracked[&mesh].face_face_map[f_split];
+        mesh_idx = tracked[&mesh].mesh_idx;
     }
     void after_subface_created(F f_new, Mesh3& mesh) {
+        tracked[&mesh].face_mesh_map[f_new] = mesh_idx;
         tracked[&mesh].face_face_map[f_new] = orig_face;
     }
     void after_face_copy(F f_src, Mesh3& m_src, F f_tgt, Mesh3& m_tgt) {
