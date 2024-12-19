@@ -106,6 +106,26 @@ void init_io(py::module &m) {
         .def("triangle_soup", [](const Mesh3& mesh, const Indices<F>& faces, const VertexIndexMap& vidx) {
             return triangle_soup<std::vector<F>>(mesh, faces.to_vector(), faces.size(), vidx);
         })
+        .def("from_triangle_soup", [](const py::array_t<double>& points, const py::array_t<size_t, py::array::c_style>)& faces) {
+            Mesh3 mesh;
+            auto rv = points.unchecked<1>();
+            std::vector<V> verts;
+            size_t nv = rv.shape(0);
+            verts.reserve(nv);
+            for (size_t i = 0; i < nv; ++i) {
+                verts.emplace_back(
+                    mesh.add_vertex( Point3(rv(i, 0), rv(i, 1), rv(i, 2)) )
+                );
+            }
+
+            auto rf = faces.unchecked<2>();
+            size_t nf = rf.shape(0);
+            for (size_t i = 0; i < nf; ++i) {
+                mesh.add_face(verts[rf(i, 0)], verts[rf(i, 1)], verts[rf(i, 2)]);
+            }
+
+            return mesh;
+        })
         .def("write_ply", [](Mesh3& mesh, std::string file) {
             std::ofstream out(file, std::ios::binary);
             CGAL::IO::set_binary_mode(out);

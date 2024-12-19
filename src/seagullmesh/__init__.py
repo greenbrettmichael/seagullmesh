@@ -433,9 +433,15 @@ class Mesh3:
         sgm.mesh.add_grid(out.mesh, ni, nj, calculator, triangulated)
         return out
 
-    def transform(self, transform: np.ndarray, inplace=True) -> Mesh3:
+    def transform(
+            self,
+            transform: np.ndarray,
+            vertex_point_map: str | PropertyMap[Vertex, Point3] | None = None,
+            inplace=True,
+    ) -> Mesh3:
         out = self if inplace else self.copy()
-        sgm.geometry.transform(out.mesh, transform)
+        vpm = out.get_vertex_point_map(vertex_point_map),
+        sgm.geometry.transform(out.mesh, transform, vpm.pmap)
         return out
 
     def scale(self, scale: float | Sequence[float], inplace=True) -> Mesh3:
@@ -1280,7 +1286,7 @@ class MeshData(Generic[Key]):
 
     def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
         if pmap.data is not self:
-            msg = f'Trying to get {pmap} from {self}'
+            msg = f'Trying to get {pmap} with mesh {pmap.data.mesh} from {self} with mesh {self.mesh}'
             raise TypeError(msg)
 
         return pmap

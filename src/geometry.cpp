@@ -10,6 +10,7 @@
 
 typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
+typedef Mesh3::Property_map<V, Point3>     VertPoint3;
 
 
 namespace PMP = CGAL::Polygon_mesh_processing;
@@ -82,11 +83,10 @@ void init_geometry(py::module &m) {
         .def("volume", [](const Mesh3& mesh) {return PMP::volume(mesh);})
         .def("area", [](const Mesh3& mesh) {return PMP::area(mesh);})
         .def("bounding_box", [](const Mesh3& mesh) { return PMP::bbox(mesh); })
-        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform) {
+        .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform, VertPoint3& vpm) {
             Transform3 t = array_to_transform3(transform);
-            auto points = mesh.points();
             for (V v : mesh.vertices() ) {
-                points[v] = t(points[v]);
+                vpm[v] = t(points[v]);
             }
         })
         .def("does_bound_a_volume", [](const Mesh3& mesh) {
