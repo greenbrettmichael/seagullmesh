@@ -14,6 +14,8 @@ void define_simple_type_3(py::module &m, std::string name) {
         .def(py::init<double, double, double>())
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def("__getitem__", [](const T& t, size_t i) {return t[i];})
+        .def("__iter__", [](const T& t) { return py::make_iterator(t.cartesian_begin(), t.cartesian_end()); }, py::keep_alive<0, 1>())
     ;
 }
 
@@ -23,6 +25,8 @@ void define_simple_type_2(py::module &m, std::string name) {
         .def(py::init<double, double>())
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def("__getitem__", [](const T& t, size_t i) {return t[i];})
+        .def("__iter__", [](const T& t) { return py::make_iterator(t.cartesian_begin(), t.cartesian_end()); }, py::keep_alive<0, 1>())
     ;
 }
 
