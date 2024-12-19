@@ -106,7 +106,7 @@ void init_io(py::module &m) {
         .def("triangle_soup", [](const Mesh3& mesh, const Indices<F>& faces, const VertexIndexMap& vidx) {
             return triangle_soup<std::vector<F>>(mesh, faces.to_vector(), faces.size(), vidx);
         })
-        .def("from_triangle_soup", [](const py::array_t<double>& points, const py::array_t<size_t, py::array::c_style>)& faces) {
+        .def("from_triangle_soup", [](const py::array_t<double>& points, const py::array_t<size_t, py::array::c_style>& faces) {
             Mesh3 mesh;
             auto rv = points.unchecked<1>();
             std::vector<V> verts;
