@@ -107,8 +107,8 @@ void init_geometry(py::module &m) {
         .def("triangulate_faces", [](Mesh3& mesh) {
             PMP::triangulate_faces(mesh);
         })
-        .def("centroid", [](Mesh3& mesh) {
-            return PMP::centroid(mesh);
+        .def("centroid", [](const Mesh3& mesh, const VertPoint3& vpm) {
+            return PMP::centroid(mesh, PMP::parameters::vertex_point_map(vpm));
         })
     ;
 }

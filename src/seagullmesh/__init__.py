@@ -454,8 +454,9 @@ class Mesh3:
     def area(self) -> float:
         return sgm.geometry.area(self.mesh)
 
-    def centroid(self) -> float:
-        return sgm.geometry.centroid(self.mesh)
+    def centroid(self, vertex_point_map: str | PropertyMap[Vertex, Point3] | None = None) -> float:
+        vpm = self.get_vertex_point_map(vertex_point_map)
+        return sgm.geometry.centroid(self.mesh, vpm.pmap)
 
     def bounding_box(self) -> sgm.mesh.BoundingBox3:
         return sgm.geometry.bounding_box(self.mesh)
