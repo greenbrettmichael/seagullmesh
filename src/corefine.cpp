@@ -37,14 +37,16 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         // Called from python to store references to the appropriate property maps
         tracked[&mesh] = Tracked{mesh_idx, face_mesh_map, face_face_map, vert_mesh_map};
     }
-//    void new_vertex_added(size_t i_id, V v, Mesh3& mesh) {
-//        Tracked& t = tracked[&mesh];
-//        t.vert_mesh_map[v] = t.mesh_idx;
-//    }
+    void new_vertex_added(size_t i_id, V v, const Mesh3& mesh) {
+        Tracked& t = tracked[&mesh];
+        t.vert_mesh_map[v] = t.mesh_idx;
+    }
     void after_vertex_copy(V v_src, const Mesh3& m_src, V v_tgt, const Mesh3& m_tgt) {
         tracked[&m_tgt].vert_mesh_map[v_tgt] = tracked[&m_src].mesh_idx;
         // tracked[&m_tgt].vert_vert_map[v_tgt] = tracked[&m_src].vert_vert_map[v_src];
     }
+
+    // todo p sure these are supposed to be const Mesh but it compiles anyway
     void before_subface_creations(F f_split, Mesh3& mesh) {
         orig_face = tracked[&mesh].face_face_map[f_split];
         mesh_idx = tracked[&mesh].mesh_idx;
