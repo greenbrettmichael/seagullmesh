@@ -24,10 +24,12 @@ corefined = sm0.corefiner(sm1).track(face_mesh_map='face_mesh_map', face_face_ma
 
 print((sm0.face_data['face_mesh_map'][:] == -1).all())
 corefined.update_face_properties(0, property_names=('idx',))
+corefined.mark_new_vertices(0, 'is_new_vert')
 
-output = sm0.to_pyvista(face_data=('idx', 'source', 'face_mesh_map'))
+print(sm0.vertex_data['is_new_vert'][:])
+output = sm0.to_pyvista(face_data=('idx', 'source', 'face_mesh_map'), vertex_data='is_new_vert')
 
-output.plot(scalars='idx', show_edges=True)
+output.plot(scalars='is_new_vert', show_edges=True)
 
 # p = Plotter(shape=(1, 2))
 #

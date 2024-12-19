@@ -40,7 +40,7 @@ class _TrackSpec:
 
         # Default to -1 for original verts don't need to be updated
         vert_mesh_map = self.mesh.vertex_data.get(
-            self.vert_mesh_map or '_temp_vert_mesh_map', default=-1)
+            self.vert_mesh_map or '_temp_vert_mesh_map', default=-1, dtype='int32')
 
         # Initialize the face-face map to the identity function
         faces = self.mesh.faces
@@ -60,8 +60,10 @@ class _Tracked:
     vert_mesh_map: PropertyMap[Vertex, int]
 
     def to_tracker(self, tracker: corefine.CorefineTracker):
-        tracker.track(self.mesh.mesh, self.idx, self.face_mesh_map.pmap,
-                      self.face_face_map.pmap, self.vert_mesh_map)
+        tracker.track(
+            self.mesh.mesh, self.idx, self.face_mesh_map.pmap,
+            self.face_face_map.pmap, self.vert_mesh_map.pmap,
+        )
         return self.mesh.mesh, self.edge_is_constrained.pmap
 
     @cached_property
@@ -129,7 +131,7 @@ class Corefined:
     def mark_new_vertices(self, mesh_idx: int, new_vertices: str | PropertyMap[Vertex, bool]):
         dest = self.tracked[mesh_idx]
         new_vertices = dest.mesh.vertex_data.get(new_vertices, default=False)
-        is_new = dest.vert_mesh_map[dest.vertices]
+        is_new = dest.vert_mesh_map[dest.vertices] != -1
         new_vertices[dest.vertices[is_new]] = True
 
     def remove_temporary_properties(self, mesh_idx: int):

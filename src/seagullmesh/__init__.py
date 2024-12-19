@@ -503,11 +503,21 @@ class Mesh3:
 
         return out
 
+    @staticmethod
+    def _keys_to_export(data: MeshData, keys: bool | str | Sequence[str] = ()):
+        match keys:
+            case True:
+                return data.keys()
+            case str(key):
+                return key,
+            case keys:
+                return keys
+
     def to_pyvista(
             self,
             data: Literal[True] | None = None,
-            vertex_data: Literal[True] | Sequence[str] = (),
-            face_data: Literal[True] | Sequence[str] = (),
+            vertex_data: Literal[True] | str | Sequence[str] = None,
+            face_data: Literal[True] | str | Sequence[str] = None,
     ) -> pv.PolyData:
         """Returns the mesh as a `pyvista.PolyData` object.
 
@@ -525,14 +535,12 @@ class Mesh3:
         if data:
             vertex_data = face_data = True
 
-        if vertex_data:
-            keys = self.vertex_data.keys() if vertex_data is True else vertex_data
+        if keys := self._keys_to_export(self.vertex_data, vertex_data):
             vertices = self.vertices
             for k in keys:
                 mesh.point_data[k] = self.vertex_data[k][vertices]
 
-        if face_data:
-            keys = self.face_data.keys() if face_data is True else face_data
+        if keys := self._keys_to_export(self.face_data, face_data):
             faces = self.faces
             for k in keys:
                 mesh.cell_data[k] = self.face_data[k][faces]
@@ -544,10 +552,11 @@ class Mesh3:
         mesh = pv.PolyData()
         mesh.points, edges = self.to_edge_soup()
         mesh.lines = pv.CellArray.from_regular_cells(edges)
-        eidx = self.edges
-        keys = self.edge_data.keys() if edge_data is True else edge_data
-        for k in keys:
-            mesh.cell_data[k] = self.edge_data[k][eidx]
+
+        if keys := self._keys_to_export(self.edge_data, edge_data):
+            es = self.edges
+            for k in keys:
+                mesh.cell_data[k] = self.edge_data[k][es]
 
         return mesh
 
