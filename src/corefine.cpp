@@ -8,6 +8,7 @@ namespace PMP = CGAL::Polygon_mesh_processing;
 typedef Mesh3::Property_map<E, bool> EdgeBool;
 typedef Mesh3::Property_map<F, int32_t> FaceMeshMap;
 typedef Mesh3::Property_map<F, F> FaceFaceMap;
+typedef Mesh3::Property_map<V, int32_t> VertMeshMap;
 
 
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
@@ -15,6 +16,7 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         size_t mesh_idx; // 0, 1, or 2
         FaceMeshMap face_mesh_map;  // F -> 0, 1, 2
         FaceFaceMap face_face_map;  // F -> F_original
+        VertMeshMap vert_mesh_map; // V -> 0, 1, 2
     };
 
     boost::container::flat_map<const Mesh3*, Tracked> tracked;
@@ -25,11 +27,24 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
         tracked.reserve(3);  //input mesh 0, input mesh1, maybe output mesh
         orig_face = Mesh3::null_face();
     }
-    void track(Mesh3& mesh, size_t mesh_idx, FaceMeshMap& face_mesh_map, FaceFaceMap& face_face_map) {
+    void track(
+            Mesh3& mesh,
+            size_t mesh_idx,
+            FaceMeshMap& face_mesh_map,
+            FaceFaceMap& face_face_map,
+            VertMeshMap& vert_mesh_map
+        ) {
         // Called from python to store references to the appropriate property maps
-        tracked[&mesh] = Tracked{mesh_idx, face_mesh_map, face_face_map};
+        tracked[&mesh] = Tracked{mesh_idx, face_mesh_map, face_face_map, vert_mesh_map};
     }
-    void new_vertex_added (size_t i_id, V v, Mesh3& mesh) {}
+//    void new_vertex_added(size_t i_id, V v, Mesh3& mesh) {
+//        Tracked& t = tracked[&mesh];
+//        t.vert_mesh_map[v] = t.mesh_idx;
+//    }
+//    void after_vertex_copy(V v_src, Mesh3&& m_src, V v_tgt, Mesh3& m_tgt) {
+//        tracked[&m_tgt].vert_mesh_map[v_tgt] = tracked[&m_src].mesh_idx;
+//        // tracked[&m_tgt].vert_vert_map[v_tgt] = tracked[&m_src].vert_vert_map[v_src];
+//    }
 
     void before_subface_creations(F f_split, Mesh3& mesh) {
         orig_face = tracked[&mesh].face_face_map[f_split];

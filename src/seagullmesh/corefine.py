@@ -9,7 +9,7 @@ from numpy import arange, unique
 from seagullmesh._seagullmesh import corefine
 from typing_extensions import Self
 
-from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Faces
+from seagullmesh import Mesh3, PropertyMap, Edge, Face, sgm, Faces, Vertex, Vertices
 
 
 @dataclass
@@ -19,6 +19,7 @@ class _TrackSpec:
     edge_is_constrained: str | PropertyMap[Edge, bool] | None = None
     face_mesh_map: str | PropertyMap[Face, int] | None = None
     face_face_map: str | PropertyMap[Face, Face] = None
+    vert_mesh_map: str | PropertyMap[Vertex, int] | None = None
     orig_face_properties: List[str] = field(init=False)
     orig_edge_properties: List[str] = field(init=False)
 
@@ -37,11 +38,15 @@ class _TrackSpec:
         face_face_map = self.mesh.face_data.get(
             self.face_face_map or '_temp_face_face_map', default=Mesh3.null_face)
 
+        # Default to -1 for original verts don't need to be updated
+        vert_mesh_map = self.mesh.vertex_data.get(
+            self.vert_mesh_map or '_temp_vert_mesh_map', default=-1)
+
         # Initialize the face-face map to the identity function
         faces = self.mesh.faces
         face_face_map[faces] = faces
 
-        return _Tracked(self.idx, self.mesh, self, ecm, face_mesh_map, face_face_map)
+        return _Tracked(self.idx, self.mesh, self, ecm, face_mesh_map, face_face_map, vert_mesh_map)
 
 
 @dataclass
@@ -52,14 +57,20 @@ class _Tracked:
     edge_is_constrained: PropertyMap[Edge, bool]
     face_mesh_map: PropertyMap[Face, int]
     face_face_map: PropertyMap[Face, Face]
+    vert_mesh_map: PropertyMap[Vertex, int]
 
     def to_tracker(self, tracker: corefine.CorefineTracker):
-        tracker.track(self.mesh.mesh, self.idx, self.face_mesh_map.pmap, self.face_face_map.pmap)
+        tracker.track(self.mesh.mesh, self.idx, self.face_mesh_map.pmap,
+                      self.face_face_map.pmap, self.vert_mesh_map)
         return self.mesh.mesh, self.edge_is_constrained.pmap
 
     @cached_property
     def faces(self) -> Faces:
         return self.mesh.faces
+
+    @cached_property
+    def vertices(self) -> Vertices:
+        return self.mesh.vertices
 
     @cached_property
     def face_mesh_idx(self) -> np.ndarray:
@@ -115,6 +126,12 @@ class Corefined:
             for k in prop_names:
                 dest.mesh.face_data[k][new_faces] = src.mesh.face_data[k][orig_faces]
 
+    def mark_new_vertices(self, mesh_idx: int, new_vertices: str | PropertyMap[Vertex, bool]):
+        dest = self.tracked[mesh_idx]
+        new_vertices = dest.mesh.vertex_data.get(new_vertices, default=False)
+        is_new = dest.vert_mesh_map[dest.vertices]
+        new_vertices[dest.vertices[is_new]] = True
+
     def remove_temporary_properties(self, mesh_idx: int):
         spec = self.tracked[mesh_idx].spec
         if spec.edge_is_constrained is None:
@@ -123,3 +140,5 @@ class Corefined:
             spec.mesh.face_data.remove('_temp_face_mesh_map')
         if spec.face_face_map is None:
             spec.mesh.face_data.remove('_temp_face_face_map')
+        if spec.vert_mesh_map is None:
+            spec.mesh.face_data.remove('_temp_vert_mesh_map')
