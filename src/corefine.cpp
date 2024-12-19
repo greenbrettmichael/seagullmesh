@@ -41,11 +41,10 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
 //        Tracked& t = tracked[&mesh];
 //        t.vert_mesh_map[v] = t.mesh_idx;
 //    }
-//    void after_vertex_copy(V v_src, Mesh3&& m_src, V v_tgt, Mesh3& m_tgt) {
-//        tracked[&m_tgt].vert_mesh_map[v_tgt] = tracked[&m_src].mesh_idx;
-//        // tracked[&m_tgt].vert_vert_map[v_tgt] = tracked[&m_src].vert_vert_map[v_src];
-//    }
-
+    void after_vertex_copy(V v_src, const Mesh3& m_src, V v_tgt, const Mesh3& m_tgt) {
+        tracked[&m_tgt].vert_mesh_map[v_tgt] = tracked[&m_src].mesh_idx;
+        // tracked[&m_tgt].vert_vert_map[v_tgt] = tracked[&m_src].vert_vert_map[v_src];
+    }
     void before_subface_creations(F f_split, Mesh3& mesh) {
         orig_face = tracked[&mesh].face_face_map[f_split];
         mesh_idx = tracked[&mesh].mesh_idx;
