@@ -7,6 +7,7 @@
 #include <CGAL/Polygon_mesh_processing/orientation.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
+#include <CGAL/Polygon_mesh_processing/transform.h>
 
 typedef CGAL::Bbox_3 BBox3;
 typedef CGAL::Aff_transformation_3<Kernel> Transform3;
@@ -85,9 +86,7 @@ void init_geometry(py::module &m) {
         .def("bounding_box", [](const Mesh3& mesh) { return PMP::bbox(mesh); })
         .def("transform", [](Mesh3& mesh, const py::array_t<double>& transform, VertPoint3& vpm) {
             Transform3 t = array_to_transform3(transform);
-            for (V v : mesh.vertices() ) {
-                vpm[v] = t(points[v]);
-            }
+            PMP::transform(t, mesh, PMP::parameters::vertex_point_map(vpm));
         })
         .def("does_bound_a_volume", [](const Mesh3& mesh) {
             return PMP::does_bound_a_volume(mesh);
