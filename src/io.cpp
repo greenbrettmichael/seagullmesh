@@ -108,7 +108,7 @@ void init_io(py::module &m) {
         })
         .def("from_triangle_soup", [](const py::array_t<double>& points, const py::array_t<size_t, py::array::c_style>& faces) {
             Mesh3 mesh;
-            auto rv = points.unchecked<1>();
+            auto rv = points.unchecked<2>();
             std::vector<V> verts;
             size_t nv = rv.shape(0);
             verts.reserve(nv);
