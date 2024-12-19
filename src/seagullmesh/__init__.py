@@ -440,7 +440,7 @@ class Mesh3:
             inplace=True,
     ) -> Mesh3:
         out = self if inplace else self.copy()
-        vpm = out.get_vertex_point_map(vertex_point_map),
+        vpm = out.get_vertex_point_map(vertex_point_map)
         sgm.geometry.transform(out.mesh, transform, vpm.pmap)
         return out
 
