@@ -504,20 +504,35 @@ class Mesh3:
         return out
 
     @staticmethod
-    def _keys_to_export(data: MeshData, keys: bool | str | Sequence[str] = ()):
-        match keys:
-            case True:
-                return data.keys()
+    def _export_to_pv(property_names: bool | str | Sequence[str] | None, sgm_data: MeshData, pv_data, ignore_errors: bool):
+        match property_names:
+            case True | None:
+                property_names = sgm_data.keys()
+            case False:
+                return
             case str(key):
-                return key,
-            case keys:
-                return keys
+                property_names = key,
+
+        if not property_names:
+            return
+
+        indices = sgm_data.all_mesh_keys
+        for k in property_names:
+            vals = sgm_data[k][indices]
+            try:
+               pv_data[k] = vals
+            except TypeError:
+                if ignore_errors:
+                    continue
+                else:
+                    raise
 
     def to_pyvista(
             self,
-            data: Literal[True] | None = None,
-            vertex_data: Literal[True] | str | Sequence[str] = None,
-            face_data: Literal[True] | str | Sequence[str] = None,
+            data: bool | None = None,
+            vertex_data: Literal[True] | str | Sequence[str] = (),
+            face_data: Literal[True] | str | Sequence[str] = (),
+            ignore_type_errors: bool = False,
     ) -> pv.PolyData:
         """Returns the mesh as a `pyvista.PolyData` object.
 
@@ -535,30 +550,26 @@ class Mesh3:
         if data:
             vertex_data = face_data = True
 
-        if keys := self._keys_to_export(self.vertex_data, vertex_data):
-            vertices = self.vertices
-            for k in keys:
-                mesh.point_data[k] = self.vertex_data[k][vertices]
-
-        if keys := self._keys_to_export(self.face_data, face_data):
-            faces = self.faces
-            for k in keys:
-                mesh.cell_data[k] = self.face_data[k][faces]
-
+        self._export_to_pv(vertex_data, self.vertex_data, mesh.point_data, ignore_errors=ignore_type_errors)
+        self._export_to_pv(face_data, self.face_data, mesh.cell_data, ignore_errors=ignore_type_errors)
         return mesh
 
-    def to_pyvista_edges(self, edge_data: Literal[True] | Sequence[str] = ()) -> pv.PolyData:
+    def to_pyvista_edges(self, edge_data: Literal[True] | Sequence[str] = (), ignore_type_errors=False) -> pv.PolyData:
         import pyvista as pv
         mesh = pv.PolyData()
         mesh.points, edges = self.to_edge_soup()
         mesh.lines = pv.CellArray.from_regular_cells(edges)
 
-        if keys := self._keys_to_export(self.edge_data, edge_data):
-            es = self.edges
-            for k in keys:
-                mesh.cell_data[k] = self.edge_data[k][es]
-
+        self._export_to_pv(edge_data, self.edge_data, mesh.cell_data, ignore_errors=ignore_type_errors)
         return mesh
+
+    @property
+    def pv(self):
+        return self.to_pyvista(True, ignore_type_errors=True)
+
+    @property
+    def pve(self):
+        return self.to_pyvista_edges(True, ignore_type_errors=True)
 
     def plot(self, **kwargs):
         return self.to_pyvista(vertex_data=True, face_data=True).plot(**kwargs)
@@ -742,7 +753,8 @@ class Mesh3:
 
     def self_intersections(self) -> Tuple[Faces, Faces]:
         """Returns pairs of intersecting faces"""
-        return sgm.meshing.self_intersections(self.mesh)
+        faces0, faces1 = sgm.meshing.self_intersections(self.mesh)
+        return Faces(self, faces0), Faces(self, faces1)
 
     def remove_self_intersections(self) -> None:
         return sgm.meshing.remove_self_intersections(self.mesh)

@@ -143,4 +143,4 @@ class Corefined:
         if spec.face_face_map is None:
             spec.mesh.face_data.remove('_temp_face_face_map')
         if spec.vert_mesh_map is None:
-            spec.mesh.face_data.remove('_temp_vert_mesh_map')
+            spec.mesh.vertex_data.remove('_temp_vert_mesh_map')
