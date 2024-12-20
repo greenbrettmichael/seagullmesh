@@ -1172,8 +1172,8 @@ class MeshData(Generic[Key]):
         cls._prefix = cls._key_name[0].upper()  # 'V', 'F', 'E', 'H'
 
     def __repr__(self) -> str:
-        pmaps = ', '.join(f'{k}: {v}' for k, v in self.items())
-        return f'{self.__class__.__name__}[{self.key_type.__name__}]({self.mesh}): {pmaps}'
+        pmap_names = ', '.join(self.keys())
+        return f'{self.__class__.__name__}[{self.key_type.__name__}]({self.mesh}): {pmap_names}'
 
     def _dtype_name(self, dtype: _PMapDType) -> str:
         if isinstance(dtype, str):
@@ -1287,7 +1287,8 @@ class MeshData(Generic[Key]):
 
     def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
         if pmap.data is not self:
-            msg = f'Trying to get {pmap} with mesh {pmap.data.mesh} from {self} with mesh {self.mesh}'
+            msg = (f'Trying to get {pmap} with mesh {pmap.data.mesh} '
+                   f'from {type(self).__name__} with mesh {self.mesh}')
             raise TypeError(msg)
 
         return pmap
