@@ -348,7 +348,7 @@ class Mesh3:
 
         return out
 
-    def add(self, other: Mesh3, check_properties=False, inplace=False) -> Mesh3:
+    def add(self, other: Mesh3, inplace: bool, check_properties=False) -> Mesh3:
         if check_properties:
             for d_self, d_other in zip(self.iter_meshdata(), other.iter_meshdata()):
                 d_self.check_has_same_properties(d_other)
@@ -436,15 +436,15 @@ class Mesh3:
     def transform(
             self,
             transform: np.ndarray,
+            inplace: bool,
             vertex_point_map: str | PropertyMap[Vertex, Point3] | None = None,
-            inplace=True,
     ) -> Mesh3:
         out = self if inplace else self.copy()
         vpm = out.get_vertex_point_map(vertex_point_map)
         sgm.geometry.transform(out.mesh, transform, vpm.pmap)
         return out
 
-    def scale(self, scale: float | Sequence[float], inplace=True) -> Mesh3:
+    def scale(self, scale: float | Sequence[float], inplace: bool) -> Mesh3:
         transform = np.diag(np.broadcast_to(scale, (3, )))
         return self.transform(transform, inplace=inplace)
 
@@ -995,7 +995,7 @@ class Mesh3:
             self,
             to_remove: Sequence[int | bool],
             face_patches: str | PropertyMap[Face, int | bool],
-            inplace=False,
+            inplace: bool,
     ):
         if not inplace and not isinstance(face_patches, str):
             raise TypeError("Can't supply a pre-existing property map if the mesh is to be copied")
@@ -1009,7 +1009,7 @@ class Mesh3:
             self,
             to_keep: Sequence[int | bool],
             face_patches: str | PropertyMap[Face, int | bool],
-            inplace=False,
+            inplace,
     ):
         out = self if inplace else self.copy()
         face_patches = self.face_data.check(face_patches)
