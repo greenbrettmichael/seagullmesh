@@ -2,6 +2,7 @@
 #include "util.hpp"
 #include <iostream>
 #include <cmath>
+#include <pybind11/functional.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
@@ -198,35 +199,36 @@ class TubeMesher {
         }
     }
 
+    // (t, theta, linearly interpolated point) -> actual point on surface
+    using Calculator = std::function<Point3 (double, double, Point3)>;
+
     private:
-    /*
-        todo: split_long_edges sets the coordinate immediately after splitting the edge
-        and then calls sizing.register_split_vertex(vnew, mesh_)
-        and then inserts new edges to maintain triangular mesh
-        the new edges never get added to the queue
-        so could use a cheap property map to only track the original radial/axial edges
-    */
     struct ParametrizedVertexPointMap {
-        // using Calculator = std::function<(double, double) std::tuple<double, double, double>>;
+        /* a vertex point map wrapper to pass to split_long_edges
+            calculates the t and theta values of newly inserted vertices by interpolating between adjacent values.
+            also holds a calculator function to overwrite linearly interpolated points with their actual points
+            as function of (t, theta).
+        */
         using key_type = V;
         using value_type = Point3;
         using reference = Point3&;
         using category = boost::read_write_property_map_tag;
 
         Mesh3& mesh;
-        // Calculator calculator;
+        Calculator calculator;
         VertDouble& t_map;
         VertDouble& theta_map;
 
-        ParametrizedVertexPointMap(Mesh3& m, /* Calculator c, */ VertDouble& t, VertDouble& theta)
-            : mesh(m), /* calculator(c), */  t_map(t), theta_map(theta) {}
+        ParametrizedVertexPointMap(Mesh3& m, Calculator c, VertDouble& t, VertDouble& theta)
+            : mesh(m), calculator(c), t_map(t), theta_map(theta) {}
 
         friend Point3& get (const ParametrizedVertexPointMap& self, V v) { return self.mesh.points()[v]; }
 
         friend void put (const ParametrizedVertexPointMap& self, V v, const Point3& point) {
-            double t_v, cos_theta_v, sin_theta_v;
+            double t_v, cos_theta_v, sin_theta_v, theta_v;
             std::set<double> t_vals, theta_vals;
 
+            // Collect adjacent t and theta values
             for (V u : vertices_around_target(self.mesh.halfedge(v), self.mesh) ) {
                 double t_u = self.t_map[u];
                 if ( t_vals.insert(t_u).second ) { t_v += t_u; }
@@ -237,17 +239,35 @@ class TubeMesher {
                 }
             }
 
-            self.t_map[v] = t_v / t_vals.size();
-            self.theta_map[v] = CGAL_PI + std::atan2(sin_theta_v, cos_theta_v);
-            self.mesh.points()[v] = point;
+            // Average of the adjacent values
+            t_v /= t_vals.size();
+            theta_v = std::atan2(sin_theta_v, cos_theta_v);
+            if ( theta_v < 0) { theta_v += 2 * CGAL_PI; }  // remap [-pi, pi] to [0, 2pi]
+
+            // Store new values
+            self.t_map[v] = t_v;
+            self.theta_map[v] = theta_v;
+
+            // Calculate the position of the new point
+            self.mesh.points()[v] = self.calculator(t_v, theta_v, point);
         }
     };
 
     public:
     void split_long_edges(double edge_length) {
-        ParametrizedVertexPointMap vpm(mesh, t_map, theta_map);
+        Calculator c = [](double t, double theta, Point3 p) { return p; };
+        ParametrizedVertexPointMap vpm(mesh, c, t_map, theta_map);
         auto params = PMP::parameters::vertex_point_map(vpm);
         PMP::split_long_edges(mesh.edges(), edge_length, mesh, params);
+    }
+    void split_long_edges(double edge_length, Calculator c) {
+        ParametrizedVertexPointMap vpm(mesh, c, t_map, theta_map);
+        auto params = PMP::parameters::vertex_point_map(vpm);
+        PMP::split_long_edges(mesh.edges(), edge_length, mesh, params);
+    }
+    void remesh(double edge_length) {
+        auto params = PMP::parameters::do_split(false);
+        PMP::isotropic_remeshing(mesh.faces(), edge_length, mesh, params);
     }
 };
 
@@ -262,6 +282,9 @@ void init_tube_mesher(py::module &m) {
         .def_readwrite("closed", &TubeMesher::closed)
         .def_readwrite("triangulate", &TubeMesher::triangulate)
         .def_readwrite("flip_normals", &TubeMesher::flip_normals)
-        .def("split_long_edges", &TubeMesher::split_long_edges)
+        .def("split_long_edges", [](TubeMesher& tm, double edge_length) { tm.split_long_edges(edge_length);} )
+        .def("split_long_edges", [](TubeMesher& tm, double edge_length, TubeMesher::Calculator c) {
+            tm.split_long_edges(edge_length, c);
+        })
     ;
 }
