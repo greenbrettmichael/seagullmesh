@@ -19,6 +19,7 @@ void init_poisson_reconstruct(py::module&);
 void init_alpha_wrapping(py::module&);
 void init_geometry(py::module&);
 void init_tube_mesher(py::module&);
+void init_min_sphere(py::module&);
 void init_orientation(py::module&);
 
 PYBIND11_MODULE(_seagullmesh, m) {
@@ -33,6 +34,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
     init_meshing(m);
     init_corefine(m);
     init_tube_mesher(m);
+    init_min_sphere(m);
 //    init_geodesic_distances(m);
 //    init_skeletonization(m);
 //    init_simplification(m);

@@ -11,30 +11,6 @@ typedef Mesh3::Property_map<E, bool>       EdgeBool;
 typedef Mesh3::Property_map<F, bool>       FaceBool;
 
 
-struct touch_border_vertices {
-    const Mesh3& mesh;
-    VertBool& verts;
-
-    touch_border_vertices (const Mesh3& m, VertBool& v) : mesh(m), verts(v) {}
-
-    void operator()(const H& h) const {
-        verts[mesh.source(h)] = true;
-        verts[mesh.target(h)] = true;
-    }
-};
-
-struct touch_border_edges {
-    const Mesh3& mesh;
-    EdgeBool& edges;
-
-    touch_border_edges (const Mesh3& m, EdgeBool& e) : mesh(m), edges(e) {}
-
-    void operator()(const H& h) const {
-        edges[mesh.edge(h)] = true;
-    }
-};
-
-
 void init_border(py::module &m) {
     m.def_submodule("border")
         .def("extract_boundary_cycles", [](const Mesh3& mesh) {
@@ -64,13 +40,22 @@ void init_border(py::module &m) {
             PMP::border_halfedges(faces, mesh, std::back_inserter(out));
             return out;
         })
-        .def("label_border_vertices", [](const Mesh3& mesh, VertBool& vert_is_border) {
-            auto output_iter = boost::make_function_output_iterator(touch_border_vertices(mesh, vert_is_border));
-            PMP::border_halfedges(faces(mesh), mesh, output_iter);
+        .def("label_border_vertices", [](const Mesh3& mesh, VertBool& is_border) {
+            auto output_iter = boost::make_function_output_iterator([&mesh, &is_border](H h) {
+                is_border[mesh.target(h)] = true;
+            });
+            PMP::border_halfedges(mesh.faces(), mesh, output_iter);
         })
-        .def("label_border_edges", [](const Mesh3& mesh, EdgeBool& edge_is_border) {
-            auto output_iter = boost::make_function_output_iterator(touch_border_edges(mesh, edge_is_border));
-            PMP::border_halfedges(faces(mesh), mesh, output_iter);
+        .def("label_border_edges", [](const Mesh3& mesh, EdgeBool& is_border) {
+            auto output_iter = boost::make_function_output_iterator([&mesh, &is_border](H h) {
+                is_border[mesh.edge(h)] = true;
+            });
+            PMP::border_halfedges(mesh.faces(), mesh, output_iter);
+        })
+        .def("label_border_faces", [](const Mesh3& mesh, FaceBool& is_border) {
+            auto output_iter = boost::make_function_output_iterator([&mesh, &is_border](H h) {
+                is_border[mesh.face(h)] = true;
+            });
         })
         .def("merge_duplicated_vertices_in_boundary_cycles", [](Mesh3& mesh) {
             PMP::merge_duplicated_vertices_in_boundary_cycles(mesh);

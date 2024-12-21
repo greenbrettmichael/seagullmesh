@@ -204,9 +204,10 @@ class TubeMesher {
 
     private:
     struct ParametrizedVertexPointMap {
-        /* a vertex point map wrapper to pass to split_long_edges
-            calculates the t and theta values of newly inserted vertices by interpolating between adjacent values.
-            also holds a calculator function to overwrite linearly interpolated points with their actual points
+        /*  A vertex point map wrapper to pass to split_long_edges
+            Calculates the t and theta values of newly inserted vertices by interpolating between adjacent values.
+            (assuming the point is always inserted at the midpoint of the split edge.)
+            Also holds a calculator function to overwrite linearly interpolated points with their actual points
             as function of (t, theta).
         */
         using key_type = V;
@@ -226,21 +227,18 @@ class TubeMesher {
 
         friend void put (const ParametrizedVertexPointMap& self, V v, const Point3& point) {
             double t_v, cos_theta_v, sin_theta_v, theta_v;
-            std::set<double> t_vals, theta_vals;
 
             // Collect adjacent t and theta values
+            // Since we're splitting edges the number of neighbors should aways be 2
             for (V u : vertices_around_target(self.mesh.halfedge(v), self.mesh) ) {
-                double t_u = self.t_map[u];
-                if ( t_vals.insert(t_u).second ) { t_v += t_u; }
+                t_v += self.t_map[u];
                 double theta_u = self.theta_map[u];
-                if ( theta_vals.insert(theta_u).second ) {
-                    cos_theta_v += std::cos(theta_u);
-                    sin_theta_v += std::sin(theta_u);
-                }
+                cos_theta_v += std::cos(theta_u);
+                sin_theta_v += std::sin(theta_u);
             }
 
             // Average of the adjacent values
-            t_v /= t_vals.size();
+            t_v /= 2.0;
             theta_v = std::atan2(sin_theta_v, cos_theta_v);
             if ( theta_v < 0) { theta_v += 2 * CGAL_PI; }  // remap [-pi, pi] to [0, 2pi]
 
@@ -266,7 +264,9 @@ class TubeMesher {
         PMP::split_long_edges(mesh.edges(), edge_length, mesh, params);
     }
     void remesh(double edge_length) {
-        auto params = PMP::parameters::do_split(false);
+        // CGAL::Constant_property_map<V, bool> vcm(true);
+        // auto params = PMP::parameters::do_split(false).do_collapse(false).vertex_is_constrained_map(vcm);
+        auto params = PMP::parameters::allow_move_functor([](V v, Point3 src, Point3 tgt) { return false; });
         PMP::isotropic_remeshing(mesh.faces(), edge_length, mesh, params);
     }
 };
@@ -286,5 +286,6 @@ void init_tube_mesher(py::module &m) {
         .def("split_long_edges", [](TubeMesher& tm, double edge_length, TubeMesher::Calculator c) {
             tm.split_long_edges(edge_length, c);
         })
+        .def("remesh", &TubeMesher::remesh)
     ;
 }
