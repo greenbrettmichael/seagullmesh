@@ -81,31 +81,6 @@ void init_meshing(py::module &m) {
             ;
             PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
-        .def("uniform_isotropic_remeshing2", [](
-                Mesh3& mesh,
-                const Indices<F>& faces,
-                const double target_edge_length,
-                unsigned int n_iter,
-                bool protect_constraints,
-                VertBool& vertex_is_constrained_map,
-                EdgeBool& edge_is_constrained_map,
-                VertBool& touched,
-                FaceIndex& face_idx
-            ) {
-
-            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-            PMP::Uniform_sizing_field<Mesh3, TouchedVertPoint> sizing_field(target_edge_length, vertex_point_map);
-
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_point_map(vertex_point_map)
-                .protect_constraints(protect_constraints)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-                .face_patch_map(face_idx)
-            ;
-            PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
-        })
         .def("adaptive_isotropic_remeshing", [](
                 Mesh3& mesh,
                 const Indices<F>& faces,
@@ -130,35 +105,6 @@ void init_meshing(py::module &m) {
                 .protect_constraints(protect_constraints)
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
-            ;
-            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
-        })
-        .def("adaptive_isotropic_remeshing2", [](
-                Mesh3& mesh,
-                const Indices<F>& faces,
-                const double tolerance,
-                const double ball_radius,
-                const std::pair<double, double>& edge_len_min_max,
-                unsigned int n_iter,
-                bool protect_constraints,
-                VertBool& vertex_is_constrained_map,
-                EdgeBool& edge_is_constrained_map,
-                VertBool& touched,
-                FaceIndex& face_idx
-            ) {
-            const std::vector<F> fs = faces.to_vector();
-
-            TouchedVertPoint vertex_point_map(mesh.points(), touched);
-            PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
-
-            auto params = PMP::parameters::
-                number_of_iterations(n_iter)
-                .vertex_point_map(vertex_point_map)
-                .protect_constraints(protect_constraints)
-                .vertex_is_constrained_map(vertex_is_constrained_map)
-                .edge_is_constrained_map(edge_is_constrained_map)
-                .face_patch_map(face_idx)
             ;
             PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
         })

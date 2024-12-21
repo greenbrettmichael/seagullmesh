@@ -616,7 +616,6 @@ class Mesh3:
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
-            face_patch_map: Optional[PropertyMap, int] = None,
     ) -> None:
         """Perform isotropic remeshing on the specified faces (default: all faces).
 
@@ -635,13 +634,10 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
-            args = [
-                self.mesh, faces.indices, target_edge_length, n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
-
-            if face_patch_map:
-                sgm.meshing.uniform_isotropic_remeshing2(*args, face_patch_map.pmap)
-            else:
-                sgm.meshing.uniform_isotropic_remeshing(*args)
+            sgm.meshing.uniform_isotropic_remeshing(
+                self.mesh, faces.indices, target_edge_length, n_iter,
+                protect_constraints, vcm.pmap, ecm.pmap, touched.pmap
+            )
 
     def remesh_adaptive(
             self,
@@ -654,7 +650,6 @@ class Mesh3:
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
-            face_patch_map: Optional[PropertyMap, int] = None,
     ) -> None:
         """Isotropic remeshing with a sizing field adaptive to the local curvature.
 
@@ -671,16 +666,14 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
-            args = [self.mesh, faces, tolerance, ball_radius, edge_len_min_max,
-               n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap]
-            if face_patch_map:
-                sgm.meshing.adaptive_isotropic_remeshing2(*args, face_patch_map.pmap)
-            else:
-                sgm.meshing.adaptive_isotropic_remeshing(*args)
+            sgm.meshing.adaptive_isotropic_remeshing(
+                self.mesh, faces, tolerance, ball_radius, edge_len_min_max,
+                n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap
+            )
 
     def fair(self, verts: Vertices, continuity=0) -> None:
         """Fair the specified mesh vertices"""
-        sgm.meshing.fair(self.mesh, verts, continuity)
+        sgm.meshing.fair(self.mesh, verts.indices, continuity)
 
     def refine(self, faces: Faces, density=np.sqrt(3)) -> Tuple[Vertices, Faces]:
         """Refine the specified mesh faces
@@ -688,7 +681,7 @@ class Mesh3:
         The number of faces is increased by a factor of `density`.
         Returns indices to the newly created vertices and faces.
         """
-        return sgm.meshing.refine(self.mesh, faces, density)
+        return sgm.meshing.refine(self.mesh, faces.indices, density)
 
     def smooth_angle_and_area(
             self,
@@ -711,7 +704,7 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.smooth_angle_and_area(
-                self.mesh, faces, n_iter, use_area_smoothing, use_angle_smoothing,
+                self.mesh, faces.indices, n_iter, use_area_smoothing, use_angle_smoothing,
                 use_safety_constraints, do_project, vcm.pmap, ecm.pmap)
 
     def tangential_relaxation(
@@ -727,7 +720,7 @@ class Mesh3:
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
         ):
             sgm.meshing.tangential_relaxation(
-                self.mesh, verts, n_iter, relax_constraints, vcm.pmap, ecm.pmap)
+                self.mesh, verts.indices, n_iter, relax_constraints, vcm.pmap, ecm.pmap)
 
     def smooth_shape(
             self,
@@ -742,7 +735,7 @@ class Mesh3:
          more iterations with a smaller step. Typical values scale in the interval (1e-6, 1]
         """
         with self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm:
-            sgm.meshing.smooth_shape(self.mesh, faces, time, n_iter, vcm.pmap)
+            sgm.meshing.smooth_shape(self.mesh, faces.indices, time, n_iter, vcm.pmap)
 
     def does_self_intersect(self) -> bool:
         """Returns True if the mesh self-intersects"""
@@ -756,7 +749,8 @@ class Mesh3:
         faces0, faces1 = sgm.meshing.self_intersections(self.mesh)
         return Faces(self, faces0), Faces(self, faces1)
 
-    def remove_self_intersections(self) -> None:
+    def remove_self_intersections(self) -> bool:
+        """Returns success, I think"""
         return sgm.meshing.remove_self_intersections(self.mesh)
 
     def shortest_path(
@@ -1017,9 +1011,16 @@ class Mesh3:
         return out
 
     def connected_component(
-            self, seed_face: Face, edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm') -> Faces:
+            self,
+            seed_face: Face,
+            edge_is_constrained: PropertyMap[Edge, bool] | str = '_ecm'
+    ) -> Faces:
         with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self.mesh, seed_face, ecm.pmap)
+
+    def minimum_sphere(self) -> Tuple[Point3, float]:
+        """Return center point and radius of the minimum bounding sphere"""
+        return sgm.min_sphere.min_sphere(self.mesh)
 
 
 class ParametrizationError(RuntimeError):
