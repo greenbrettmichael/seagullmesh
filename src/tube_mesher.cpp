@@ -1,9 +1,11 @@
 #include "seagullmesh.hpp"
 #include "util.hpp"
 #include <iostream>
+#include <cmath>
 #include <CGAL/Polygon_mesh_processing/triangulate_faces.h>
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
+#include <CGAL/Polygon_mesh_processing/remesh.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -12,6 +14,12 @@ typedef Mesh3::Property_map<F, bool>    FaceBool;
 
 
 class TubeMesher {
+    public:
+    size_t nxs;
+    bool closed;
+    bool triangulate;
+    bool flip_normals;
+
     private:
     Mesh3& mesh;
     VertDouble& t_map;
@@ -24,6 +32,15 @@ class TubeMesher {
     H prev_radial_edge;             // on prev_xs
     H next_radial_edge;             // on next_xs
 
+    public:
+    TubeMesher(
+        Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map,
+        bool closed, bool triangulate, bool flip_normals
+    )
+    : nxs(0), closed(closed), triangulate(triangulate), flip_normals(flip_normals),
+        mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map) {}
+
+    private:
     void add_points_and_radial_edges(
             const double t,
             const py::array_t<double>& theta,
@@ -181,17 +198,57 @@ class TubeMesher {
         }
     }
 
-    TubeMesher(
-        Mesh3& mesh, VertDouble& t_map, VertDouble& theta_map, FaceBool& is_cap_map,
-        bool closed, bool triangulate, bool flip_normals
-    )
-    : mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map),
-        closed(closed), triangulate(triangulate), flip_normals(flip_normals), nxs(0) {}
+    private:
+    /*
+        todo: split_long_edges sets the coordinate immediately after splitting the edge
+        and then calls sizing.register_split_vertex(vnew, mesh_)
+        and then inserts new edges to maintain triangular mesh
+        the new edges never get added to the queue
+        so could use a cheap property map to only track the original radial/axial edges
+    */
+    struct ParametrizedVertexPointMap {
+        // using Calculator = std::function<(double, double) std::tuple<double, double, double>>;
+        using key_type = V;
+        using value_type = Point3;
+        using reference = Point3&;
+        using category = boost::read_write_property_map_tag;
 
-    size_t nxs;
-    bool closed;
-    bool triangulate;
-    bool flip_normals;
+        Mesh3& mesh;
+        // Calculator calculator;
+        VertDouble& t_map;
+        VertDouble& theta_map;
+
+        ParametrizedVertexPointMap(Mesh3& m, /* Calculator c, */ VertDouble& t, VertDouble& theta)
+            : mesh(m), /* calculator(c), */  t_map(t), theta_map(theta) {}
+
+        friend Point3& get (const ParametrizedVertexPointMap& self, V v) { return self.mesh.points()[v]; }
+
+        friend void put (const ParametrizedVertexPointMap& self, V v, const Point3& point) {
+            double t_v, cos_theta_v, sin_theta_v;
+            std::set<double> t_vals, theta_vals;
+
+            for (V u : vertices_around_target(self.mesh.halfedge(v), self.mesh) ) {
+                double t_u = self.t_map[u];
+                if ( t_vals.insert(t_u).second ) { t_v += t_u; }
+                double theta_u = self.theta_map[u];
+                if ( theta_vals.insert(theta_u).second ) {
+                    cos_theta_v += std::cos(theta_u);
+                    sin_theta_v += std::sin(theta_u);
+                }
+            }
+
+            self.t_map[v] = t_v / t_vals.size();
+            self.theta_map[v] = CGAL_PI + std::atan2(sin_theta_v, cos_theta_v);
+            self.mesh.points()[v] = point;
+        }
+    };
+
+    public:
+    void split_long_edges(double edge_length) {
+        ParametrizedVertexPointMap vpm(mesh, t_map, theta_map);
+        auto params = PMP::parameters::vertex_point_map(vpm);
+        PMP::split_long_edges(mesh.edges(), edge_length, mesh, params);
+    }
 };
 
 void init_tube_mesher(py::module &m) {
@@ -205,5 +262,6 @@ void init_tube_mesher(py::module &m) {
         .def_readwrite("closed", &TubeMesher::closed)
         .def_readwrite("triangulate", &TubeMesher::triangulate)
         .def_readwrite("flip_normals", &TubeMesher::flip_normals)
+        .def("split_long_edges", &TubeMesher::split_long_edges)
     ;
 }
