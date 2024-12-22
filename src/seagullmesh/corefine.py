@@ -64,7 +64,6 @@ class _Tracked:
             self.mesh.mesh, self.idx, self.face_mesh_map.pmap,
             self.face_face_map.pmap, self.vert_mesh_map.pmap,
         )
-        return self.mesh.mesh, self.edge_is_constrained.pmap
 
     @cached_property
     def faces(self) -> Faces:
@@ -91,21 +90,40 @@ class Corefiner:
             self._spec[i] = replace(self._spec[i], **kwargs)
         return self
 
-    def _apply(self, fn, *args):
+    def _realize(self) -> Tuple[corefine.CorefineTracker, _Tracked, _Tracked]:
         tracked0 = self._spec[0].realize()
         tracked1 = self._spec[1].realize()
         tracker = corefine.CorefineTracker()
-        mesh0, ecm0 = tracked0.to_tracker(tracker)
-        mesh1, ecm1 = tracked1.to_tracker(tracker)
-        fn(mesh0, mesh1, ecm0, ecm1, tracker, *args)
-        return Corefined([tracked0, tracked1])
+        tracked0.to_tracker(tracker)
+        tracked1.to_tracker(tracker)
+        return tracker, tracked0, tracked1
 
     def corefine(self):
-        return self._apply(corefine.corefine)
+        tracker, t0, t1 = self._realize()
+        corefine.corefine(
+            t0.mesh.mesh, t1.mesh.mesh,
+            t0.edge_is_constrained.pmap,
+            t1.edge_is_constrained.pmap,
+            tracker
+        )
+        return Corefined([t0, t1])
 
     def union(self):
-        # Also needs to specify output
-        return self._apply(corefine.union, self._spec[0].mesh.mesh)
+        tracker, t0, t1 = self._realize()
+        corefine.union(
+            t0.mesh.mesh, t1.mesh.mesh,
+            t0.edge_is_constrained.pmap,
+            t1.edge_is_constrained.pmap,
+            tracker,
+            t0.mesh.mesh  # Also needs to specify output
+        )
+        return Corefined([t0, t1])
+
+    def clip(self, clip_volume: bool = False, use_compact_clipper: bool = False):
+        # TODO doesn't need the ecms...
+        tracker, t0, t1 = self._realize()
+        corefine.clip(t0.mesh.mesh, t1.mesh.mesh, tracker, clip_volume, use_compact_clipper)
+        return Corefined([t0, t1])
 
 
 class Corefined:

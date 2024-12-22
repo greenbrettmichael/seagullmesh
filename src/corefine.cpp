@@ -93,5 +93,18 @@ void init_corefine(py::module &m) {
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
             return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
         })
+        .def("clip", [](
+                Mesh3& mesh,
+                Mesh3& clipper,
+                CorefineTracker &tracker,
+                bool clip_volume,
+                bool use_compact_clipper
+        ) {
+            auto params = PMP::parameters::visitor(tracker)
+                .clip_volume(clip_volume)
+                .use_compact_clipper(use_compact_clipper)
+            ;
+            return PMP::clip(mesh, clipper, params);
+        })
     ;
 }

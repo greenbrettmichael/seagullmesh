@@ -667,13 +667,13 @@ class Mesh3:
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             sgm.meshing.adaptive_isotropic_remeshing(
-                self.mesh, faces, tolerance, ball_radius, edge_len_min_max,
+                self.mesh, faces.indices, tolerance, ball_radius, edge_len_min_max,
                 n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap
             )
 
-    def fair(self, verts: Vertices, continuity=0) -> None:
+    def fair(self, verts: Vertices, continuity=0) -> bool:
         """Fair the specified mesh vertices"""
-        sgm.meshing.fair(self.mesh, verts.indices, continuity)
+        return sgm.meshing.fair(self.mesh, verts.indices, continuity)
 
     def refine(self, faces: Faces, density=np.sqrt(3)) -> Tuple[Vertices, Faces]:
         """Refine the specified mesh faces
@@ -966,7 +966,7 @@ class Mesh3:
             weight: float,
             prevent_unselection: bool = False,
     ):
-        is_selected = self.face_data.check(is_selected)
+        is_selected = self.face_data.get(is_selected, default=False)
         sgm.connected.regularize_face_selection_borders(
             self.mesh, is_selected.pmap, weight, prevent_unselection)
 
@@ -975,17 +975,29 @@ class Mesh3:
             faces: Faces,
             k: int,
             is_selected: str | PropertyMap[Face, bool],
-    ):
-        is_selected = self.face_data.check(is_selected)
-        sgm.connected.expand_face_selection(
+    ) -> Faces:
+        is_selected = self.face_data.get(is_selected, default=False)
+        added = sgm.connected.expand_face_selection(
             self.mesh, faces.indices, k, is_selected.pmap)
+        return Faces(self, added)
+
+    def expand_vertex_selection(
+            self,
+            vertices: Vertices,
+            k: int,
+            is_selected: str | PropertyMap,
+    ) -> Vertices:
+        is_selected = self.vertex_data.get(is_selected, default=False)
+        added = sgm.connected.expand_vertex_selection(
+            self.mesh, vertices.indices, k, is_selected.pmap)
+        return Vertices(self, added)
 
     def expand_face_selection_for_removal(
             self,
             faces: Faces,
             is_selected: str | PropertyMap[Face, bool],
     ):
-        is_selected = self.face_data.check(is_selected)
+        is_selected = self.face_data.get(is_selected, default=False)
         sgm.connected.expand_face_selection_for_removal(
             self.mesh, faces.indices, is_selected.pmap)
 
@@ -1163,7 +1175,10 @@ class PropertyMap(Generic[Key, Val], ABC):
 
 
 class ScalarPropertyMap(PropertyMap[Key, Val]):
-    pass
+    def nonzero(self, idxs: Indices[Key] | None = None) -> Indices[Key]:
+        idxs = idxs or self.data.all_mesh_keys
+        vals = self[idxs]
+        return idxs[vals]
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
