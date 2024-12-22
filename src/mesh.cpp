@@ -8,14 +8,32 @@
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
-template<typename T>
-void define_simple_type_3(py::module &m, std::string name) {
-    py::class_<T>(m, name.c_str(), py::module_local())
-        .def(py::init<double, double, double>())
+// For Point2, Point3, Vector2, Vector3
+template<size_t N, typename T>
+void define_vectorlike(py::module &m, std::string name) {
+    auto cls = py::class_<T>(m, name.c_str(), py::module_local());
+
+    if constexpr ( N == 2 ) {
+        cls.def(py::init<double, double>());
+    } else {
+        cls.def(py::init<double, double, double>());
+    }
+
+    cls
         .def(py::self == py::self)
         .def(py::self != py::self)
         .def("__getitem__", [](const T& t, size_t i) {return t[i];})
-        .def("__iter__", [](const T& t) { return py::make_iterator(t.cartesian_begin(), t.cartesian_end()); }, py::keep_alive<0, 1>())
+        .def("__iter__", [](const T& t) {
+            return py::make_iterator(t.cartesian_begin(), t.cartesian_end());
+        }, py::keep_alive<0, 1>())
+        .def("__array__", [](const T& t) {
+            py::array_t<double> out({py::ssize_t(N)});
+            auto r = out.template mutable_unchecked<1>();
+            for (size_t i = 0; i < N; ++i) {
+                r(i) = t[i];
+            }
+            return out;
+        })
     ;
 }
 
@@ -71,10 +89,10 @@ void define_indices(py::module &m, std::string idx_name, std::string idxs_name) 
 void init_mesh(py::module &m) {
     py::module sub = m.def_submodule("mesh");
 
-    define_simple_type_2<Point2>(sub, "Point2");
-    define_simple_type_3<Point3>(sub, "Point3");
-    define_simple_type_2<Vector2>(sub, "Vector2");
-    define_simple_type_3<Vector3>(sub, "Vector3");
+    define_vectorlike<2, Point2     >(sub, "Point2");
+    define_vectorlike<2, Vector2    >(sub, "Vector2");
+    define_vectorlike<3, Point3     >(sub, "Point3");
+    define_vectorlike<3, Vector3    >(sub, "Vector3");
 
     define_indices<V>(sub, "Vertex", "Vertices");
     define_indices<F>(sub, "Face", "Faces");

@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
+from numpy import array, array_equal
+from numpy.testing import assert_array_equal
 
-from seagullmesh import Mesh3, Vertex, Vertices
+from seagullmesh import Mesh3, Vertex, Vertices, Point2, Point3, Vector2, Vector3
 from .util import mesh
 
 
@@ -66,3 +68,30 @@ def test_copy(mesh):
     copied = mesh.copy()
     assert copied is not mesh
     assert copied.mesh is not mesh.mesh
+
+
+_vector_likes = pytest.mark.parametrize(
+    ('cls', 'n'),
+    [
+        (Point2, 2),
+        (Point3, 3),
+        (Vector2, 2),
+        (Vector3, 3),
+    ]
+)
+
+
+@_vector_likes
+def test_construct_vectorlike(cls, n):
+    zeros_ = cls(*(0 for _ in range(n)))
+    ones_ = cls(*(1 for _ in range(n)))
+    assert (zeros_ == zeros_) is True
+    assert (ones_ == ones_) is True
+    assert (zeros_ == ones_) is False
+
+    assert_array_equal(array(zeros_), np.zeros(n))
+    assert_array_equal(array(ones_), np.ones(n))
+    assert not array_equal(array(ones_), array(zeros_))
+
+    assert list(zeros_) == list(0 for _ in range(n))
+    assert list(ones_) == list(1 for _ in range(n))
