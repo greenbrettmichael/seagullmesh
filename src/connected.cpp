@@ -122,17 +122,17 @@ void init_connected(py::module &m) {
             auto params = CGAL::parameters::prevent_unselection(prevent_unselection);
             CGAL::regularize_face_selection_borders(mesh, is_selected, weight, params);
         })
-        .def("expand_face_selection_for_removal", [](Mesh3& mesh, std::vector<F>& faces, FaceBool& is_selected) {
-            CGAL::expand_face_selection_for_removal(faces, mesh, is_selected);
+        .def("expand_face_selection_for_removal", [](Mesh3& mesh, Indices<F>& faces, FaceBool& is_selected) {
+            CGAL::expand_face_selection_for_removal(faces.to_vector(), mesh, is_selected);
         })
-        .def("expand_vertex_selection", [](Mesh3& mesh, std::vector<V>& verts, unsigned int k, VertBool& is_selected) {
+        .def("expand_vertex_selection", [](Mesh3& mesh, Indices<V>& verts, unsigned int k, VertBool& is_selected) {
             std::vector<V> added;
-            CGAL::expand_vertex_selection(verts, mesh, k, is_selected, std::back_inserter(added));
+            CGAL::expand_vertex_selection(verts.to_vector(), mesh, k, is_selected, std::back_inserter(added));
             return added;
         })
-        .def("expand_face_selection", [](Mesh3& mesh, std::vector<F>& faces, unsigned int k, FaceBool& is_selected) {
+        .def("expand_face_selection", [](Mesh3& mesh, Indices<F>& faces, unsigned int k, FaceBool& is_selected) {
             std::vector<F> added;
-            CGAL::expand_face_selection(faces, mesh, k, is_selected, std::back_inserter(added));
+            CGAL::expand_face_selection(faces.to_vector(), mesh, k, is_selected, std::back_inserter(added));
             return added;
         })
     ;

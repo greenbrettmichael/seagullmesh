@@ -962,11 +962,32 @@ class Mesh3:
 
     def regularize_face_selection_borders(
             self,
-            is_selected: PropertyMap[Face, bool],
+            is_selected: str | PropertyMap[Face, bool],
             weight: float,
             prevent_unselection: bool = False,
     ):
-        sgm.border.regularize_face_selection_borders(self.mesh, is_selected, weight, prevent_unselection)
+        is_selected = self.face_data.check(is_selected)
+        sgm.connected.regularize_face_selection_borders(
+            self.mesh, is_selected.pmap, weight, prevent_unselection)
+
+    def expand_face_selection(
+            self,
+            faces: Faces,
+            k: int,
+            is_selected: str | PropertyMap[Face, bool],
+    ):
+        is_selected = self.face_data.check(is_selected)
+        sgm.connected.expand_face_selection(
+            self.mesh, faces.indices, k, is_selected.pmap)
+
+    def expand_face_selection_for_removal(
+            self,
+            faces: Faces,
+            is_selected: str | PropertyMap[Face, bool],
+    ):
+        is_selected = self.face_data.check(is_selected)
+        sgm.connected.expand_face_selection_for_removal(
+            self.mesh, faces.indices, is_selected.pmap)
 
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
