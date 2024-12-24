@@ -1040,9 +1040,9 @@ class Mesh3:
 
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
-        face_patch_idx = self.face_data.get(face_patch_idx, default=0, is_index=True)
-        sgm.connected.label_selected_face_patches(self.mesh, faces, face_patch_idx.pmap)
-        return face_patch_idx
+        face_patch_idx = self.face_data.get(face_patch_idx, default=0, dtype='uint32')
+        n_components = sgm.connected.label_selected_face_patches(self.mesh, faces.indices, face_patch_idx.pmap)
+        return n_components
 
     def label_connected_components(
             self,
