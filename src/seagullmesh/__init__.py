@@ -1216,7 +1216,7 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
     def nonzero(self, idxs: Indices[Key] | None = None) -> Indices[Key]:
         idxs = idxs or self.data.all_mesh_keys
         vals = self[idxs]
-        return idxs[vals]
+        return idxs[np.nonzero(vals)]
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):

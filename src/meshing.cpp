@@ -125,14 +125,17 @@ void init_meshing(py::module &m) {
                 FaceIndex& face_patch_map,
                 VertBool& touched
             ) {
-            const std::vector<F> fs = faces.to_vector();
+            // const std::vector<F> fs = faces.to_vector();
 
 //            using SizingField = PMP::Adaptive_sizing_field<Mesh3, VertPoint>;
 //            SizingField sizing_field(tolerance, edge_len_min_max, fs, mesh);
 //            SizingFieldWrapper<SizingField> wrapped_sizing_field{sizing_field, touched};
             TouchedVertPoint vertex_point_map(mesh.points(), touched);
+
+            // Not sure about this but I think we need to supply the entire face range to the sizing field
+            // even if we're only remeshing a subset of faces
             PMP::Adaptive_sizing_field<Mesh3, TouchedVertPoint> sizing_field(
-                tolerance, edge_len_min_max, fs, mesh, PMP::parameters::vertex_point_map(vertex_point_map));
+                tolerance, edge_len_min_max, mesh.faces(), mesh, PMP::parameters::vertex_point_map(vertex_point_map));
 
             auto params = PMP::parameters::
                 number_of_iterations(n_iter)
@@ -144,7 +147,7 @@ void init_meshing(py::module &m) {
                 .vertex_point_map(vertex_point_map)
             ;
             // PMP::isotropic_remeshing(fs, wrapped_sizing_field, mesh, params);
-            PMP::isotropic_remeshing(fs, sizing_field, mesh, params);
+            PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
         .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained_map);
