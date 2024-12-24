@@ -28,10 +28,13 @@ _IndexTypes = Vertex | Face | Edge | Halfedge
 _CppIndicesTypes = sgm.mesh.Vertices | sgm.mesh.Faces | sgm.mesh.Edges | sgm.mesh.Halfedges
 TIndex = TypeVar('TIndex', Vertex, Face, Edge, Halfedge)
 TIndices = TypeVar('TIndices', sgm.mesh.Vertices, sgm.mesh.Faces, sgm.mesh.Edges, sgm.mesh.Halfedges)
+Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
+Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
+_PMapDType = str | np.dtype | type
 
 
 class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
-    index_type: Type[TIndex]  # Set by subclass
+    index_type: Type[TIndex]  # Vertex, Edge, Face, etc. Set by subclass
     indices_type: Type[_CppIndicesTypes]  # The C++ indices class, set by subclass
 
     # Updated in __init__subclass__
@@ -57,11 +60,13 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
 
     @classmethod
     @abstractmethod
-    def all_indices(cls, mesh: Mesh3) -> Self: ...
+    def all_indices(cls, mesh: Mesh3) -> Self:
+        ...
 
     @classmethod
     @abstractmethod
-    def n_mesh_keys(cls, mesh: Mesh3) -> int: ...
+    def n_mesh_keys(cls, mesh: Mesh3) -> int:
+        ...
 
     @staticmethod
     def py_indices_type(cpp_indices_type: _CppIndicesTypes) -> Type[_PyIndicesTypes]:
@@ -81,6 +86,10 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
     def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
         indices = self.indices_type(arr)
         return type(self)(self.mesh, indices)
+
+    @property
+    def mesh_data(self) -> MeshData[TIndex]:
+        return self.mesh.mesh_data[self.index_type]
 
     def __repr__(self) -> str:
         return f'{self.indices_type.__name__}(n={len(self)})'
@@ -111,10 +120,12 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
         return self._with_array(self._array.copy())
 
     @overload
-    def __getitem__(self, item: int | np.integer) -> TIndex: ...  # Vertex, Face, Edge, Halfedge
+    def __getitem__(self, item: int | np.integer) -> TIndex:
+        ...  # Vertex, Face, Edge, Halfedge
 
     @overload
-    def __getitem__(self, item: slice | Sequence[int] | np.ndarray) -> Self: ...  # slice self to get another Self
+    def __getitem__(self, item: slice | Sequence[int] | np.ndarray) -> Self:
+        ...  # slice self to get another Self
 
     def __getitem__(self, item):
         if isinstance(item, (int, np.integer)):
@@ -124,10 +135,12 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
             return self._with_array(self._array[item])
 
     @overload
-    def __setitem__(self, item: int, value: TIndex): ...  # self.idxs[8] = some_vertex
+    def __setitem__(self, item: int, value: TIndex):
+        ...  # self.idxs[8] = some_vertex
 
     @overload
-    def __setitem__(self, item: Sequence, value: Self): ...  # self.idxs[1:]] = self.idxs[1:][::-1]
+    def __setitem__(self, item: Sequence, value: Self):
+        ...  # self.idxs[1:]] = self.idxs[1:][::-1]
 
     def __setitem__(self, item, value):
         if isinstance(item, int) and isinstance(value, self.index_type):
@@ -147,6 +160,17 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
 
     def unique(self) -> Self:
         return self._with_array(np.unique(self._array))
+
+    def label(
+            self,
+            pmap: str | PropertyMap[TIndex, Val],
+            val: Val,
+            default: Val,
+            dtype: _PMapDType | None = None
+    ) -> PropertyMap[TIndex, Val]:
+        pmap = self.mesh_data.get(pmap, default=default, dtype=dtype)
+        pmap[self] = val
+        return pmap
 
 
 class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
@@ -230,6 +254,18 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
     def contains_point(self, point: Point3) -> np.ndarray:
         return sgm.locate.is_point_in_faces(self.mesh.mesh, point, self.indices)
 
+    def expand_selection(self, pmap: str | PropertyMap[Face, Val], k: int = 1) -> Faces:
+        """Returns newly selected faces"""
+        is_selected = self.mesh_data.check(pmap)
+        added = sgm.connected.expand_face_selection(
+            self.mesh.mesh, self.indices, k, is_selected.pmap)
+        return Faces(self.mesh, added)
+
+    def expand_selection_for_removal(self, pmap: str | PropertyMap[Face, bool]) -> None:
+        pmap = self.mesh_data.check(pmap)
+        sgm.connected.expand_face_selection_for_removal(
+            self.mesh.mesh, self.indices, pmap.pmap)
+
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
@@ -267,6 +303,7 @@ class Mesh3:
     null_vertex: Vertex = _Mesh3.null_vertex
     null_face: Face = _Mesh3.null_face
     null_edge: Edge = _Mesh3.null_edge
+
     # null_halfedge: Halfedge = _Mesh3.null_halfedge
 
     def __init__(self, mesh: _Mesh3 | None = None):
@@ -276,11 +313,12 @@ class Mesh3:
         self.mesh = mesh if mesh else _Mesh3()
 
         if hasattr(sgm, 'properties'):
+            self.mesh_data: dict[Type[TIndex], MeshData[TIndex]] = {}
             # Allow installing seagullmesh without the properties modules
-            self.vertex_data = self.vd = VertexData(self)
-            self.face_data = self.fd = FaceData(self)
-            self.edge_data = self.ed = EdgeData(self)
-            self.halfedge_data = self.hd = HalfedgeData(self)
+            self.vertex_data = self.mesh_data[Vertex] = self.vd = VertexData(self)
+            self.face_data = self.mesh_data[Face] = self.fd = FaceData(self)
+            self.edge_data = self.mesh_data[Edge] = self.ed = EdgeData(self)
+            self.halfedge_data = self.mesh_data[Halfedge] = self.hd = HalfedgeData(self)
 
     n_vertices = nv = property(lambda self: self.mesh.n_vertices)
     n_faces = nf = property(lambda self: self.mesh.n_faces)
@@ -445,7 +483,7 @@ class Mesh3:
         return out
 
     def scale(self, scale: float | Sequence[float], inplace: bool) -> Mesh3:
-        transform = np.diag(np.broadcast_to(scale, (3, )))
+        transform = np.diag(np.broadcast_to(scale, (3,)))
         return self.transform(transform, inplace=inplace)
 
     def volume(self) -> float:
@@ -504,7 +542,8 @@ class Mesh3:
         return out
 
     @staticmethod
-    def _export_to_pv(property_names: bool | str | Sequence[str] | None, sgm_data: MeshData, pv_data, ignore_errors: bool):
+    def _export_to_pv(property_names: bool | str | Sequence[str] | None, sgm_data: MeshData, pv_data,
+                      ignore_errors: bool):
         match property_names:
             case True | None:
                 property_names = sgm_data.keys()
@@ -520,7 +559,7 @@ class Mesh3:
         for k in property_names:
             vals = sgm_data[k][indices]
             try:
-               pv_data[k] = vals
+                pv_data[k] = vals
             except TypeError:
                 if ignore_errors:
                     continue
@@ -611,9 +650,11 @@ class Mesh3:
             self,
             target_edge_length: float,
             n_iter: int = 1,
+            collapse_constraints=True,
             protect_constraints=False,
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
+            face_patch_map: str | PropertyMap[Face, int] = '_fpm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
     ) -> None:
@@ -632,11 +673,13 @@ class Mesh3:
         with (
             self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.face_data.get_or_temp(face_patch_map, temp_name='_fpm', default=0, dtype='uint32') as fpm,
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             sgm.meshing.uniform_isotropic_remeshing(
                 self.mesh, faces.indices, target_edge_length, n_iter,
-                protect_constraints, vcm.pmap, ecm.pmap, touched.pmap
+                collapse_constraints, protect_constraints,
+                vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
             )
 
     def remesh_adaptive(
@@ -645,9 +688,11 @@ class Mesh3:
             tolerance: float,
             n_iter: int = 1,
             ball_radius: float = -1.0,
+            collapse_constraints=True,
             protect_constraints=False,
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
+            face_patch_map: str | PropertyMap[Face, int] = '_fpm',
             touched: str | PropertyMap[Vertex, bool] = '_touched',
             faces: Optional[Faces] = None,
     ) -> None:
@@ -664,12 +709,23 @@ class Mesh3:
         with (
             self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
+            self.face_data.get_or_temp(face_patch_map, temp_name='_fpm', default=0, dtype='uint32') as fpm,
             self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
         ):
             sgm.meshing.adaptive_isotropic_remeshing(
-                self.mesh, faces.indices, tolerance, ball_radius, edge_len_min_max,
-                n_iter, protect_constraints, vcm.pmap, ecm.pmap, touched.pmap
+                self.mesh, faces.indices, tolerance, ball_radius, edge_len_min_max, n_iter,
+                collapse_constraints, protect_constraints,
+                vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
             )
+
+    def split_long_edges(
+            self,
+            edges: Edges,
+            target_edge_length: float,
+            edge_is_constrained: str | PropertyMap[Edge, bool] = '_ecm',
+    ):
+        with self.edge_data.get_or_temp(edge_is_constrained, temp_name='_ecm', default=False) as ecm:
+            sgm.meshing.split_long_edges(self.mesh, edges.indices, target_edge_length, ecm.pmap)
 
     def fair(self, verts: Vertices, continuity=0) -> bool:
         """Fair the specified mesh vertices"""
@@ -896,7 +952,8 @@ class Mesh3:
             ball_radius: float = -1,
             mean_curvature_map: str | PropertyMap[Vertex, float] = 'mean_curvature',
             gaussian_curvature_map: str | PropertyMap[Vertex, float] = 'gaussian_curvature',
-            principal_curvature_map: str | PropertyMap[Vertex, sgm.properties.PrincipalCurvaturesAndDirections] = 'principal_curvature',
+            principal_curvature_map: str | PropertyMap[
+                Vertex, sgm.properties.PrincipalCurvaturesAndDirections] = 'principal_curvature',
     ):
         mcm = self.vertex_data.get(mean_curvature_map, 0.0)
         gcm = self.vertex_data.get(gaussian_curvature_map, 0.0)
@@ -970,17 +1027,6 @@ class Mesh3:
         sgm.connected.regularize_face_selection_borders(
             self.mesh, is_selected.pmap, weight, prevent_unselection)
 
-    def expand_face_selection(
-            self,
-            faces: Faces,
-            k: int,
-            is_selected: str | PropertyMap[Face, bool],
-    ) -> Faces:
-        is_selected = self.face_data.get(is_selected, default=False)
-        added = sgm.connected.expand_face_selection(
-            self.mesh, faces.indices, k, is_selected.pmap)
-        return Faces(self, added)
-
     def expand_vertex_selection(
             self,
             vertices: Vertices,
@@ -991,15 +1037,6 @@ class Mesh3:
         added = sgm.connected.expand_vertex_selection(
             self.mesh, vertices.indices, k, is_selected.pmap)
         return Vertices(self, added)
-
-    def expand_face_selection_for_removal(
-            self,
-            faces: Faces,
-            is_selected: str | PropertyMap[Face, bool],
-    ):
-        is_selected = self.face_data.get(is_selected, default=False)
-        sgm.connected.expand_face_selection_for_removal(
-            self.mesh, faces.indices, is_selected.pmap)
 
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions
@@ -1066,9 +1103,6 @@ def _bbox_diagonal(points: np.ndarray):
     return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
 
 
-Key = TypeVar('Key', Vertex, Face, Edge, Halfedge)
-Val = TypeVar('Val', int, bool, float, Point2, Point3, Vector2, Vector3)
-
 """Something that can vector-index a property map"""
 IntoIndices = np.ndarray | slice | Sequence[Key]
 
@@ -1116,10 +1150,12 @@ class PropertyMap(Generic[Key, Val], ABC):
             return all_idxs[key].indices
 
     @overload
-    def __getitem__(self, key: int | Key) -> Val: ...
+    def __getitem__(self, key: int | Key) -> Val:
+        ...
 
     @overload
-    def __getitem__(self, key: IntoIndices[Key]) -> np.ndarray: ...
+    def __getitem__(self, key: IntoIndices[Key]) -> np.ndarray:
+        ...
 
     def __getitem__(self, key):
         if isinstance(key, int):  # e.g. pmap[0] -> value for the first face
@@ -1134,10 +1170,12 @@ class PropertyMap(Generic[Key, Val], ABC):
             return self.pmap[self._to_cpp_indices(key)]
 
     @overload
-    def __setitem__(self, key: int | Key, val: Val) -> None: ...
+    def __setitem__(self, key: int | Key, val: Val) -> None:
+        ...
 
     @overload
-    def __setitem__(self, key: IntoIndices[Key], val: np.ndarray | Sequence[Val]) -> None: ...
+    def __setitem__(self, key: IntoIndices[Key], val: np.ndarray | Sequence[Val]) -> None:
+        ...
 
     def __setitem__(self, key, val) -> None:
         if isinstance(key, int):  # pmap[0] -> value for the first face
@@ -1191,7 +1229,6 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         self[key] = val
 
 
-_PMapDType = str | np.dtype | type
 VertexIndexMap = PropertyMap[Vertex, int]
 VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
