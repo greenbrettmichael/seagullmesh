@@ -119,8 +119,19 @@ void init_connected(py::module &m) {
             PMP::remove_connected_components(mesh, faces.to_vector());
         })
         .def("regularize_face_selection_borders", [](Mesh3& mesh, FaceBool& is_selected, double weight, bool prevent_unselection) {
+            // I think this hits the same problem with https://github.com/CGAL/cgal/issues/2788
+            boost::unordered_map<F, bool> temp_map;
+            for (F f : mesh.faces()) {
+                temp_map[f] = is_selected[f];
+            }
+            boost::associative_property_map< boost::unordered_map<F, bool> > temp_prop_map(temp_map);
+
             auto params = CGAL::parameters::prevent_unselection(prevent_unselection);
-            CGAL::regularize_face_selection_borders(mesh, is_selected, weight, params);
+            CGAL::regularize_face_selection_borders(mesh, temp_prop_map, weight, params);
+
+            for (F f : mesh.faces()) {
+                is_selected[f] = temp_map[f];
+            }
         })
         .def("expand_face_selection_for_removal", [](Mesh3& mesh, Indices<F>& faces, FaceBool& is_selected) {
             CGAL::expand_face_selection_for_removal(faces.to_vector(), mesh, is_selected);
