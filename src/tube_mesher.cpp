@@ -106,7 +106,6 @@ class TubeMesher {
         
         double theta_q = theta_map[mesh.source(q)];
         double theta_p = theta_map[mesh.target(p)];
-        // std::cout << "init face: theta_p " << theta_p << " theta_q " << theta_q << "\n";
 
         while (theta_p != theta_q) {
             if ( theta_q != 0 && (theta_p > theta_q || theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
@@ -124,9 +123,7 @@ class TubeMesher {
             } else {
                 throw std::runtime_error("theta values do not align");
             }
-            // std::cout << "theta_p " << theta_p << " theta_q " << theta_q << "\n";
         }
-        // std::cout << "\n";
 
         // Save state for next face
         prev_radial_edge = mesh.next(p);
@@ -199,26 +196,20 @@ class TubeMesher {
         }
     }
 
-    // (t, theta, linearly interpolated point) -> actual point on surface
+    // (t, theta) -> Point
     using Calculator = std::function<Point3 (double, double)>;
 
     std::pair<double, double> parametric_midpoint(const H h) const {
         const V v0 = mesh.source(h);
         const V v1 = mesh.target(h);
-
         const double t0 = t_map[v0];
         const double t1 = t_map[v1];
-
-        std::cout << "t0 " << t0 << " t1 " << t1;
-
         double t_mid, theta_mid;
+
         if (t0 == t1) { // a radial edge
-            std::cout << " radial edge ";
             t_mid = t0;
             const double theta0 = theta_map[v0];
             const double theta1 = theta_map[v1];
-
-            std::cout << "theta0" << theta0 << " theta1 " << theta1 << "\n";
 
             theta_mid = std::atan2(
                 std::sin(theta0) + std::sin(theta1),
@@ -226,7 +217,6 @@ class TubeMesher {
             );
             if ( theta_mid < 0 ) { theta_mid += 2 * CGAL_PI; }  // remap [-pi, pi] to [0, 2pi]
         } else { // an axial edge
-            std::cout << " axial edge " << "\n";
             theta_mid = theta_map[v0];
             t_mid = (t0 + t1) / 2.0;
         }
@@ -246,16 +236,13 @@ class TubeMesher {
                 { return p1.second > p2.second; }
             );
 
-        std::cout << "Edges to split: ";
         for (E e : mesh.edges()) {
             H h = mesh.halfedge(e);
             double sqlen = PMP::squared_edge_length(h, mesh);
             if (sqlen > sq_thresh) {
-                std::cout << h << ", ";
                 long_edges.emplace(h, sqlen);
             }
         }
-        std::cout << "\n";
 
         // Split edges
         while (!long_edges.empty()) {
@@ -264,8 +251,6 @@ class TubeMesher {
             H h = eit->first;
             long_edges.erase(eit);
 
-            std::cout << "Splitting edge " << h << " ";
-
             // Split edge
             auto [t_mid, theta_mid] = parametric_midpoint(h);
             H h_new = CGAL::Euler::split_edge(h, mesh);
@@ -273,17 +258,14 @@ class TubeMesher {
             t_map[v_mid] = t_mid;
             theta_map[v_mid] = theta_mid;
             Point3 pt_mid = calculator(t_mid, theta_mid);
-            std::cout << " at " << t_mid << ", " << theta_mid << " = " << pt_mid << "\n";
             mesh.points()[v_mid] = pt_mid;
 
             // Check the subedges
             if  (double sqlen = PMP::squared_edge_length(h_new, mesh); sqlen > sq_thresh) {
-                std::cout << "Adding subedge edge " << h << "\n";
                 long_edges.emplace(h_new, sqlen);
             }
             H h_next = mesh.next(h_new);
             if (double sqlen = PMP::squared_edge_length(h_next, mesh); sqlen > sq_thresh) {
-                std::cout << "Adding subedge edge " << h_new << "\n";
                 long_edges.emplace(h_next, sqlen);
             }
         }
