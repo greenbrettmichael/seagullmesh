@@ -270,7 +270,7 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
             self.mesh.mesh, self.indices, pmap.pmap)
 
     def label_face_patch_border_edges(self, pmap: str | PropertyMap[Edge, bool]) -> None:
-        pmap = self.mesh.edge_data.check(pmap)
+        pmap = self.mesh.edge_data.get(pmap, default=False)
         sgm.border.label_face_patch_border_edges(self.mesh.mesh, self.indices, pmap.pmap)
 
 
