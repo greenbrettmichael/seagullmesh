@@ -81,7 +81,10 @@ void init_connected(py::module &m) {
             std::set<F> out;
             for (F f : faces.to_vector()) {
                 for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
-                    out.insert(mesh.face(mesh.opposite(h)));
+                    F f_adj = mesh.face(mesh.opposite(h));
+                    if ( f_adj != mesh.null_face() ){
+                        out.insert(f_adj);
+                    }
                 }
             }
             return Indices<F>(out);
@@ -91,7 +94,6 @@ void init_connected(py::module &m) {
             for (F f : faces.to_vector()) {
                 for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
                     verts.insert(mesh.source(h));
-                    // verts.insert(mesh.target(h));
                 }
             }
             return Indices<V>(verts);
