@@ -4,6 +4,7 @@
 
 #include <CGAL/boost/graph/selection.h>
 #include <CGAL/boost/graph/Face_filtered_graph.h>
+#include <CGAL/Polygon_mesh_processing/border.h>
 #include <CGAL/Polygon_mesh_processing/connected_components.h>
 
 typedef CGAL::Face_filtered_graph<Mesh3>        FilteredMesh;
@@ -75,6 +76,15 @@ void init_connected(py::module &m) {
                 }
             }
             return Indices<E>(edges);
+        })
+        .def("faces_to_faces", [](const Mesh3& mesh, const Indices<F>& faces) {
+            std::set<F> out;
+            for (F f : faces.to_vector()) {
+                for (H h : halfedges_around_face(mesh.halfedge(f), mesh)) {
+                    out.insert(mesh.face(mesh.opposite(h)));
+                }
+            }
+            return Indices<F>(out);
         })
         .def("faces_to_vertices", [](const Mesh3& mesh, const Indices<F>& faces) {
             std::set<V> verts;

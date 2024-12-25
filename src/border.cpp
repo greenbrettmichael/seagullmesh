@@ -35,10 +35,11 @@ void init_border(py::module &m) {
             }
             throw py::value_error("Vertex is not on the boundary");
         })
-        .def("face_patch_border", [](const Mesh3& mesh, const std::vector<F>& faces) {
-            std::vector<H> out;
-            PMP::border_halfedges(faces, mesh, std::back_inserter(out));
-            return out;
+        .def("label_face_patch_border_edges", [](const Mesh3& mesh, const Indices<F>& faces, EdgeBool& is_border) {
+            auto output_iter = boost::make_function_output_iterator([&mesh, &is_border](H h) {
+                is_border[mesh.edge(h)] = true;
+            });
+            PMP::border_halfedges(faces.to_vector(), mesh, output_iter);
         })
         .def("label_border_vertices", [](const Mesh3& mesh, VertBool& is_border) {
             auto output_iter = boost::make_function_output_iterator([&mesh, &is_border](H h) {

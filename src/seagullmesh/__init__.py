@@ -248,6 +248,9 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
     def adjacent_vertices(self) -> Vertices:
         return Vertices(self.mesh, sgm.connected.faces_to_vertices(self.mesh.mesh, self.indices))
 
+    def adjacent_faces(self) -> Faces:
+        return Faces(self.mesh, sgm.connected.faces_to_faces(self.mesh.mesh, self.indices))
+
     def is_null(self) -> np.ndarray:
         return self == Mesh3.null_face
 
@@ -265,6 +268,10 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         pmap = self.mesh_data.check(pmap)
         sgm.connected.expand_face_selection_for_removal(
             self.mesh.mesh, self.indices, pmap.pmap)
+
+    def label_face_patch_border_edges(self, pmap: str | PropertyMap[Edge, bool]) -> None:
+        pmap = self.mesh.edge_data.check(pmap)
+        sgm.border.label_face_patch_border_edges(self.mesh.mesh, self.indices, pmap.pmap)
 
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
