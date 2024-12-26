@@ -273,6 +273,16 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         pmap = self.mesh.edge_data.get(pmap, default=False)
         sgm.border.label_face_patch_border_edges(self.mesh.mesh, self.indices, pmap.pmap)
 
+    def keep_connected(self, inplace: bool) -> Mesh3:
+        out = self.mesh if inplace else self.mesh.copy()
+        sgm.connected.keep_connected_faces(out.mesh, self.indices)
+        return out
+
+    def remove_connected(self, inplace: bool) -> Mesh3:
+        out = self.mesh if inplace else self.mesh.copy()
+        sgm.connected.remove_connected_faces(out.mesh, self.indices)
+        return out
+
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
@@ -1080,11 +1090,11 @@ class Mesh3:
             self,
             to_keep: Sequence[int | bool],
             face_patches: str | PropertyMap[Face, int | bool],
-            inplace,
+            inplace: bool,
     ):
         out = self if inplace else self.copy()
-        face_patches = self.face_data.check(face_patches)
-        sgm.connected.keep_connected_face_patches(self.mesh, to_keep, face_patches.pmap)
+        face_patches = out.face_data.check(face_patches)
+        sgm.connected.keep_connected_face_patches(out.mesh, to_keep, face_patches.pmap)
         return out
 
     def connected_component(

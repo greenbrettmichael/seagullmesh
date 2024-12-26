@@ -130,6 +130,9 @@ void init_connected(py::module &m) {
         .def("remove_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
             PMP::remove_connected_components(mesh, faces.to_vector());
         })
+        .def("keep_connected_faces", [](Mesh3& mesh, const Indices<F>& faces) {
+            PMP::keep_connected_components(mesh, faces.to_vector());
+        })
         .def("regularize_face_selection_borders", [](Mesh3& mesh, FaceBool& is_selected, double weight, bool prevent_unselection) {
             // I think this hits the same problem with https://github.com/CGAL/cgal/issues/2788
             boost::unordered_map<F, bool> temp_map;
