@@ -50,7 +50,7 @@ void init_geometry(py::module &m) {
         .def_property_readonly("x_max", &BBox3::xmax)
         .def_property_readonly("y_min", &BBox3::ymin)
         .def_property_readonly("y_max", &BBox3::ymax)
-        .def_property_readonly("x_min", &BBox3::zmin)
+        .def_property_readonly("z_min", &BBox3::zmin)
         .def_property_readonly("z_max", &BBox3::zmax)
         .def("diagonal", [](const BBox3& bbox) {
             return std::sqrt(

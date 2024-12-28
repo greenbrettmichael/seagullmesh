@@ -83,6 +83,6 @@ class AabbTree:
             self.mesh.mesh, self.aabb_tree, points, directions)
         return SurfacePoints(faces=Faces(self.mesh, faces), bary_coords=bary_coords)
 
-    def first_ray_intersection(self, point: np.ndarray, direction: np.ndarray) -> SurfacePoints:
+    def first_ray_intersection(self, point: np.ndarray, direction: np.ndarray) -> SurfacePoint:
         surf_pts = self.first_ray_intersections(np.array([point]), np.array([direction]))
         return surf_pts[0]
