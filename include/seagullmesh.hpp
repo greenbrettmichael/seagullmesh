@@ -92,6 +92,18 @@ class Indices {
         return out;
     }
 
+    template<typename U>
+    Indices<U> map_to_indices(const std::function<U (T)> fn) const {
+        size_t n = indices.size();
+        py::array_t<size_type> out({ py::ssize_t(n) });
+        auto rout = out.template mutable_unchecked<1>();
+        auto ridxs = indices.template unchecked<1>();
+        for (size_t i = 0; i < n; ++i) {
+            rout(i) = size_type( fn( T(ridxs(i)) ) );
+        }
+        return Indices<U>(out);
+    }
+
     template <typename Vec, size_t Dim, typename U>
     py::array_t<U> map_to_array_of_vectors(const std::function<Vec (T)> fn) const {
         size_t n = indices.size();

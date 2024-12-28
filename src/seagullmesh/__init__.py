@@ -283,6 +283,56 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         sgm.connected.remove_connected_faces(out.mesh, self.indices)
         return out
 
+    def extract(
+            self,
+            data: bool = False,
+            vertex_data: bool | Sequence[str] = (),
+            face_data: bool | Sequence[str] = (),
+            edge_data: bool | Sequence[str] = (),
+            halfedge_data: bool | Sequence[str] = (),
+    ):
+        src, dest = self.mesh, Mesh3()
+
+        if data:
+            vertex_data = face_data = edge_data = halfedge_data = True
+
+        props_to_copy = {
+            k: src.mesh_data[k].keys() if v is True else v
+            for k, v in {
+                Vertex: vertex_data,
+                Face: face_data,
+                Edge: edge_data,
+                Halfedge: halfedge_data
+            }.items() if v
+        }
+
+
+        with (
+            # These are src -> dest maps
+            self.mesh.vertex_data.temp('_vvm', default=Mesh3.null_vertex) as vvm,
+            self.mesh.face_data.temp('_ffm', default=Mesh3.null_face) as ffm,
+            self.mesh.edge_data.temp('_eem', default=Mesh3.null_edge) as eem,
+            self.mesh.halfedge_data.temp('_hhm', default=Mesh3.null_halfedge) as hhm,
+        ):
+            sgm.connected.copy_faces(
+                src.mesh, dest.mesh, self.indices, vvm.pmap, ffm.pmap, hhm.pmap)
+
+            maps = {Vertex: vvm, Face: ffm, Edge: eem, Halfedge: hhm}
+            if Edge in props_to_copy:
+                # copy_face_graph doesn't use a EEmap bc it's redundant with HHm
+                src_edges = src.edges
+                eem[src_edges] = Halfedges(dest.mesh, hhm[src_edges.halfedges()]).edges()
+
+            for idx_typ, prop_names in props_to_copy.items():
+                src_data, dest_data = src.mesh_data[idx_typ], dest.mesh_data[idx_typ]
+
+                for k in prop_names:
+                    pass
+
+
+
+
+
 
 class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
@@ -299,6 +349,9 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
     def lengths(self) -> np.ndarray:
         return sgm.geometry.edge_lengths(self.mesh.mesh, self.indices)
 
+    def halfedges(self) -> Halfedges:
+        return Halfedges(self.mesh, sgm.connected.edge_halfedge(self.mesh.mesh, self.indices))
+
 
 class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     index_type = Halfedge
@@ -312,6 +365,9 @@ class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_halfedges
 
+    def edges(self) -> Edges:
+        return Edges(self.mesh, sgm.connected.halfedge_edge(self.mesh.mesh, self.indices))
+
 
 _PyIndicesTypes = Vertices | Faces | Edges | Halfedges
 
@@ -320,8 +376,9 @@ class Mesh3:
     null_vertex: Vertex = _Mesh3.null_vertex
     null_face: Face = _Mesh3.null_face
     null_edge: Edge = _Mesh3.null_edge
-
+    # Pybind11 doesn't like halfedges for some reason
     # null_halfedge: Halfedge = _Mesh3.null_halfedge
+    null_halfedge: Halfedge = Halfedge(_Mesh3.null_edge.to_int())
 
     def __init__(self, mesh: _Mesh3 | None = None):
         """Construct a python-wrapped mesh"""
@@ -424,6 +481,9 @@ class Mesh3:
     def to_polygon_soup(self) -> Tuple[np.ndarray, np.ndarray]:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
+
+    def write_polygon_soup(self, file: str | Path) -> bool:
+        return sgm.ip.write_polygon_soup(self.mesh, str(file))
 
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self.mesh, self.vertex_index_map.pmap)

@@ -6,12 +6,20 @@
 #include <CGAL/boost/graph/Face_filtered_graph.h>
 #include <CGAL/Polygon_mesh_processing/border.h>
 #include <CGAL/Polygon_mesh_processing/connected_components.h>
+#include <CGAL/boost/graph/copy_face_graph.h>
 
 typedef CGAL::Face_filtered_graph<Mesh3>        FilteredMesh;
 
 typedef Mesh3::Property_map<V, bool>            VertBool;
 typedef Mesh3::Property_map<F, bool>            FaceBool;
 typedef Mesh3::Property_map<E, bool>            EdgeBool;
+
+
+typedef Mesh3::Property_map<V, V>            VertVertMap;
+typedef Mesh3::Property_map<F, F>            FaceFaceMap;
+typedef Mesh3::Property_map<E, E>            EdgeEdgeMap;
+typedef Mesh3::Property_map<H, H>            HalfedgeHalfedgeMap;
+
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -47,6 +55,12 @@ void define_label_connected_components_for_property_map_type(py::module &m) {
 void init_connected(py::module &m) {
     py::module sub = m.def_submodule("connected");
     sub
+        .def("edge_halfedge"), [](const Mesh3& mesh, const Indices<E>& edges) {
+            return edges.map_to_indices<H>(&mesh.halfedge);
+        }
+        .def("halfedge_edge", [](const Mesh3& mesh, const Indices<H>& halfedges) {
+            return halfedges.map_to_indices<E>(&mesh.edge);
+        })
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
             for (V v : verts.to_vector()) {
@@ -120,6 +134,21 @@ void init_connected(py::module &m) {
                 face_map[f] = i + 1;
             }
             return n_components;
+        })
+        .def("copy_faces", [](
+                const Mesh3& src,
+                Mesh3& dest,
+                const Indices<F>& faces,
+                VertVertMap& vvm,
+                FaceFaceMap& ffm,
+                HalfedgeHalfedgeMap hhm
+            ) {
+            FilteredMesh filtered(src, faces.to_vector());
+            auto params = CGAL::parameters::vertex_to_vertex_map(vvm)
+                .halfedge_to_halfedge_map(hhm)
+                .face_to_face_map(ffm);
+
+            CGAL::copy_face_graph(filtered, dest, params);
         })
         .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
             std::vector<F> out;

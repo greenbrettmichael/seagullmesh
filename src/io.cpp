@@ -71,6 +71,13 @@ void init_io(py::module &m) {
             auto points = points_to_array(verts);
             return std::make_tuple(points, faces);
         })
+        .def("write_polygon_soup", [](const Mesh3& mesh, std::string file)) {
+            std::vector<Point3> points;
+            std::vector<std::vector<size_t>> faces;
+            PMP::polygon_mesh_to_polygon_soup(mesh, points, faces);
+            bool success = CGAL::write_polygon_soup(file, points, faces);
+            return success;
+        }
         .def("load_mesh_from_file", [](const std::string filename) {
             Mesh3 mesh;
             if(!CGAL::IO::read_polygon_mesh(filename, mesh)) {
@@ -126,7 +133,7 @@ void init_io(py::module &m) {
 
             return mesh;
         })
-        .def("write_ply", [](Mesh3& mesh, std::string file) {
+        .def("write_ply", [](const Mesh3& mesh, std::string file) {
             std::ofstream out(file, std::ios::binary);
             CGAL::IO::set_binary_mode(out);
             bool success = CGAL::IO::write_PLY(out, mesh, "");
@@ -134,7 +141,7 @@ void init_io(py::module &m) {
                 throw std::runtime_error("writing failed");
             }
         })
-        .def("write_off", [](Mesh3& mesh, std::string file) {
+        .def("write_off", [](const Mesh3& mesh, std::string file) {
             std::ofstream out(file);
             bool success = CGAL::IO::write_OFF(out, mesh);
             if (!success) {
