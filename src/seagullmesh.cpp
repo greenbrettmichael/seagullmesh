@@ -34,7 +34,7 @@ PYBIND11_MODULE(_seagullmesh, m) {
     init_meshing(m);
     init_corefine(m);
     init_tube_mesher(m);
-//    init_min_sphere(m);
+    init_min_sphere(m);
 //    init_geodesic_distances(m);
 //    init_skeletonization(m);
 //    init_simplification(m);

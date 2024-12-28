@@ -1,6 +1,7 @@
 #include "seagullmesh.hpp"
 #include "util.hpp"
 
+#include <CGAL/IO/polygon_mesh_io.h>
 #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <CGAL/Polygon_mesh_processing/polygon_mesh_to_polygon_soup.h>
 #include <CGAL/Surface_mesh/IO/PLY.h>
@@ -71,13 +72,10 @@ void init_io(py::module &m) {
             auto points = points_to_array(verts);
             return std::make_tuple(points, faces);
         })
-        .def("write_polygon_soup", [](const Mesh3& mesh, std::string file)) {
-            std::vector<Point3> points;
-            std::vector<std::vector<size_t>> faces;
-            PMP::polygon_mesh_to_polygon_soup(mesh, points, faces);
-            bool success = CGAL::write_polygon_soup(file, points, faces);
+        .def("write_polygon_mesh", [](const Mesh3& mesh, std::string file) {
+            bool success = CGAL::IO::write_polygon_mesh(file, mesh);
             return success;
-        }
+        })
         .def("load_mesh_from_file", [](const std::string filename) {
             Mesh3 mesh;
             if(!CGAL::IO::read_polygon_mesh(filename, mesh)) {

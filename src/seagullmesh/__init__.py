@@ -482,8 +482,8 @@ class Mesh3:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
 
-    def write_polygon_soup(self, file: str | Path) -> bool:
-        return sgm.ip.write_polygon_soup(self.mesh, str(file))
+    def write_polygon_mesh(self, file: str | Path) -> bool:
+        return sgm.io.write_polygon_mesh(self.mesh, str(file))
 
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self.mesh, self.vertex_index_map.pmap)

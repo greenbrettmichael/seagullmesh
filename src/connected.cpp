@@ -55,11 +55,11 @@ void define_label_connected_components_for_property_map_type(py::module &m) {
 void init_connected(py::module &m) {
     py::module sub = m.def_submodule("connected");
     sub
-        .def("edge_halfedge"), [](const Mesh3& mesh, const Indices<E>& edges) {
-            return edges.map_to_indices<H>(&mesh.halfedge);
-        }
+        .def("edge_halfedge", [](const Mesh3& mesh, const Indices<E>& edges) {
+            return edges.map_to_indices<H>([&](E e) { return mesh.halfedge(e); });
+        })
         .def("halfedge_edge", [](const Mesh3& mesh, const Indices<H>& halfedges) {
-            return halfedges.map_to_indices<E>(&mesh.edge);
+            return halfedges.map_to_indices<E>([&](H h) { return mesh.edge(h); });
         })
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
@@ -135,21 +135,22 @@ void init_connected(py::module &m) {
             }
             return n_components;
         })
-        .def("copy_faces", [](
-                const Mesh3& src,
-                Mesh3& dest,
-                const Indices<F>& faces,
-                VertVertMap& vvm,
-                FaceFaceMap& ffm,
-                HalfedgeHalfedgeMap hhm
-            ) {
-            FilteredMesh filtered(src, faces.to_vector());
-            auto params = CGAL::parameters::vertex_to_vertex_map(vvm)
-                .halfedge_to_halfedge_map(hhm)
-                .face_to_face_map(ffm);
-
-            CGAL::copy_face_graph(filtered, dest, params);
-        })
+        // pybind11 doesn't like the h-h map
+//        .def("copy_faces", [](
+//                const Mesh3& src,
+//                Mesh3& dest,
+//                const Indices<F>& faces,
+//                VertVertMap& vvm,
+//                FaceFaceMap& ffm,
+//                HalfedgeHalfedgeMap hhm
+//            ) {
+//            FilteredMesh filtered(src, faces.to_vector());
+//            auto params = CGAL::parameters::vertex_to_vertex_map(vvm)
+//                .halfedge_to_halfedge_map(hhm)
+//                .face_to_face_map(ffm);
+//
+//            CGAL::copy_face_graph(filtered, dest, params);
+//        })
         .def("connected_component", [](const Mesh3& mesh, F seed_face, EdgeBool& edge_is_constrained) {
             std::vector<F> out;
             auto params = PMP::parameters::edge_is_constrained_map(edge_is_constrained);

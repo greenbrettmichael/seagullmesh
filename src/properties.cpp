@@ -203,7 +203,7 @@ void init_properties(py::module &m) {
     define_index_property_map<V, V>(sub, "V_Vertex_PropertyMap");
     define_index_property_map<F, F>(sub, "F_Face_PropertyMap");
     define_index_property_map<E, E>(sub, "E_Edge_PropertyMap");
-    define_index_property_map<H, H>(sub, "H_Halfedge_PropertyMap");
+    // define_index_property_map<H, H>(sub, "H_Halfedge_PropertyMap");
 
     define_array_property_map<V, Point2, 2, double >(sub, "V_Point2_PropertyMap");
     define_array_property_map<F, Point2, 2, double >(sub, "F_Point2_PropertyMap");

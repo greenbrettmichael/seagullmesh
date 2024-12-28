@@ -128,7 +128,7 @@ ext_modules = [
             'src/meshing.cpp',
             'src/corefine.cpp',
             'src/tube_mesher.cpp',
-            # 'src/min_sphere.cpp',
+            'src/min_sphere.cpp',
             # 'src/geodesic_distances.cpp',
             # 'src/skeletonization.cpp',
             # 'src/simplification.cpp',
