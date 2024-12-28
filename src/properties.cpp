@@ -3,6 +3,13 @@
 #include <CGAL/Polygon_mesh_processing/interpolated_corrected_curvatures.h>
 typedef CGAL::Polygon_mesh_processing::Principal_curvatures_and_directions<Kernel>    PrincipalCurvDir;
 
+
+Mesh3::Vertex_range      key_range(Mesh3& mesh, V key) { return mesh.vertices(); }
+Mesh3::Face_range        key_range(Mesh3& mesh, F key) { return mesh.faces(); }
+Mesh3::Edge_range        key_range(Mesh3& mesh, E key) { return mesh.edges(); }
+Mesh3::Halfedge_range    key_range(Mesh3& mesh, H key) { return mesh.halfedges(); }
+
+
 template <typename Key, typename Val>
 auto find_or_create_property_map(Mesh3& mesh, std::string name, const Val default_val, bool allow_preexisting) {
     typename Mesh3::Property_map<Key, Val> pmap;
@@ -57,8 +64,13 @@ auto define_property_map(py::module &m, std::string name, bool is_scalar = true)
         .def("get_vector", [](const PMap& pmap, const Indices<Key>& indices) {
             return indices.template map_to_vector<Val>([&pmap](Key k) { return pmap[k]; });
         })
-        .def("copy_values", [](const PMap& pmap, const Indices<Key>& src_idxs, const Indices<Key>& dest_idxs) {
+        .def("copy_values", [](PMap& pmap, const Indices<Key>& src_idxs, const Indices<Key>& dest_idxs) {
             src_idxs.template zip<Key>(dest_idxs, [&pmap](Key src, Key dest) { pmap[dest] = pmap[src];});
+        })
+        .def("copy_to", [](const PMap& src_pmap, PMap& dest_pmap, Mesh3& mesh) {
+            for (Key k : key_range(mesh, Key()) ) {
+                dest_pmap[k] = src_pmap[k];
+            }
         })
     ;
 }
