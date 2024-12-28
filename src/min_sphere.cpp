@@ -16,10 +16,11 @@ void init_min_sphere(py::module &m) {
             for (V v : mesh.vertices()) { points.emplace_back(vpm[v]); }
             MinSphere s(points.begin(), points.end());
 
-            // auto it = s.center_cartesian_begin();
-            std::vector<double> c(s.center_cartesian_begin(), s.center_cartesian_end());
-            Point3 center(c[0], c[1], c[2]);
-            // Point3 center(*it++, *it++, *it++);
+            auto it = s.center_cartesian_begin();
+            double x = *it++;
+            double y = *it++;
+            double z = *it;
+            Point3 center(x, y, z);
 
             return std::make_tuple(center, s.radius());
         })

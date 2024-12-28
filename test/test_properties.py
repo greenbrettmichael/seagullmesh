@@ -3,7 +3,10 @@ import pytest
 from numpy import full, arange, zeros, ones
 from numpy.testing import assert_array_equal
 
-from seagullmesh import Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices, Vertex, ArrayPropertyMap
+from seagullmesh import (
+    Mesh3, Point2, MeshData, Point3, Vector2, Vector3, sgm, Indices,
+    Vertex, Face, ArrayPropertyMap
+)
 
 props = pytest.importorskip("seagullmesh._seagullmesh.properties")
 
@@ -132,3 +135,17 @@ def test_add_mesh_adds_properties(inplace: bool):
 
     assert set(added.vertex_data['foo']) == {1, 2}
 
+
+@pytest.mark.parametrize('inplace', (False, True))
+@pytest.mark.parametrize('idx_type', (Vertex, Face))
+def test_add_mesh_does_not_add_disjoint_properties(inplace: bool, idx_type):
+    orig = Mesh3.icosahedron()
+    orig.mesh_data[idx_type]['foo'] = 1
+
+    other = Mesh3.pyramid()
+    other.mesh_data[idx_type]['bar'] = 2
+
+    added = orig.add(other, inplace=inplace)
+
+    assert 'foo' in added.mesh_data[idx_type]
+    assert 'bar' not in added.mesh_data[idx_type]

@@ -559,9 +559,27 @@ class Mesh3:
         sgm.geometry.transform(out.mesh, transform, vpm.pmap)
         return out
 
-    def scale(self, scale: float | Sequence[float], inplace: bool) -> Mesh3:
-        transform = np.diag(np.broadcast_to(scale, (3,)))
-        return self.transform(transform, inplace=inplace)
+    def translate(
+            self,
+            vec: Vector3,
+            inplace: bool,
+            vertex_point_map: str | PropertyMap[Vertex, Point3] | None = None,
+    ) -> Mesh3:
+        out = self if inplace else self.copy()
+        vpm = out.get_vertex_point_map(vertex_point_map)
+        sgm.geometry.translate(out.mesh, vec, vpm.pmap)
+        return out
+
+    def scale(
+            self,
+            scale: float,
+            inplace: bool,
+            vertex_point_map: str | PropertyMap[Vertex, Point3] | None = None,
+    ) -> Mesh3:
+        out = self if inplace else self.copy()
+        vpm = out.get_vertex_point_map(vertex_point_map)
+        sgm.geometry.scale(out.mesh, scale, vpm.pmap)
+        return out
 
     def volume(self) -> float:
         return sgm.geometry.volume(self.mesh)
