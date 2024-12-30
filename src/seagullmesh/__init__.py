@@ -497,9 +497,6 @@ class Mesh3:
         """Returns vertices (nv * 3) and faces (nf * 3) array"""
         return sgm.io.mesh3_to_polygon_soup(self.mesh)
 
-    def write_polygon_mesh(self, file: str | Path) -> bool:
-        return sgm.io.write_polygon_mesh(self.mesh, str(file))
-
     def triangle_soup(self) -> np.ndarray:
         return sgm.io.triangle_soup(self.mesh, self.vertex_index_map.pmap)
 
@@ -520,18 +517,18 @@ class Mesh3:
         return sgm.io.point_soup(self.mesh)
 
     @staticmethod
-    def from_file(filename: str) -> Mesh3:
+    def from_file(filename: str | Path) -> Mesh3:
         mesh = sgm.io.load_mesh_from_file(filename)
         return Mesh3(mesh)
 
-    def to_file(self, filename: str):
+    def to_file(self, filename: str | Path):
         ext = Path(filename).suffix
         if ext == '.ply':
-            sgm.io.write_ply(self.mesh, filename)
+            sgm.io.write_ply(self.mesh, str(filename))
         elif ext == '.off':
-            sgm.io.write_off(self.mesh, filename)
+            sgm.io.write_off(self.mesh, str(filename))
         else:
-            raise ValueError(f"Unsupported format '{ext}'")
+            return sgm.io.write_polygon_mesh(self.mesh, str(filename))
 
     @staticmethod
     def icosahedron(center: np.ndarray | Sequence[float] = (0, 0, 0), radius: float = 1.0) -> Mesh3:
