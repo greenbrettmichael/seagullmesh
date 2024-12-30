@@ -198,7 +198,7 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
         return Edges(self.mesh, sgm.connected.edges_to_faces(self.mesh.mesh, self.indices))
 
     def degrees(self) -> np.ndarray:
-        return sgm.connected.vertex_degrees(self.mesh, self.indices)
+        return sgm.connected.vertex_degrees(self.mesh.mesh, self.indices)
 
     def points(self) -> np.ndarray:
         return self.mesh.vertex_point_map[self]
@@ -221,7 +221,7 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         return mesh.mesh.n_faces
 
     def degrees(self) -> np.ndarray:
-        return sgm.connected.face_degrees(self.mesh, self.indices)
+        return sgm.connected.face_degrees(self.mesh.mesh, self.indices)
 
     def construct_points(
             self,
@@ -1197,6 +1197,9 @@ class Mesh3:
     ) -> Faces:
         with self.face_data.get_or_temp(edge_is_constrained, tempname='_ecm', default=False) as ecm:
             return sgm.connected.connected_component(self.mesh, seed_face, ecm.pmap)
+
+    def remove_isolated_vertices(self):
+        sgm.connected.remove_isolated_vertices(self.mesh)
 
     def minimum_sphere(self) -> Tuple[Point3, float]:
         """Return center point and radius of the minimum bounding sphere"""

@@ -133,6 +133,7 @@ void init_mesh(py::module &m) {
         })
         .def("is_valid", [](const Mesh3& mesh, bool verbose) { return mesh.is_valid(verbose); })
         .def("is_closed", [](const Mesh3& mesh) { return CGAL::is_closed(mesh); })
+        .def("is_triangle_mesh", [](const Mesh3& mesh) { return CGAL::is_triangle_mesh(mesh); })
     ;
 
     sub

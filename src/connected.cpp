@@ -7,6 +7,7 @@
 #include <CGAL/Polygon_mesh_processing/border.h>
 #include <CGAL/Polygon_mesh_processing/connected_components.h>
 #include <CGAL/boost/graph/copy_face_graph.h>
+#include <CGAL/Polygon_mesh_processing/repair.h>
 
 typedef CGAL::Face_filtered_graph<Mesh3>        FilteredMesh;
 
@@ -197,6 +198,7 @@ void init_connected(py::module &m) {
             CGAL::expand_face_selection(faces.to_vector(), mesh, k, is_selected, std::back_inserter(added));
             return added;
         })
+        .def("remove_isolated_vertices", [](Mesh3& mesh) { PMP::remove_isolated_vertices(mesh); })
     ;
 
     define_keep_or_remove_connected_components_for_property_map_type<F::size_type>(sub);
