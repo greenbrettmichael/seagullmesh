@@ -185,6 +185,12 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_vertices
 
+    def is_null(self) -> np.ndarray:
+        return self == Mesh3.null_vertex
+
+    def halfedges(self) -> Halfedges:
+        return Halfedges(self.mesh, sgm.connected.vertex_halfedge(self.mesh.mesh, self.indices))
+
     def adjacent_faces(self) -> Faces:
         return Faces(self.mesh, sgm.connected.vertices_to_faces(self.mesh.mesh, self.indices))
 
@@ -199,6 +205,7 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
 
     def normals(self) -> np.ndarray:
         return sgm.geometry.vertex_normals(self.mesh.mesh, self.indices)
+
 
 
 class Faces(Indices[Face, sgm.mesh.Faces]):
@@ -330,10 +337,6 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
                     pass
 
 
-
-
-
-
 class Edges(Indices[Edge, sgm.mesh.Edges]):
     index_type = Edge
     indices_type = sgm.mesh.Edges
@@ -345,6 +348,9 @@ class Edges(Indices[Edge, sgm.mesh.Edges]):
     @classmethod
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_edges
+
+    def is_null(self) -> np.ndarray:
+        return self == Mesh3.null_edge
 
     def lengths(self) -> np.ndarray:
         return sgm.geometry.edge_lengths(self.mesh.mesh, self.indices)
@@ -365,8 +371,14 @@ class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
     def n_mesh_keys(cls, mesh: Mesh3) -> int:
         return mesh.mesh.n_halfedges
 
+    def is_null(self) -> np.ndarray:
+        return self == Mesh3.null_halfedge
+
     def edges(self) -> Edges:
         return Edges(self.mesh, sgm.connected.halfedge_edge(self.mesh.mesh, self.indices))
+
+    def faces(self) -> Faces:
+        return Faces(self.mesh, sgm.connected.halfedge_face(self.mesh.mesh, self.indices))
 
 
 _PyIndicesTypes = Vertices | Faces | Edges | Halfedges
@@ -408,6 +420,9 @@ class Mesh3:
 
     def is_mesh_valid(self, verbose=False):
         return self.mesh.mesh(verbose)
+
+    def is_triangle_mesh(self) -> bool:
+        return self.mesh.is_triangle_mesh()
 
     @property
     def is_closed(self):

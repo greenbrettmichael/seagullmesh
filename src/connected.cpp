@@ -61,6 +61,12 @@ void init_connected(py::module &m) {
         .def("halfedge_edge", [](const Mesh3& mesh, const Indices<H>& halfedges) {
             return halfedges.map_to_indices<E>([&](H h) { return mesh.edge(h); });
         })
+        .def("halfedge_face", [](const Mesh3& mesh, const Indices<H>& halfedges) {
+            return halfedges.map_to_indices<F>([&](H h) { return mesh.face(h); });
+        })
+        .def("vertex_halfedge", [](const Mesh3& mesh, const Indices<V>& vertices) {
+            return vertices.map_to_indices<H>([&](V v) { return mesh.halfedge(v); });
+        })
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
             for (V v : verts.to_vector()) {
