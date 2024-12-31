@@ -34,30 +34,6 @@ typedef PMP::Principal_curvatures_and_directions<Kernel>    PrincipalCurvDir;
 typedef Mesh3::Property_map<V, PrincipalCurvDir>            VertPrincipalCurvDir;
 
 
-template<typename SizingField>
-struct SizingFieldWrapper {
-    typedef typename SizingField::FT FT;
-    SizingField wrapped;
-    VertBool& touched;
-
-    FT at(const V v, const Mesh3& mesh) const {
-        return wrapped.at(v, mesh);
-    }
-    std::optional<FT> is_too_long(const V va, const V vb, const Mesh3& mesh) const {
-        return wrapped.is_too_long(va, vb, mesh);
-    }
-    std::optional<FT> is_too_short(const H h, const Mesh3& mesh) const {
-        return wrapped.is_too_short(h, mesh);
-    }
-    Point3 split_placement(const H h, const Mesh3& mesh) const {
-        return wrapped.split_placement(h, mesh);
-    }
-    void register_split_vertex(const V v, const Mesh3& mesh) {
-        touched[v] = true;
-        wrapped.register_split_vertex(v, mesh);
-    }
-};
-
 struct TouchedVertPoint {
     // Used for tracking which verts get moved during remesh, etc
     using key_type = V;
@@ -87,15 +63,12 @@ void init_meshing(py::module &m) {
                 unsigned int n_iter,
                 bool collapse_constraints,
                 bool protect_constraints,
+                bool do_project,
                 VertBool& vertex_is_constrained_map,
                 EdgeBool& edge_is_constrained_map,
                 FaceIndex& face_patch_map,
                 VertBool& touched
             ) {
-//            using SizingField = PMP::Uniform_sizing_field<Mesh3, VertPoint>;
-//            SizingField sizing_field(target_edge_length, mesh);
-//            SizingFieldWrapper<SizingField> wrapped_sizing_field{sizing_field, touched};
-
             TouchedVertPoint vertex_point_map(mesh.points(), touched);
             PMP::Uniform_sizing_field<Mesh3, TouchedVertPoint> sizing_field(target_edge_length, vertex_point_map);
 
@@ -103,12 +76,12 @@ void init_meshing(py::module &m) {
                 number_of_iterations(n_iter)
                 .collapse_constraints(protect_constraints)
                 .protect_constraints(protect_constraints)
+                .do_project(do_project)
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
                 .face_patch_map(face_patch_map)
                 .vertex_point_map(vertex_point_map)
             ;
-            // PMP::isotropic_remeshing(faces.to_vector(), wrapped_sizing_field, mesh, params);
             PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
         .def("adaptive_isotropic_remeshing", [](
@@ -120,16 +93,12 @@ void init_meshing(py::module &m) {
                 unsigned int n_iter,
                 bool collapse_constraints,
                 bool protect_constraints,
+                bool do_project,
                 VertBool& vertex_is_constrained_map,
                 EdgeBool& edge_is_constrained_map,
                 FaceIndex& face_patch_map,
                 VertBool& touched
             ) {
-            // const std::vector<F> fs = faces.to_vector();
-
-//            using SizingField = PMP::Adaptive_sizing_field<Mesh3, VertPoint>;
-//            SizingField sizing_field(tolerance, edge_len_min_max, fs, mesh);
-//            SizingFieldWrapper<SizingField> wrapped_sizing_field{sizing_field, touched};
             TouchedVertPoint vertex_point_map(mesh.points(), touched);
 
             // Not sure about this but I think we need to supply the entire face range to the sizing field
@@ -141,12 +110,12 @@ void init_meshing(py::module &m) {
                 number_of_iterations(n_iter)
                 .collapse_constraints(collapse_constraints)
                 .protect_constraints(protect_constraints)
+                .do_project(do_project)
                 .vertex_is_constrained_map(vertex_is_constrained_map)
                 .edge_is_constrained_map(edge_is_constrained_map)
                 .face_patch_map(face_patch_map)
                 .vertex_point_map(vertex_point_map)
             ;
-            // PMP::isotropic_remeshing(fs, wrapped_sizing_field, mesh, params);
             PMP::isotropic_remeshing(faces.to_vector(), sizing_field, mesh, params);
         })
         .def("remesh_delaunay", [](Mesh3& mesh, EdgeBool& edge_is_constrained_map){

@@ -759,6 +759,7 @@ class Mesh3:
             n_iter: int = 1,
             collapse_constraints=True,
             protect_constraints=False,
+            do_project=True,
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             face_patch_map: str | PropertyMap[Face, int] = '_fpm',
@@ -785,7 +786,7 @@ class Mesh3:
         ):
             sgm.meshing.uniform_isotropic_remeshing(
                 self.mesh, faces.indices, target_edge_length, n_iter,
-                collapse_constraints, protect_constraints,
+                collapse_constraints, protect_constraints, do_project,
                 vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
             )
 
@@ -797,6 +798,7 @@ class Mesh3:
             ball_radius: float = -1.0,
             collapse_constraints=True,
             protect_constraints=False,
+            do_project=True,
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             face_patch_map: str | PropertyMap[Face, int] = '_fpm',
@@ -821,7 +823,7 @@ class Mesh3:
         ):
             sgm.meshing.adaptive_isotropic_remeshing(
                 self.mesh, faces.indices, tolerance, ball_radius, edge_len_min_max, n_iter,
-                collapse_constraints, protect_constraints,
+                collapse_constraints, protect_constraints, do_project,
                 vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
             )
 
