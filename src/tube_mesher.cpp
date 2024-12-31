@@ -197,11 +197,9 @@ class TubeMesher {
     }
 
     // (t, theta) -> Point
-    using Calculator = std::function<Point3 (double, double)>;
+    using Calculator = std::function<std::optional<Point3> (double, double)>;
 
-    std::pair<double, double> parametric_midpoint(const H h) const {
-        const V v0 = mesh.source(h);
-        const V v1 = mesh.target(h);
+    std::pair<double, double> parametric_midpoint(const V v0, const V v1) const {
         const double t0 = t_map[v0];
         const double t1 = t_map[v1];
         double t_mid, theta_mid;
@@ -228,6 +226,7 @@ class TubeMesher {
     void split_long_edges(double edge_length, Calculator calculator) {
         double sq_thresh = edge_length * edge_length;
         typedef std::pair<H, double> H_and_sql;
+        auto vpm = mesh.points();
 
         // Collect long edges
         std::multiset< H_and_sql, std::function<bool(H_and_sql, H_and_sql)> >
@@ -252,13 +251,18 @@ class TubeMesher {
             long_edges.erase(eit);
 
             // Split edge
-            auto [t_mid, theta_mid] = parametric_midpoint(h);
+            const V v0 = mesh.source(h);
+            const V v1 = mesh.target(h);
+            auto [t_mid, theta_mid] = parametric_midpoint(v0, v1);
             H h_new = CGAL::Euler::split_edge(h, mesh);
             V v_mid = mesh.target(h_new);
             t_map[v_mid] = t_mid;
             theta_map[v_mid] = theta_mid;
-            Point3 pt_mid = calculator(t_mid, theta_mid);
-            mesh.points()[v_mid] = pt_mid;
+            if ( auto pt_mid = calculator(t_mid, theta_mid) ) {
+                vpm[v_mid] = *pt_mid;
+            } else {
+                vpm[v_mid] = CGAL::midpoint(vpm[v0], vpm[v1]);
+            }
 
             // Check the subedges
             if  (double sqlen = PMP::squared_edge_length(h_new, mesh); sqlen > sq_thresh) {
