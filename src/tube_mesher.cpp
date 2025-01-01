@@ -197,7 +197,7 @@ class TubeMesher {
     }
 
     // (t, theta) -> Point
-    using Calculator = std::function<std::optional<Point3> (double, double)>;
+    using Calculator = std::function<Point3 (double, double)>;
 
     std::pair<double, double> parametric_midpoint(const V v0, const V v1) const {
         const double t0 = t_map[v0];
@@ -258,14 +258,10 @@ class TubeMesher {
             V v_mid = mesh.target(h_new);
             t_map[v_mid] = t_mid;
             theta_map[v_mid] = theta_mid;
-            if ( auto pt_mid = calculator(t_mid, theta_mid) ) {
-                vpm[v_mid] = *pt_mid;
-            } else {
-                vpm[v_mid] = CGAL::midpoint(vpm[v0], vpm[v1]);
-            }
+            vpm[v_mid] = calculator(t_mid, theta_mid);
 
             // Check the subedges
-            if  (double sqlen = PMP::squared_edge_length(h_new, mesh); sqlen > sq_thresh) {
+            if (double sqlen = PMP::squared_edge_length(h_new, mesh); sqlen > sq_thresh) {
                 long_edges.emplace(h_new, sqlen);
             }
             H h_next = mesh.next(h_new);
