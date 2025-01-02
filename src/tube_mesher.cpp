@@ -7,6 +7,7 @@
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 #include <CGAL/Polygon_mesh_processing/orientation.h>
 #include <CGAL/Polygon_mesh_processing/remesh.h>
+#include <CGAL/Polygon_mesh_processing/border.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -166,30 +167,34 @@ class TubeMesher {
 
     public:
     void add_xs(double t, const py::array_t<double>& theta, const py::array_t<double>& pts) {
-        nxs++;
         add_points_and_radial_edges(t, theta, pts);
         
-        if (nxs == 1) {
-            prev_radial_edge = radial_edges[0];
-            if (closed) { add_cap_face(mesh.opposite(prev_radial_edge)); }
-            return;
+        if (nxs > 0) {
+            // The first incoming edge between adjacent cross-sections at theta=0
+            next_radial_edge = mesh.opposite(radial_edges[0]);
+            H incoming = mesh.add_edge(verts[0], mesh.source(prev_radial_edge));
+            H outgoing;
+
+            do {
+                outgoing = add_axial_face(prev_radial_edge, next_radial_edge, incoming);
+                incoming = mesh.opposite(outgoing);
+            } while (mesh.target(outgoing) != verts[0]);
         }
 
-        // The first incoming edge between adjacent cross-sections at theta=0
-        next_radial_edge = mesh.opposite(radial_edges[0]);
-        H incoming = mesh.add_edge(verts[0], mesh.source(prev_radial_edge));
-        H outgoing;
-
-        do {
-            outgoing = add_axial_face(prev_radial_edge, next_radial_edge, incoming);
-            incoming = mesh.opposite(outgoing);
-        } while (mesh.target(outgoing) != verts[0]);
-
+        nxs += 1;
         prev_radial_edge = radial_edges[0];
     }
     void finish() {
-        if (closed){ add_cap_face(radial_edges[0]); }
         if (flip_normals) { PMP::reverse_face_orientations(mesh); }
+        if (closed) {
+            // Extract halfedges first, then cap.
+            // (Not sure if it's safe to add faces while iterating over boundaries)
+            std::vector<H> boundary_cycles;
+            PMP::extract_boundary_cycles(mesh, std::back_inserter(boundary_cycles));
+            for (H h : boundary_cycles) {
+                add_cap_face(h);
+            }
+        }
         if (triangulate) {
             TriangulateTubeVisitor visitor(is_cap_map);
             PMP::triangulate_faces(mesh, PMP::parameters::visitor(visitor));
