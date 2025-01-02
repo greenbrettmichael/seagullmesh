@@ -191,6 +191,9 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
     def halfedges(self) -> Halfedges:
         return Halfedges(self.mesh, sgm.connected.vertex_halfedge(self.mesh.mesh, self.indices))
 
+    def adjacent_vertices(self) -> Vertices:
+        return Vertices(self.mesh, sgm.connected.vertices_to_vertices(self.mesh.mesh, self.indices))
+
     def adjacent_faces(self) -> Faces:
         return Faces(self.mesh, sgm.connected.vertices_to_faces(self.mesh.mesh, self.indices))
 
@@ -206,6 +209,10 @@ class Vertices(Indices[Vertex, sgm.mesh.Vertices]):
     def normals(self) -> np.ndarray:
         return sgm.geometry.vertex_normals(self.mesh.mesh, self.indices)
 
+    def expand_selection(self, is_selected: PropertyMap[Vertex, bool], k: int = 1) -> Vertices:
+        is_selected = self.mesh_data.get(is_selected, default=False)
+        added = sgm.connected.expand_vertex_selection(self.mesh.mesh, self.indices, k, is_selected.pmap)
+        return Vertices(self.mesh, added)
 
 
 class Faces(Indices[Face, sgm.mesh.Faces]):
@@ -379,6 +386,12 @@ class Halfedges(Indices[Halfedge, sgm.mesh.Halfedges]):
 
     def faces(self) -> Faces:
         return Faces(self.mesh, sgm.connected.halfedge_face(self.mesh.mesh, self.indices))
+
+    def sources(self) -> Vertices:
+        return Vertices(self.mesh, sgm.connected.halfedge_source(self.mesh.mesh, self.indices))
+
+    def targets(self) -> Vertices:
+        return Vertices(self.mesh, sgm.connected.halfedge_target(self.mesh.mesh, self.indices))
 
 
 _PyIndicesTypes = Vertices | Faces | Edges | Halfedges
@@ -1135,17 +1148,6 @@ class Mesh3:
         is_selected = self.face_data.get(is_selected, default=False)
         sgm.connected.regularize_face_selection_borders(
             self.mesh, is_selected.pmap, weight, prevent_unselection)
-
-    def expand_vertex_selection(
-            self,
-            vertices: Vertices,
-            k: int,
-            is_selected: str | PropertyMap,
-    ) -> Vertices:
-        is_selected = self.vertex_data.get(is_selected, default=False)
-        added = sgm.connected.expand_vertex_selection(
-            self.mesh, vertices.indices, k, is_selected.pmap)
-        return Vertices(self, added)
 
     def label_selected_face_patches(self, faces: Faces, face_patch_idx: PropertyMap[Face, int] | str):
         # faces not in faces are labeled face_patch_idx=0, otherwise 1 + the index of the patch of selected regions

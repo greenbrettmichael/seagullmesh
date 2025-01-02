@@ -68,6 +68,21 @@ void init_connected(py::module &m) {
         .def("vertex_halfedge", [](const Mesh3& mesh, const Indices<V>& vertices) {
             return vertices.map_to_indices<H>([&](V v) { return mesh.halfedge(v); });
         })
+        .def("halfedge_source", [](const Mesh3& mesh, const Indices<H>& halfedges) {
+            return halfedges.map_to_indices<V>([&](H h) { return mesh.source(h); });
+        })
+        .def("halfedge_target", [](const Mesh3& mesh, const Indices<H>& halfedges) {
+            return halfedges.map_to_indices<V>([&](H h) { return mesh.target(h); });
+        })
+        .def("vertices_to_vertices", [](const Mesh3& mesh, const Indices<V>& verts) {
+            std::set<V> out;
+            for (V v : verts.to_vector()) {
+                for (H h : halfedges_around_source(v, mesh)) {
+                    out.insert(mesh.target(h));
+                }
+            }
+            return Indices<V>(out);
+        })
         .def("vertices_to_faces", [](const Mesh3& mesh, const Indices<V>& verts) {
             std::set<F> faces;
             for (V v : verts.to_vector()) {
@@ -191,7 +206,7 @@ void init_connected(py::module &m) {
         .def("expand_vertex_selection", [](Mesh3& mesh, Indices<V>& verts, unsigned int k, VertBool& is_selected) {
             std::vector<V> added;
             CGAL::expand_vertex_selection(verts.to_vector(), mesh, k, is_selected, std::back_inserter(added));
-            return added;
+            return Indices<V>(added);
         })
         .def("expand_face_selection", [](Mesh3& mesh, Indices<F>& faces, unsigned int k, FaceBool& is_selected) {
             std::vector<F> added;

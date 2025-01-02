@@ -73,8 +73,11 @@ void init_io(py::module &m) {
             return std::make_tuple(points, faces);
         })
         .def("write_polygon_mesh", [](const Mesh3& mesh, std::string file) {
+            // https://doc.cgal.org/latest/BGL/group__PkgBGLIOFct.html#gafa143949a33371dc6df8307be1ab8a66
             bool success = CGAL::IO::write_polygon_mesh(file, mesh);
-            return success;
+            if (!success) {
+                throw std::runtime_error("writing failed");
+            }
         })
         .def("load_mesh_from_file", [](const std::string filename) {
             Mesh3 mesh;
