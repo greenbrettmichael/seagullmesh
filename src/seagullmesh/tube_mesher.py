@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from seagullmesh import Mesh3, PropertyMap, Vertex, Face
+from seagullmesh import Mesh3, PropertyMap, Vertex, Face, Point3
 from seagullmesh._seagullmesh import tube_mesher
 
 
@@ -51,6 +51,29 @@ class TubeMesher:
 
         return tm.finish()
 
-    def split_long_edges_from_sampled_surf(self, t: np.ndarray, theta: np.ndarray, surf: np.ndarray, edge_length: float):
-        interp = tube_mesher.TubeInterpolator(t, theta, surf)
-        self.tube_mesher.split_long_edges(edge_length, interp)
+    def split_long_edges(
+            self,
+            t: np.ndarray,
+            theta: np.ndarray,
+            surf: np.ndarray,
+            edge_length: float,
+            verbose: bool = False,
+            mode = 'old',
+    ):
+        if mode == 'old':
+            # Construct an interpolator so we can subdivide long edges
+            from scipy.interpolate import RegularGridInterpolator
+            interpolator = RegularGridInterpolator(
+                points=(t, np.append(theta, 2 * np.pi)),  # duplicate the point at theta=0 to theta=2pi
+                values=surf[:, np.append(arange(len(theta), 0)), :],
+                method='linear',
+            )
+
+            def calculator(t_i: float, theta_i: float) -> Point3:
+                (x, y, z), = interpolator([t_i, theta_i])
+                return Point3(x, y, z)
+
+            # Subdivide long edges
+            self.tube_mesher.split_long_edges(edge_length * 1.01, calculator)
+        else:
+            self.tube_mesher.split_long_edges(edge_length, t, theta, surf, verbose)
