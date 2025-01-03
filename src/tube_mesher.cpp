@@ -44,58 +44,68 @@ class TubeInterpolator {
         CGAL_assertion(surf.shape(1) == ntheta);
         CGAL_assertion(surf.shape(2) == 3);
 
-        if (verbose) {
-            std::cout << "Constructed\n";
-        }
+        // So don't need to handle the theta idxer going off the back
+        thetas.push_back(2 * CGAL_PI);
     }
-
     Point3 operator()(double t, double theta) const {
-        CGAL_assertion(theta >= 0);
+        CGAL_assertion(theta >= 0 && theta < 2 * CGAL_PI);
+        CGAL_assertion(t >= t_min && t <= t_max);
+
         if (verbose) {
             std::cout << "t=" << t << ", theta=" << theta << std::endl;
         }
-
         auto t_it = std::lower_bound(ts.begin(), ts.end(), t);
-        size_t t1_idx, t2_idx;
-        if ( t_it == ts.begin() ) {
-            t1_idx = 0;
-            t2_idx = 1;
-        } else if ( t_it == ts.end() ) {
-            t1_idx = nt - 2;
-            t2_idx = nt - 1;
-        } else {
-            t2_idx = t_it - ts.begin();
-            CGAL_assertion(t2_idx > 0);
-            t1_idx = t2_idx - 1;
-        }
-        double t1 = ts[t1_idx];
-        double t2 = ts[t2_idx];
-
-        if (verbose) {
-             std::cout << "t1 (" << t1 << ") <= t (" << t << ") <= t2 (" << t2
-                << " idxs [" << t1_idx << ", " << t2_idx << "]" << std::endl;
-        }
-
-        double theta1, theta2;
-        size_t theta1_idx, theta2_idx;
         auto theta_it = std::lower_bound(thetas.begin(), thetas.end(), theta);
-        if (theta_it == thetas.begin() ) {
-            theta1_idx = 0;
-            theta2_idx = 1;
-            theta1 = 0;
-            theta2 = thetas[1];
-        } else if ( theta_it == thetas.end() ) {
-            theta1_idx = ntheta - 1;
-            theta1 = *(--theta_it);
-            theta2 = 2 * CGAL_PI;
-            theta2_idx = 0;
-        } else {
-            theta2 = *theta_it;
-            theta2_idx = theta_it - thetas.begin();
-            CGAL_assertion(theta2_idx > 0);
-            theta1 = *(--theta_it);
-            theta1_idx = theta2_idx - 1;
+
+        bool t_exact = *t_it == t;
+        bool theta_exact = *theta_it == theta;
+
+        if (t_exact && theta_exact) {
+            size_t t_idx = t_it - ts.begin();
+            size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
+            return Point3(
+                rsurf(t_idx, theta_idx, 0),
+                rsurf(t_idx, theta_idx, 1),
+                rsurf(t_idx, theta_idx, 2)
+            );
+        } else if (theta_exact) {
+            size_t t2_idx = t_it - ts.begin();
+            double t2 = *t_it;
+            double t1_idx = t2_idx - 1;
+            double t1 = *(--t_it);
+
+            size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
+            double w = (t - t1) / (t2 - t1);
+            return Point3(
+                (1 - w)  * rsurf(t1_idx, theta_idx, 0) + w * rsurf(t2_idx, theta_idx, 0),
+                (1 - w)  * rsurf(t1_idx, theta_idx, 1) + w * rsurf(t2_idx, theta_idx, 1),
+                (1 - w)  * rsurf(t1_idx, theta_idx, 2) + w * rsurf(t2_idx, theta_idx, 2)
+            );
+        } else if (t_exact) {
+            size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
+            double theta2 = *theta_it;
+            size_t theta1_idx = (--theta_it) - thetas.begin();
+            double theta1 = *theta_it;
+
+            double w = (theta - theta1) / (theta2 - theta1);
+            size_t t_idx = t_it - ts.begin();
+            return Point3(
+                (1 - w)  * rsurf(t_idx, theta1_idx, 0) + w * rsurf(t_idx, theta2_idx, 0),
+                (1 - w)  * rsurf(t_idx, theta1_idx, 1) + w * rsurf(t_idx, theta2_idx, 1),
+                (1 - w)  * rsurf(t_idx, theta1_idx, 2) + w * rsurf(t_idx, theta2_idx, 2)
+            );
         }
+
+        size_t t2_idx = t_it - ts.begin();
+        double t2 = *t_it;
+        double t1_idx = t2_idx - 1;
+        double t1 = *(--t_it);
+
+        size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
+        double theta2 = *theta_it;
+        size_t theta1_idx = (--theta_it) - thetas.begin();
+        double theta1 = *theta_it;
+
         if (verbose) {
              std::cout << "theta1 (" << theta1 << ") <= theta (" << theta << ") <= theta2 (" << theta2
                 << " idxs [" << theta1_idx << ", " << theta2_idx << "]" << std::endl;
@@ -134,6 +144,7 @@ class TubeInterpolator {
 
         return Point3(xyz[0], xyz[1], xyz[2]);
     }
+
 };
 
 
