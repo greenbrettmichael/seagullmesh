@@ -50,3 +50,7 @@ class TubeMesher:
             tm.add_xs(t=z, theta=theta, pts=pts)
 
         return tm.finish()
+
+    def split_long_edges_from_sampled_surf(self, t: np.ndarray, theta: np.ndarray, surf: np.ndarray, edge_length: float):
+        interp = tube_mesher.TubeInterpolator(t, theta, surf)
+        self.tube_mesher.split_long_edges(edge_length, interp)
