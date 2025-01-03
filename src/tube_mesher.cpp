@@ -20,33 +20,51 @@ class TubeInterpolator {
     std::vector<double> thetas;
     const py::array_t<double>& surf;
     const py::detail::unchecked_reference<double, 3> rsurf;
+    size_t nt;
+    size_t ntheta;
+    double t_min;
+    double t_max;
 
     public:
     TubeInterpolator(
         std::vector<double> ts,
         std::vector<double> thetas,
         const py::array_t<double, py::array::c_style>& surf
-    ) : ts(ts), thetas(thetas), surf(surf), rsurf(surf.unchecked<3>()) {
-        CGAL_assertion(surf.shape(0) == ts.size());
-        CGAL_assertion(surf.shape(1) == thetas.size());
+    ) :     ts(ts), thetas(thetas), surf(surf), rsurf(surf.unchecked<3>()),
+            nt(ts.size()), ntheta(thetas.size()), t_min(ts[0]), t_max(ts[nt - 1]) {
+        CGAL_assertion(nt >= 2);
+        CGAL_assertion(ntheta >= 3);
+        CGAL_assertion(thetas[0] == 0);
+        CGAL_assertion(thetas[ntheta - 1] < 2 * CGAL_PI);
+        CGAL_assertion(std::is_sorted(ts.begin(), ts.end()));
+        CGAL_assertion(std::is_sorted(thetas.begin(), thetas.end()));
+        CGAL_assertion(surf.shape(0) == nt);
+        CGAL_assertion(surf.shape(1) == ntheta);
         CGAL_assertion(surf.shape(2) == 3);
     }
 
-    Point3 interpolate(double t, double theta) const {
-        double t1, t2;
-        size_t t1_idx, t2_idx;
+    Point3 operator()(double t, double theta) const {
         auto t_it = std::lower_bound(ts.begin(), ts.end(), t);
-        t2 = *t_it;
-        t2_idx = t_it - ts.begin();
-        t1 = *(--t_it);
-        t1_idx = t2_idx - 1;
+        size_t t2_idx;
+        if ( t_it == ts.end() ) {
+            t2_idx = nt - 1;
+        } else {
+            t2_idx = t_it - ts.begin();
+        }
+        size_t t1_idx = t2_idx - 1;
+        double t1 = ts[t1_idx];
+        double t2 = ts[t2_idx];
+
+//        CGAL_assertion(t2_idx < nt);
+//        CGAL_assertion(t1_idx >= 0);
+        // std::cout << "tidx1, t1 " << t1_idx << ", " << t1 << " tidx2, t2 " << t2_idx << ", " << t2 << "\n";
 
         double theta1, theta2;
         size_t theta1_idx, theta2_idx;
         auto theta_it = std::lower_bound(thetas.begin(), thetas.end(), theta);
         if ( theta_it == thetas.end() ) {
             theta1 = *(--theta_it);
-            theta1_idx = thetas.size() - 1;
+            theta1_idx = ntheta - 1;
             theta2 = 2 * CGAL_PI;
             theta2_idx = 0;
         } else {
@@ -55,10 +73,14 @@ class TubeInterpolator {
             theta1 = *(--theta_it);
             theta1_idx = theta2_idx - 1;
         }
+//        CGAL_assertion(theta2_idx < ntheta);
+//        CGAL_assertion(theta2_idx >= 0);
+//        CGAL_assertion(theta1_idx >= 0);
+        // std::cout << "thetaidx1, theta1 " << theta1_idx << ", " << theta1 << " thetaidx2, theta2 " << theta2_idx << ", " << theta2 << "\n";
 
         double dt1 = t - t1;
         double dt2 = t2 - t;
-        double dtheta1 = t - theta1;
+        double dtheta1 = theta - theta1;
         double dtheta2 = theta2 - theta;
         double d_t_theta = (t2 - t1) * (theta2 - theta1);
 
@@ -66,6 +88,13 @@ class TubeInterpolator {
         double w12 = dt2 * dtheta1;
         double w21 = dt1 * dtheta2;
         double w22 = dt1 * dtheta1;
+
+//        double w11_ = w11 / d_t_theta;
+//        double w12_ = w12 / d_t_theta;
+//        double w21_ = w21 / d_t_theta;
+//        double w22_ = w22 / d_t_theta;
+//        double w_all = w11_ + w12_ + w21_ + w22_;  // should be ~= 1.0
+//        std::cout << w11_ << ", " << w12_ << ", " << w21_ << ", " << w22_ << " sum = " << w_all << "\n";
 
         double xyz[3] = {0.0, 0.0, 0.0};
 
@@ -354,7 +383,9 @@ void init_tube_mesher(py::module &m) {
                 std::vector<double>,
                 const py::array_t<double, py::array::c_style>&
             >())
-        .def("interpolate", &TubeInterpolator::interpolate)
+        .def("__call__", [](const TubeInterpolator& interpolator, double t, double theta) {
+            return interpolator(t, theta);
+        })
     ;
 
     py::class_<TubeMesher>(sub, "TubeMesher")
@@ -365,12 +396,12 @@ void init_tube_mesher(py::module &m) {
         .def_readwrite("closed", &TubeMesher::closed)
         .def_readwrite("triangulate", &TubeMesher::triangulate)
         .def_readwrite("flip_normals", &TubeMesher::flip_normals)
-//        .def("split_long_edges", &[](TubeMesher& tm, double edge_length, TubeMesher::Calculator calculator){
-//            return tm.split_long_edges(edge_length, calculator);
-//        })
-//        .def("split_long_edges2", &[](TubeMesher& tm, double edge_length, const TubeInterpolator& interpolator) {
-//            auto calculator = [&](double t, double theta) { return interpolator.interpolate(t, theta); };
-//            return tm.split_long_edges(edge_length, calculator);
-//        })
+        .def("split_long_edges", [](TubeMesher& tm, double edge_length, TubeMesher::Calculator calculator){
+            return tm.split_long_edges(edge_length, calculator);
+        })
+        .def("split_long_edges", [](TubeMesher& tm, double edge_length, const TubeInterpolator& interpolator) {
+            auto calculator = [&](double t, double theta) { return interpolator(t, theta); };
+            return tm.split_long_edges(edge_length, calculator);
+        })
     ;
 }
