@@ -15,6 +15,9 @@ typedef Mesh3::Property_map<V, double>  VertDouble;
 typedef Mesh3::Property_map<F, bool>    FaceBool;
 
 
+// A cylindrical grid bilinear interpolator that maps thet axial parameter `t`
+// and the radial parameter `theta` to a surface point in \euclidean 3
+// `surf` is the sampled surface, an array of size (nt, ntheta, 3)
 class TubeInterpolator {
     std::vector<double> ts;
     std::vector<double> thetas;
@@ -44,92 +47,109 @@ class TubeInterpolator {
         CGAL_assertion(surf.shape(1) == ntheta);
         CGAL_assertion(surf.shape(2) == 3);
 
-        // So don't need to handle the theta idxer going off the back
+        // Manually adding 2pi so thetas[ntheta] = 2pi
+        // so we can index `surf` with `[theta_idx % ntheta]` to get thetas[0]
         thetas.push_back(2 * CGAL_PI);
     }
-    Point3 operator()(double t, double theta) const {
-        CGAL_assertion(theta >= 0 && theta < 2 * CGAL_PI);
-        CGAL_assertion(t >= t_min && t <= t_max);
-
+    Point3 operator()(const double t, const double theta) const {
+        // Interpolate surface position at parameters (t, theta)
+        // https://en.wikipedia.org/wiki/Bilinear_interpolation
+        
         if (verbose) {
             std::cout << "t=" << t << ", theta=" << theta << std::endl;
         }
+
+        CGAL_assertion(t >= t_min && t <= t_max);
+        CGAL_assertion(theta >= 0 && theta <= 2 * CGAL_PI); // SHOULD be theta strictly < 2pi but = is fine too
+
+        // Find the indices of t and theta in our known indexes
         auto t_it = std::lower_bound(ts.begin(), ts.end(), t);
         auto theta_it = std::lower_bound(thetas.begin(), thetas.end(), theta);
 
-        bool t_exact = *t_it == t;
-        bool theta_exact = *theta_it == theta;
+        // Note that we're assuming they're <= the max value so we don't have to check if iterator == iterator.end()
+        const bool t_exact = *t_it == t;
+        const bool theta_exact = *theta_it == theta;
 
         if (t_exact && theta_exact) {
-            size_t t_idx = t_it - ts.begin();
-            size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
+            // No need to interpolate anything
+            const size_t t_idx = t_it - ts.begin();
+            const size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
             return Point3(
-                rsurf(t_idx, theta_idx, 0),
-                rsurf(t_idx, theta_idx, 1),
-                rsurf(t_idx, theta_idx, 2)
+                /* x */ rsurf(t_idx, theta_idx, 0),
+                /* y */ rsurf(t_idx, theta_idx, 1),
+                /* z */ rsurf(t_idx, theta_idx, 2)
             );
         } else if (theta_exact) {
-            size_t t2_idx = t_it - ts.begin();
-            double t2 = *t_it;
-            double t1_idx = t2_idx - 1;
-            double t1 = *(--t_it);
+            // Linear interpolation on the axial parameter t
+            //      P(t, theta) = (1 - w)•P(t1, theta) + w•P(t2, theta)
+            const size_t t2_idx = t_it - ts.begin();
+            const double t2 = *t_it;
+            const double t1 = *(--t_it);
+            const double t1_idx = t2_idx - 1; // equivalently t1_idx = t_it - ts.begin()
 
-            size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
-            double w = (t - t1) / (t2 - t1);
+            const size_t theta_idx = (theta_it - thetas.begin()) % ntheta;
+            const double w = (t - t1) / (t2 - t1);
             return Point3(
-                (1 - w)  * rsurf(t1_idx, theta_idx, 0) + w * rsurf(t2_idx, theta_idx, 0),
-                (1 - w)  * rsurf(t1_idx, theta_idx, 1) + w * rsurf(t2_idx, theta_idx, 1),
-                (1 - w)  * rsurf(t1_idx, theta_idx, 2) + w * rsurf(t2_idx, theta_idx, 2)
+                /* x */ (1 - w)  * rsurf(t1_idx, theta_idx, 0) + w * rsurf(t2_idx, theta_idx, 0),
+                /* y */ (1 - w)  * rsurf(t1_idx, theta_idx, 1) + w * rsurf(t2_idx, theta_idx, 1),
+                /* z */ (1 - w)  * rsurf(t1_idx, theta_idx, 2) + w * rsurf(t2_idx, theta_idx, 2)
             );
         } else if (t_exact) {
-            size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
-            double theta2 = *theta_it;
-            size_t theta1_idx = (--theta_it) - thetas.begin();
-            double theta1 = *theta_it;
+            // Linear interpolation on the radial parameter theta
+            //      P(t, theta) = (1 - w)•P(t, theta1) + w•P(t, theta2)
 
-            double w = (theta - theta1) / (theta2 - theta1);
-            size_t t_idx = t_it - ts.begin();
+            // If the theta value is larger than then theta_max,
+            // set theta2 = 2pi but theta2_idx = ntheta % ntheta = 0
+            const size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
+            const double theta2 = *theta_it;
+            const size_t theta1_idx = (--theta_it) - thetas.begin();
+            const double theta1 = *theta_it;
+
+            const double w = (theta - theta1) / (theta2 - theta1);
+            const size_t t_idx = t_it - ts.begin();
             return Point3(
-                (1 - w)  * rsurf(t_idx, theta1_idx, 0) + w * rsurf(t_idx, theta2_idx, 0),
-                (1 - w)  * rsurf(t_idx, theta1_idx, 1) + w * rsurf(t_idx, theta2_idx, 1),
-                (1 - w)  * rsurf(t_idx, theta1_idx, 2) + w * rsurf(t_idx, theta2_idx, 2)
+                /* x */ (1 - w)  * rsurf(t_idx, theta1_idx, 0) + w * rsurf(t_idx, theta2_idx, 0),
+                /* y */ (1 - w)  * rsurf(t_idx, theta1_idx, 1) + w * rsurf(t_idx, theta2_idx, 1),
+                /* z */ (1 - w)  * rsurf(t_idx, theta1_idx, 2) + w * rsurf(t_idx, theta2_idx, 2)
             );
         }
 
-        size_t t2_idx = t_it - ts.begin();
-        double t2 = *t_it;
-        double t1_idx = t2_idx - 1;
-        double t1 = *(--t_it);
+        // In the general case do bilinear interpolation on both t and theta
+        const size_t t2_idx = t_it - ts.begin();
+        const double t2 = *t_it;
+        const double t1_idx = t2_idx - 1;
+        const double t1 = *(--t_it);
 
-        size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
-        double theta2 = *theta_it;
-        size_t theta1_idx = (--theta_it) - thetas.begin();
-        double theta1 = *theta_it;
+        const size_t theta2_idx = (theta_it - thetas.begin()) % ntheta;
+        const double theta2 = *theta_it;
+        const size_t theta1_idx = (--theta_it) - thetas.begin();
+        const double theta1 = *theta_it;
 
         if (verbose) {
              std::cout << "theta1 (" << theta1 << ") <= theta (" << theta << ") <= theta2 (" << theta2
                 << " idxs [" << theta1_idx << ", " << theta2_idx << "]" << std::endl;
         }
 
-        double dt1 = t - t1;
-        double dt2 = t2 - t;
-        double dtheta1 = theta - theta1;
-        double dtheta2 = theta2 - theta;
-        double d_t_theta = (t2 - t1) * (theta2 - theta1);
+        // Some intermediate calculations
+        const double dt1 = t - t1;
+        const double dt2 = t2 - t;
+        const double dtheta1 = theta - theta1;
+        const double dtheta2 = theta2 - theta;
+        const double dt_dtheta = (t2 - t1) * (theta2 - theta1);
 
-        double w11 = dt2 * dtheta2;
-        double w12 = dt2 * dtheta1;
-        double w21 = dt1 * dtheta2;
-        double w22 = dt1 * dtheta1;
-
-        if (verbose) {
-            double w11_ = w11 / d_t_theta;
-            double w12_ = w12 / d_t_theta;
-            double w21_ = w21 / d_t_theta;
-            double w22_ = w22 / d_t_theta;
-            double w_all = w11_ + w12_ + w21_ + w22_;  // should be ~= 1.0
-            std::cout << w11_ << ", " << w12_ << ", " << w21_ << ", " << w22_ << " sum = " << w_all << std::endl;
-        }
+        // Evaluate weighted sum of the four known points:
+        //  P(t, theta) = (
+        //        w11•P(t1, theta1)
+        //      + w12•P(t1, theta2)
+        //      + w21•P(t2, theta1)
+        //      + w22•P(t2, theta2)
+        //  ) / (t2 - t1)(theta2 - theta1)
+        //
+        //  I.e. we have (w11 + w12 + w21 + w22) / (t2 - t1)(theta2 - theta1) approx= 1
+        const double w11 = dt2 * dtheta2;
+        const double w12 = dt2 * dtheta1;
+        const double w21 = dt1 * dtheta2;
+        const double w22 = dt1 * dtheta1;
 
         double xyz[3] = {0.0, 0.0, 0.0};
 
@@ -139,12 +159,11 @@ class TubeInterpolator {
                 + w12 * rsurf(t1_idx, theta2_idx, i)
                 + w21 * rsurf(t2_idx, theta1_idx, i)
                 + w22 * rsurf(t2_idx, theta2_idx, i)
-            ) / d_t_theta;
+            ) / dt_dtheta;
         }
 
         return Point3(xyz[0], xyz[1], xyz[2]);
     }
-
 };
 
 
@@ -176,7 +195,7 @@ class TubeMesher {
         mesh(mesh), t_map(t_map), theta_map(theta_map), is_cap_map(is_cap_map) {}
 
     private:
-    void add_points_and_radial_edges(
+    void add_xs_points_and_radial_edges(
             const double t,
             const py::array_t<double>& theta,
             const py::array_t<double>& pts
@@ -211,19 +230,20 @@ class TubeMesher {
     }
     H add_axial_face(H p, H q, H incoming) {
         /*
-        The incoming edge connects two vertices on adjacent cross-sections
-        with the same theta value. Incrementally walk in the positive theta
-        direction until we find another pair of vertices with the same
-        theta values and add an outgoing axial edge to close the loop around the
-        newly created face.
+        The `incoming` halfedge connects a pair of vertices on adjacent cross-sections (xs)
+        with the same theta value. Let `q = source(incoming)` be the vertex on the next cross-section `next_xs`,
+        and `p = target(incoming)` the vertex on the previous cross-section `prev_xs`.
+
+        Incrementally walk in the positive theta direction until we find another pair of vertices with the same
+        theta values and add an outgoing axial halfedge to close the loop around the newly created face.
 
         positive t
             ^                   q (halfedge on next_xs)
             |             +<----------- +
-            |             |          theta_q
-            |             |
-            |    incoming |
-            |             v          theta_p
+            |             |          theta_q                ^
+            |             |                                 | outgoing
+            |    incoming |                                 |  (what we're searching for)
+            |             v          theta_p                |
             |             +-----------> +
             |                   p (halfedge on prev_xs)
             |
@@ -242,13 +262,15 @@ class TubeMesher {
         double theta_p = theta_map[mesh.target(p)];
 
         while (theta_p != theta_q) {
-            if ( theta_q != 0 && (theta_p > theta_q || theta_p == 0)) {  // Further ahead on prev xs, so advance on next xs
+            if ( theta_q != 0 && (theta_p > theta_q || theta_p == 0)) {
+                // Further ahead on prev xs, so advance on next xs
                 q = mesh.prev(q);
                 mesh.set_face(q, f);
                 double theta_q1 = theta_map[mesh.source(q)];
                 CGAL_assertion((theta_q1 > theta_q) || (theta_q1 == 0));
                 theta_q = theta_q1;
-            } else if (theta_p != 0 && (theta_q > theta_p || theta_q == 0)) {  // Further ahead on next xs, so advance on prev xs
+            } else if (theta_p != 0 && (theta_q > theta_p || theta_q == 0)) {
+                // Further ahead on next xs, so advance on prev xs
                 p = mesh.next(p);
                 mesh.set_face(p, f);
                 double theta_p1 = theta_map[mesh.target(p)];
@@ -277,7 +299,8 @@ class TubeMesher {
         return outgoing;
     }
 
-    struct TriangulateTubeVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
+   // A visitor to propagate the `is_cap` flag on cap faces when triangulating
+   struct TriangulateTubeVisitor : public PMP::Triangulate_faces::Default_visitor<Mesh3> {
         FaceBool& is_cap_map;
         bool is_cap;
         TriangulateTubeVisitor(FaceBool& is_cap_map) : is_cap_map(is_cap_map) {}
@@ -300,8 +323,9 @@ class TubeMesher {
 
     public:
     void add_xs(double t, const py::array_t<double>& theta, const py::array_t<double>& pts) {
-        add_points_and_radial_edges(t, theta, pts);
-        
+        add_xs_points_and_radial_edges(t, theta, pts);
+
+        // If this isn't the first cross-section, add quasi-quadrilateral faces between this xs and the previous
         if (nxs > 0) {
             // The first incoming edge between adjacent cross-sections at theta=0
             next_radial_edge = mesh.opposite(radial_edges[0]);
@@ -320,10 +344,11 @@ class TubeMesher {
     void finish() {
         if (flip_normals) { PMP::reverse_face_orientations(mesh); }
         if (closed) {
-            // Extract halfedges first, then cap.
-            // (Not sure if it's safe to add faces while iterating over boundaries)
+            // Extract the two boundary edges halfedges first, then cap.
+            // (Not sure if it's safe to assign halfedge faces while iterating over boundaries half-edges)
             std::vector<H> boundary_cycles;
             PMP::extract_boundary_cycles(mesh, std::back_inserter(boundary_cycles));
+            // CGAL_assertion(boundary_cycles.size() == 2)
             for (H h : boundary_cycles) {
                 add_cap_face(h);
             }
@@ -334,10 +359,10 @@ class TubeMesher {
         }
     }
 
-    // (t, theta) -> Point
-    using Calculator = std::function<Point3 (double, double)>;
-
     std::pair<double, double> parametric_midpoint(const V v0, const V v1) const {
+        // Assumes a grid edge between the two vertices `v0` and `v1` that is either
+        //      1. strictly radial between v0(t, theta0) and v1(t, theta1)
+        //  OR  2. strictly axial  between v0(t0, theta) and v1(t1, theta)
         const double t0 = t_map[v0];
         const double t1 = t_map[v1];
         double t_mid, theta_mid;
@@ -359,6 +384,9 @@ class TubeMesher {
 
         return {t_mid, theta_mid};
     }
+
+    // Calculator is a function that maps (t, theta) -> Point3
+    using Calculator = std::function<Point3 (double, double)>;
 
     public:
     void split_long_edges(double edge_length, Calculator calculator) {
@@ -398,7 +426,7 @@ class TubeMesher {
             theta_map[v_mid] = theta_mid;
             vpm[v_mid] = calculator(t_mid, theta_mid);
 
-            // Check the subedges
+            // Check the subedges' lengths if they need to be split too
             if (double sqlen = PMP::squared_edge_length(h_new, mesh); sqlen > sq_thresh) {
                 long_edges.emplace(h_new, sqlen);
             }
