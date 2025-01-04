@@ -23,7 +23,7 @@ from .util import mesh
 def test_explicit_property_map_construction(mesh, data_name, cls, default):
     d = getattr(mesh, data_name)
     d['foo'] = cls(mesh.mesh, 'foo', default)
-    assert (d['foo'][:] == default).all()
+    assert np.all(d['foo'][:] == default)
 
 
 @pytest.mark.parametrize(
@@ -71,6 +71,13 @@ def test_scalar_properties(mesh, key_type, val_type):
     data.remove('foo')
     assert 'foo' not in data.keys()
     assert 'foo' not in data
+
+
+def test_nonzero(mesh):
+    vs = mesh.vertices
+    bool_vals = mesh.vertex_data.create('flag', default=False)
+    bool_vals[vs[::2]] = True
+    assert np.all(bool_vals.nonzero(vs) == vs[::2])
 
 
 @pytest.mark.parametrize('key_type', ['vertex', 'face', 'edge', 'halfedge'])

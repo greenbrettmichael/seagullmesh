@@ -69,7 +69,7 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
         ...
 
     @staticmethod
-    def py_indices_type(cpp_indices_type: _CppIndicesTypes) -> Type[_PyIndicesTypes]:
+    def py_indices_type(cpp_indices_type: type[_CppIndicesTypes]) -> Type[_PyIndicesTypes]:
         try:
             return Indices._cpp_indices_to_py_indices[cpp_indices_type]
         except KeyError:
@@ -83,7 +83,10 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
     def _array(self) -> np.ndarray:  # array of ints
         return self.indices.indices  # mapped to Indices.get_indices() on the C++ side
 
-    def _with_array(self, arr: np.NDArray[np.uint32]) -> Self:
+    def _with_array(
+            self,
+            arr: np.ndarray  # more specifically NDArray[np.uint32]
+    ) -> Self:
         indices = self.indices_type(arr)
         return type(self)(self.mesh, indices)
 
@@ -100,11 +103,11 @@ class Indices(Generic[TIndex, TIndices], Sequence[TIndex], Sized):
     def __eq__(self, other: TIndex | Self) -> np.ndarray:
         # e.g. (these_faces == that_face) -> array[bool]
         if isinstance(other, self.index_type):
-            return self._array == other.to_int()
+            return np.equal(self._array, other.to_int())
 
         # e.g. (these_faces == those_faces) -> array[bool]
         elif isinstance(other, Indices) and (other.index_type is self.index_type):
-            return self._array == other._array
+            return np.equal(self._array, other._array)
         else:
             msg = f"Can only compare indices of the same type, got self={self} and other={other}"
             raise TypeError(msg)
@@ -776,7 +779,7 @@ class Mesh3:
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             face_patch_map: str | PropertyMap[Face, int] = '_fpm',
-            touched: str | PropertyMap[Vertex, bool] = '_touched',
+            flagged: str | PropertyMap[Vertex, bool] = '_flagged',
             faces: Optional[Faces] = None,
     ) -> None:
         """Perform isotropic remeshing on the specified faces (default: all faces).
@@ -784,23 +787,20 @@ class Mesh3:
         Vertices and edges can be constrained by setting their corresponding values in the
         vertex_constrained and edge_constrained maps to True. Constrained vertices cannot be
         modified during remeshing. Constrained edges *can* be split or collapsed, but not flipped,
-        nor its endpoints moved. (If protect_constraints=True, constrained edges cannot be split or
+        nor its endpoints moved. If protect_constraints=True, constrained edges cannot be split or
         collapsed.
-
-        If an optional `touched_map: PropertyMap[Vertex, bool]` mapping vertices to bools is
-        specified, vertices that were created or moved during the remeshing are flagged as True.
         """
         faces = self.faces if faces is None else faces
         with (
             self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.face_data.get_or_temp(face_patch_map, temp_name='_fpm', default=0, dtype='uint32') as fpm,
-            self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
+            self.vertex_data.get_or_temp(flagged, temp_name='_flagged', default=False) as flagged,
         ):
             sgm.meshing.uniform_isotropic_remeshing(
                 self.mesh, faces.indices, target_edge_length, n_iter,
                 collapse_constraints, protect_constraints, do_project,
-                vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
+                vcm.pmap, ecm.pmap, fpm.pmap, flagged.pmap
             )
 
     def remesh_adaptive(
@@ -815,7 +815,7 @@ class Mesh3:
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
             edge_constrained: str | PropertyMap[Edge, bool] = '_ecm',
             face_patch_map: str | PropertyMap[Face, int] = '_fpm',
-            touched: str | PropertyMap[Vertex, bool] = '_touched',
+            flagged: str | PropertyMap[Vertex, bool] = '_flagged',
             faces: Optional[Faces] = None,
     ) -> None:
         """Isotropic remeshing with a sizing field adaptive to the local curvature.
@@ -832,12 +832,12 @@ class Mesh3:
             self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm,
             self.edge_data.get_or_temp(edge_constrained, temp_name='_ecm', default=False) as ecm,
             self.face_data.get_or_temp(face_patch_map, temp_name='_fpm', default=0, dtype='uint32') as fpm,
-            self.vertex_data.get_or_temp(touched, temp_name='_touched', default=False) as touched,
+            self.vertex_data.get_or_temp(flagged, temp_name='_flagged', default=False) as flagged,
         ):
             sgm.meshing.adaptive_isotropic_remeshing(
                 self.mesh, faces.indices, tolerance, ball_radius, edge_len_min_max, n_iter,
                 collapse_constraints, protect_constraints, do_project,
-                vcm.pmap, ecm.pmap, fpm.pmap, touched.pmap
+                vcm.pmap, ecm.pmap, fpm.pmap, flagged.pmap
             )
 
     def split_long_edges(
@@ -964,7 +964,7 @@ class Mesh3:
     def arap(self, uv_map: str | PropertyMap[Vertex, Point2]) -> None:
         """Performs as-rigid-as-possible parameterization
 
-        Raises a seagullmesh.ParametrizationError if parametrization fails.
+        Raises a seagullmesh.ParametrizationError if parameterization fails.
         """
         uv_map = self.vertex_data.get(uv_map, default=Point2(0, 0))
         msg = sgm.parametrize.arap(self.mesh, uv_map.pmap)
@@ -1217,11 +1217,12 @@ def _bbox_diagonal(points: np.ndarray):
     return np.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2)
 
 
-"""Something that can vector-index a property map"""
-IntoIndices = np.ndarray | slice | Sequence[Key]
-
-
 class PropertyMap(Generic[Key, Val], ABC):
+    """Python wrapper around _Mesh3::Property_Map"""
+
+    """Something that can vector-index a property map"""
+    _IntoIndices = np.ndarray | slice | Sequence[Key]
+
     def __init__(self, pmap, data: MeshData[Key], dtype: str):
         self.pmap = pmap  # the C++ object
         self.data = data
@@ -1241,7 +1242,7 @@ class PropertyMap(Generic[Key, Val], ABC):
         msg = f"Tried to index a {self.data.key_type} property map with {idxs} indices"
         raise TypeError(msg)
 
-    def _to_cpp_indices(self, key: IntoIndices[Key]) -> _CppIndicesTypes:
+    def _to_cpp_indices(self, key: _IntoIndices) -> _CppIndicesTypes:
         # Returns the C++ indexer -- sgm.mesh.Vertices, sgm.mesh.Faces, etc
         if isinstance(key, Indices):
             if key.index_type is self.data.key_type:
@@ -1249,7 +1250,7 @@ class PropertyMap(Generic[Key, Val], ABC):
             else:
                 msg = f'Tried to index a {self.data.key_type} property map with {key.index_type} indices'
                 raise TypeError(msg)
-        elif isinstance(key, _CppIndicesTypes):  # This should only happen internally..
+        elif isinstance(key, _CppIndicesTypes):  # This should only happen internally
             return self._check_cpp_indices(key)
 
         # Two remaining possibilities:
@@ -1268,7 +1269,7 @@ class PropertyMap(Generic[Key, Val], ABC):
         ...
 
     @overload
-    def __getitem__(self, key: IntoIndices[Key]) -> np.ndarray:
+    def __getitem__(self, key: _IntoIndices) -> np.ndarray:
         ...
 
     def __getitem__(self, key):
@@ -1288,7 +1289,7 @@ class PropertyMap(Generic[Key, Val], ABC):
         ...
 
     @overload
-    def __setitem__(self, key: IntoIndices[Key], val: np.ndarray | Sequence[Val]) -> None:
+    def __setitem__(self, key: _IntoIndices, val: np.ndarray | Sequence[Val]) -> None:
         ...
 
     def __setitem__(self, key, val) -> None:
@@ -1330,15 +1331,15 @@ class ScalarPropertyMap(PropertyMap[Key, Val]):
     def nonzero(self, idxs: Indices[Key] | None = None) -> Indices[Key]:
         idxs = idxs or self.data.all_mesh_keys
         vals = self[idxs]
-        return idxs[np.nonzero(vals)]
+        return idxs[np.nonzero(vals)]  # type: ignore
 
 
 class ArrayPropertyMap(PropertyMap[Key, Val]):
-    def get_objects(self, key: IntoIndices[Key]) -> Sequence[Val]:
+    def get_objects(self, key: np.ndarray | slice | Sequence[Key]) -> Sequence[Val]:
         # __getitem__ defaults to returning array(nk, ndim), also allow returning list[Point2]
         return self.pmap.get_vector(self._to_cpp_indices(key))
 
-    def set_objects(self, key: IntoIndices[Key], val: Sequence[Val]) -> None:
+    def set_objects(self, key: np.ndarray | slice | Sequence[Key], val: Sequence[Val]) -> None:
         # handled by the general case
         self[key] = val
 
@@ -1348,6 +1349,10 @@ VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
 
 class MeshData(Generic[Key]):
+    """Super class for VertexData, FaceData, EdgeData, HalfedgeData
+
+    Maps propertymap names to property maps.
+    """
     py_indices_type: Type[_PyIndicesTypes]  # set by subclass
 
     # set in __init_subclass__
@@ -1357,13 +1362,16 @@ class MeshData(Generic[Key]):
     _prefix: str  # V, F, E, H
 
     def __init__(self, mesh: Mesh3):
-        self._data: Dict[str, PropertyMap[Key]] = {}
+        self._data: Dict[str, PropertyMap[Key, Any]] = {}
         self.mesh = mesh  # python wrapped mesh
 
     _dtype_mappings: dict[type, str] = {
         float: 'double',
         int: 'int64',
     }
+
+    def __len__(self) -> int:
+        return len(self._data)
 
     @property
     def all_mesh_keys(self) -> Indices:
@@ -1435,7 +1443,7 @@ class MeshData(Generic[Key]):
             name: str,
             default: Val,
             dtype: str | np.dtype | None = None,
-    ) -> PropertyMap[Key, Val]:
+    ) -> PropertyMap[Key, Any]:
         """Add a property map
 
         The type of the map's value is inferred from the default value. E.g.
@@ -1473,7 +1481,7 @@ class MeshData(Generic[Key]):
             name: str,
             wrapper_cls: Type[PropertyMap] | None = None,
             dtype_name: str = 'unknown',
-    ) -> PropertyMap[Key]:
+    ) -> PropertyMap[Key, Any]:
         # Finds a pre-existing pmap, wraps it, and returns it without adding it to self
         pmap = pmap_cls.get_property_map(self.mesh.mesh, name)  # noqa
         if pmap is None:
@@ -1489,7 +1497,7 @@ class MeshData(Generic[Key]):
             cpp_pmap,  # the c++ class,
             wrapper_cls: Type[PropertyMap] | None = None,
             dtype_name: str = 'unknown',
-    ) -> PropertyMap[Key]:
+    ) -> PropertyMap[Key, Any]:
         if wrapper_cls is None:
             wrapper_cls = ScalarPropertyMap if cpp_pmap.is_scalar else ArrayPropertyMap
         return wrapper_cls(pmap=cpp_pmap, data=self, dtype=dtype_name)
