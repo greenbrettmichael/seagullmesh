@@ -8,6 +8,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overl
     Generic, Iterator, Type, Dict, Literal, Callable, Sized
 
 import numpy as np
+from pygments.lexer import default
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
@@ -906,6 +907,7 @@ class Mesh3:
             time: float,
             n_iter: int,
             vertex_constrained: str | PropertyMap[Vertex, bool] = '_vcm',
+            vertex_weights: np.ndarray | None = None,
     ) -> None:
         """Smooth the mesh shape by mean curvature flow
 
@@ -913,7 +915,13 @@ class Mesh3:
          more iterations with a smaller step. Typical values scale in the interval (1e-6, 1]
         """
         with self.vertex_data.get_or_temp(vertex_constrained, temp_name='_vcm', default=False) as vcm:
-            sgm.meshing.smooth_shape(self.mesh, faces.indices, time, n_iter, vcm.pmap)
+            if vertex_weights is None:
+                sgm.meshing.smooth_shape(self.mesh, faces.indices, time, n_iter, vcm.pmap)
+            else:
+                with self.vertex_data.temp('_smooth_vertex_weights', default=1.0) as weights:
+                    weights[self.vertices] = vertex_weights
+                    sgm.meshing.smooth_shape_weighted(
+                        self.mesh, faces.indices, time, n_iter, vcm.pmap, weights.pmap)
 
     def does_self_intersect(self) -> bool:
         """Returns True if the mesh self-intersects"""
@@ -1139,6 +1147,28 @@ class Mesh3:
             sgm.geometry.reverse_face_orientations(self.mesh)
         return self
 
+    def degenerate_faces(self) -> Faces:
+        return Faces(self, sgm.geometry.degenerate_faces(self.mesh))
+
+    def remove_almost_degenerate_faces(
+            self,
+            faces: Faces,
+            cap_threshold: float = np.cos(np.deg2rad(160)),
+            needle_threshold: float = 4,
+            collapse_length_threshold: float = 0,
+            flip_triangle_height_threshold: float = 0,
+            vertex_is_constrained: PropertyMap[Vertex, bool] = '_vcm',
+            edge_is_constrained: PropertyMap[Edge, bool] = '_ecm',
+    ):
+        with (
+            self.vertex_data.get_or_temp(vertex_is_constrained, '_vcm', default=False) as vcm,
+            self.edge_data.get_or_temp(edge_is_constrained, '_ecm', default=False) as ecm,
+        ):
+            sgm.geometry.remove_almost_degenerate_faces(
+                self.mesh, faces.indices, cap_threshold, needle_threshold,
+                collapse_length_threshold, flip_triangle_height_threshold,
+                vcm.pmap, ecm.pmap
+            )
     def regularize_face_selection_borders(
             self,
             is_selected: str | PropertyMap[Face, bool],
