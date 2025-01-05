@@ -66,6 +66,38 @@ struct SizingFieldWrapper {
 };
 
 
+struct WeightedMoveVertex {
+    // a vertex-point-map-like
+    using key_type = V;
+    using value_type = Point3;
+    using reference = Point3&;
+    using category = boost::read_write_property_map_tag;
+
+    VertPoint& points;
+    VertDouble& weights;
+
+    WeightedMoveVertex(VertPoint& p, VertDouble& w) : points(p), weights(w) {}
+
+    friend Point3& get (const WeightedMoveVertex& self, V v) { return self.points[v]; }
+    friend void put (const WeightedMoveVertex& self, V v, const Point3& p1) {
+        const double w1 = self.weights[v];
+        if (w1 <= 0.0) {
+            return;
+        } else if (w1 >= 1.0) {
+            self.points[v] = p1;
+        } else {
+            const Point3& p0 = self.points[v];
+            const double w0 = 1.0 - w1;
+            self.points[v] = Point3(
+                w0 * p0.x() + w1 * p1.x(),
+                w0 * p0.y() + w1 * p1.y(),
+                w0 * p0.z() + w1 * p1.z()
+            );
+        }
+    }
+};
+
+
 void init_meshing(py::module &m) {
     m.def_submodule("meshing")
         .def("uniform_isotropic_remeshing", [](
@@ -198,6 +230,23 @@ void init_meshing(py::module &m) {
             auto params = PMP::parameters::
                 number_of_iterations(n_iter)
                 .vertex_is_constrained_map(vertex_is_constrained_map)
+            ;
+            PMP::smooth_shape(faces.to_vector(), mesh, time, params);
+        })
+        .def("smooth_shape_weighted", [](
+            Mesh3& mesh,
+            const Indices<F>& faces,
+            const double time,
+            unsigned int n_iter,
+            VertBool& vertex_is_constrained_map,
+            VertDouble& vertex_weights
+        ) {
+            WeightedMoveVertex vpm(mesh.points(), vertex_weights);
+
+            auto params = PMP::parameters::
+                number_of_iterations(n_iter)
+                .vertex_is_constrained_map(vertex_is_constrained_map)
+                .vertex_point_map(vpm)
             ;
             PMP::smooth_shape(faces.to_vector(), mesh, time, params);
         })

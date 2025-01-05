@@ -9,11 +9,14 @@
 #include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 #include <CGAL/Polygon_mesh_processing/transform.h>
 #include <CGAL/aff_transformation_tags.h>
+#include <CGAL/Polygon_mesh_processing/shape_predicates.h>
+#include <CGAL/Polygon_mesh_processing/repair_degeneracies.h>
 
 typedef CGAL::Bbox_3 BBox3;
-typedef CGAL::Aff_transformation_3<Kernel> Transform3;
-typedef Mesh3::Property_map<V, Point3>     VertPoint3;
-
+typedef CGAL::Aff_transformation_3<Kernel>  Transform3;
+typedef Mesh3::Property_map<V, Point3>      VertPoint3;
+typedef Mesh3::Property_map<E, bool>        EdgeBool;
+typedef Mesh3::Property_map<V, bool>        VertBool;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -117,6 +120,33 @@ void init_geometry(py::module &m) {
         })
         .def("centroid", [](const Mesh3& mesh, const VertPoint3& vpm) {
             return PMP::centroid(mesh, PMP::parameters::vertex_point_map(vpm));
+        })
+        .def("remove_almost_degenerate_faces", [](
+            Mesh3& mesh,
+            const Indices<F>& faces,
+            double cap_threshold,
+            double needle_threshold,
+            double collapse_length_threshold,
+            double flip_triangle_height_threshold,
+            VertBool& vertex_is_constrained,
+            EdgeBool& edge_is_constrained
+            ) {
+
+                auto params = PMP::parameters::
+                     cap_threshold(cap_threshold)
+                    .needle_threshold(needle_threshold)
+                    .collapse_length_threshold(collapse_length_threshold)
+                    .flip_triangle_height_threshold(flip_triangle_height_threshold)
+                    .vertex_is_constrained_map(vertex_is_constrained)
+                    .edge_is_constrained_map(edge_is_constrained)
+                ;
+
+            PMP::remove_almost_degenerate_faces(faces.to_vector(), mesh, params);
+        })
+        .def("degenerate_faces", [](const Mesh3& mesh) {
+            std::vector<F> faces;
+            PMP::degenerate_faces(mesh.faces(), mesh, std::back_inserter(faces));
+            return Indices<F>(faces);
         })
     ;
 }
