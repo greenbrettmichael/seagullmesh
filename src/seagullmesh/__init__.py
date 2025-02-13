@@ -8,7 +8,6 @@ from typing import Any, Optional, TYPE_CHECKING, Union, Sequence, TypeVar, overl
     Generic, Iterator, Type, Dict, Literal, Callable, Sized
 
 import numpy as np
-from pygments.lexer import default
 from seagullmesh._seagullmesh.mesh import (
     Mesh3 as _Mesh3,
     Point2, Point3, Vector2, Vector3,
@@ -415,13 +414,11 @@ class Mesh3:
         """The C++ mesh object being wrapped"""
         self.mesh = mesh if mesh else _Mesh3()
 
-        if hasattr(sgm, 'properties'):
-            self.mesh_data: dict[Type[TIndex], MeshData[TIndex]] = {}
-            # Allow installing seagullmesh without the properties modules
-            self.vertex_data = self.mesh_data[Vertex] = self.vd = VertexData(self)
-            self.face_data = self.mesh_data[Face] = self.fd = FaceData(self)
-            self.edge_data = self.mesh_data[Edge] = self.ed = EdgeData(self)
-            self.halfedge_data = self.mesh_data[Halfedge] = self.hd = HalfedgeData(self)
+        self.mesh_data: dict[Type[TIndex], MeshData[TIndex]] = {}
+        self.vertex_data = self.mesh_data[Vertex] = self.vd = VertexData(self)
+        self.face_data = self.mesh_data[Face] = self.fd = FaceData(self)
+        self.edge_data = self.mesh_data[Edge] = self.ed = EdgeData(self)
+        self.halfedge_data = self.mesh_data[Halfedge] = self.hd = HalfedgeData(self)
 
     n_vertices = nv = property(lambda self: self.mesh.n_vertices)
     n_faces = nf = property(lambda self: self.mesh.n_faces)
