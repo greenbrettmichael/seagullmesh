@@ -1121,6 +1121,7 @@ class Mesh3:
     @staticmethod
     def from_alpha_wrapping(
             points: np.ndarray,
+            faces: np.ndarray | None = None,
             alpha: float | None = None,
             offset: float | None = None,
             relative_alpha: float = 20,
@@ -1131,7 +1132,10 @@ class Mesh3:
             alpha = diagonal / relative_alpha if alpha is None else alpha
             offset = diagonal / relative_offset if offset is None else offset
 
-        mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
+        if faces is None:
+            mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
+        else:
+            mesh = sgm.alpha_wrapping.wrap_faces(points, faces, alpha, offset)
         return Mesh3(mesh)
 
     def approximate_mesh(self, n_max_proxies: int) -> Mesh3:
