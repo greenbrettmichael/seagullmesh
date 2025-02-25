@@ -82,24 +82,24 @@ class Corefiner:
     def __init__(self, mesh0: Mesh3, mesh1: Mesh3, **kwargs):
         self._spec: list[_TrackSpec] = [_TrackSpec(0, mesh0), _TrackSpec(1, mesh1)]
         if kwargs:
-            self.track(**kwargs)
+            self.track_input_mesh(**kwargs)
 
-    def track(self, mesh_idx: int | None = None, **kwargs) -> Self:
+    def track_input_mesh(self, mesh_idx: int | None = None, **kwargs) -> Self:
         mesh_idxs = range(2) if mesh_idx is None else (mesh_idx,)
         for i in mesh_idxs:
             self._spec[i] = replace(self._spec[i], **kwargs)
         return self
 
-    def _realize(self) -> Tuple[corefine.CorefineTracker, _Tracked, _Tracked]:
+    def _track(self) -> Tuple[corefine.CorefineTracker, list[_Tracked]]:
         tracked0 = self._spec[0].realize()
         tracked1 = self._spec[1].realize()
         tracker = corefine.CorefineTracker()
         tracked0.to_tracker(tracker)
         tracked1.to_tracker(tracker)
-        return tracker, tracked0, tracked1
+        return tracker, [tracked0, tracked1]
 
     def corefine(self):
-        tracker, t0, t1 = self._realize()
+        tracker, t0, t1 = self._track()
         corefine.corefine(
             t0.mesh.mesh, t1.mesh.mesh,
             t0.edge_is_constrained.pmap,
@@ -108,22 +108,40 @@ class Corefiner:
         )
         return Corefined([t0, t1])
 
-    def union(self):
-        tracker, t0, t1 = self._realize()
-        corefine.union(
-            t0.mesh.mesh, t1.mesh.mesh,
-            t0.edge_is_constrained.pmap,
-            t1.edge_is_constrained.pmap,
+    def _compute(self, fn, out: Mesh3 | None, **kwargs) -> Corefined:
+        tracker, tracked = self._track()
+
+        if out is None:
+            out = tracked[0].mesh
+        elif out not in (tracked[0].mesh, tracked[1].mesh):
+            tracked_output = _TrackSpec(idx=2, mesh=out, **kwargs).realize()
+            tracked_output.to_tracker(tracker)
+            tracked.append(tracked_output)
+
+        fn(
+            tracked[0].mesh.mesh,
+            tracked[1].mesh.mesh,
+            tracked[0].edge_is_constrained.pmap,
+            tracked[1].edge_is_constrained.pmap,
             tracker,
-            t0.mesh.mesh  # Also needs to specify output
+            out.mesh  # Also needs to specify output
         )
-        return Corefined([t0, t1])
+        return Corefined(tracked)
+
+    def union(self, out: Mesh3 | None = None, **kwargs):
+        return self._compute(corefine.union, out=out, **kwargs)
+
+    def intersection(self, out: Mesh3 | None = None, **kwargs):
+        return self._compute(corefine.intersection, out=out, **kwargs)
+
+    def difference(self, out: Mesh3 | None = None, **kwargs):
+        return self._compute(corefine.intersection, out=out, **kwargs)
 
     def clip(self, clip_volume: bool = False, use_compact_clipper: bool = False):
         # TODO doesn't need the ecms...
-        tracker, t0, t1 = self._realize()
-        corefine.clip(t0.mesh.mesh, t1.mesh.mesh, tracker, clip_volume, use_compact_clipper)
-        return Corefined([t0, t1])
+        tracker, tracked = self._track()
+        corefine.clip(tracked[0].mesh.mesh, tracked[1].mesh.mesh, tracker, clip_volume, use_compact_clipper)
+        return Corefined(tracked)
 
 
 class Corefined:

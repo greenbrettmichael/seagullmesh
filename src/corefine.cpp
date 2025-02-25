@@ -14,6 +14,7 @@ typedef Mesh3::Property_map<V, int32_t> VertMeshMap;
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     struct Tracked {
         size_t mesh_idx; // 0, 1, or 2
+        // TODO are these supposed to be references? Or copying them is fine I guess?
         FaceMeshMap face_mesh_map;  // F -> 0, 1, 2
         FaceFaceMap face_face_map;  // F -> F_original
         VertMeshMap vert_mesh_map; // V -> 0, 1, 2
@@ -93,6 +94,32 @@ void init_corefine(py::module &m) {
             auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
             return PMP::corefine_and_compute_union(mesh1, mesh2, output, params1, params2);
         })
+        .def("intersection", [](
+                Mesh3& mesh1,
+                Mesh3& mesh2,
+                EdgeBool& ecm1,
+                EdgeBool& ecm2,
+                CorefineTracker &tracker,
+                Mesh3& output
+        ) {
+            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
+            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
+            return PMP::corefine_and_compute_intersection(mesh1, mesh2, output, params1, params2);
+        })
+        .def("difference", [](
+                Mesh3& mesh1,
+                Mesh3& mesh2,
+                EdgeBool& ecm1,
+                EdgeBool& ecm2,
+                CorefineTracker &tracker,
+                Mesh3& output
+        ) {
+            auto params1 = PMP::parameters::visitor(tracker).edge_is_constrained_map(ecm1);
+            auto params2 = PMP::parameters::edge_is_constrained_map(ecm2);
+            return PMP::corefine_and_compute_difference(mesh1, mesh2, output, params1, params2);
+        })
+        // TODO corefine_and_compute_boolean_operations
+        // TODO just pass the tracker object
         .def("clip", [](
                 Mesh3& mesh,
                 Mesh3& clipper,
