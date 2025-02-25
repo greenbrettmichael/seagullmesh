@@ -24,7 +24,7 @@ m1 = sm1.to_pyvista(True)
 
 # sm0.vertex_data.create('is_new', default=False)
 
-corefined = sm0.corefiner(sm1).track_input_mesh(0, edge_is_constrained='edge_is_constrained').corefine()
+corefined = sm0.corefiner(sm1).track(0, edge_is_constrained='edge_is_constrained').corefine()
 
 face_patches = sm0.face_data.create('face_patch', default=0)
 n_components = sm0.label_connected_components(

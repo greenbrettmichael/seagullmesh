@@ -27,7 +27,7 @@ class _TrackSpec:
         self.orig_face_properties = list(self.mesh.face_data.keys())
         self.orig_face_properties = list(self.mesh.edge_data.keys())
 
-    def realize(self):
+    def realize(self, tracker: corefine.CorefineTracker):
         ecm = self.mesh.edge_data.get(
             self.edge_is_constrained or '_temp_edge_is_constrained', default=False)
 
@@ -46,6 +46,12 @@ class _TrackSpec:
         faces = self.mesh.faces
         face_face_map[faces] = faces
 
+        # Register references with the C++ tracker
+        tracker.track(
+            self.mesh.mesh, self.idx, face_mesh_map.pmap,
+            face_face_map.pmap, vert_mesh_map.pmap, ecm.pmap,
+        )
+
         return _Tracked(self.idx, self.mesh, self, ecm, face_mesh_map, face_face_map, vert_mesh_map)
 
 
@@ -58,12 +64,6 @@ class _Tracked:
     face_mesh_map: PropertyMap[Face, int]
     face_face_map: PropertyMap[Face, Face]
     vert_mesh_map: PropertyMap[Vertex, int]
-
-    def to_tracker(self, tracker: corefine.CorefineTracker):
-        tracker.track(
-            self.mesh.mesh, self.idx, self.face_mesh_map.pmap,
-            self.face_face_map.pmap, self.vert_mesh_map.pmap,
-        )
 
     @cached_property
     def faces(self) -> Faces:
@@ -82,24 +82,29 @@ class Corefiner:
     def __init__(self, mesh0: Mesh3, mesh1: Mesh3, **kwargs):
         self._spec: list[_TrackSpec] = [_TrackSpec(0, mesh0), _TrackSpec(1, mesh1)]
         if kwargs:
-            self.track_input_mesh(**kwargs)
+            self.track(**kwargs)
 
-    def track_input_mesh(self, mesh_idx: int | None = None, **kwargs) -> Self:
-        mesh_idxs = range(2) if mesh_idx is None else (mesh_idx,)
+    def track(self, mesh_idx: int | Sequence[int] | None, **kwargs) -> Self:
+        if mesh_idx is None:
+            mesh_idxs = range(2)
+        elif isinstance(mesh_idx, int):
+            mesh_idxs = mesh_idx,
+        else:
+            mesh_idxs = mesh_idx
+
         for i in mesh_idxs:
             self._spec[i] = replace(self._spec[i], **kwargs)
+
         return self
 
     def _track(self) -> Tuple[corefine.CorefineTracker, list[_Tracked]]:
-        tracked0 = self._spec[0].realize()
-        tracked1 = self._spec[1].realize()
         tracker = corefine.CorefineTracker()
-        tracked0.to_tracker(tracker)
-        tracked1.to_tracker(tracker)
+        tracked0 = self._spec[0].realize(tracker)
+        tracked1 = self._spec[1].realize(tracker)
         return tracker, [tracked0, tracked1]
 
     def corefine(self):
-        tracker, t0, t1 = self._track()
+        tracker, (t0, t1) = self._track()
         corefine.corefine(
             t0.mesh.mesh, t1.mesh.mesh,
             t0.edge_is_constrained.pmap,
@@ -114,8 +119,7 @@ class Corefiner:
         if out is None:
             out = tracked[0].mesh
         elif out not in (tracked[0].mesh, tracked[1].mesh):
-            tracked_output = _TrackSpec(idx=2, mesh=out, **kwargs).realize()
-            tracked_output.to_tracker(tracker)
+            tracked_output = _TrackSpec(idx=2, mesh=out, **kwargs).realize(tracked)
             tracked.append(tracked_output)
 
         fn(

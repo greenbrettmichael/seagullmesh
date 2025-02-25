@@ -14,10 +14,10 @@ typedef Mesh3::Property_map<V, int32_t> VertMeshMap;
 struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
     struct Tracked {
         size_t mesh_idx; // 0, 1, or 2
-        // TODO are these supposed to be references? Or copying them is fine I guess?
         FaceMeshMap face_mesh_map;  // F -> 0, 1, 2
         FaceFaceMap face_face_map;  // F -> F_original
-        VertMeshMap vert_mesh_map; // V -> 0, 1, 2
+        VertMeshMap vert_mesh_map;  // V -> 0, 1, 2
+        EdgeBool edge_is_constrained_map;
     };
 
     boost::container::flat_map<const Mesh3*, Tracked> tracked;
@@ -33,10 +33,11 @@ struct CorefineTracker : public PMP::Corefinement::Default_visitor<Mesh3> {
             size_t mesh_idx,
             FaceMeshMap& face_mesh_map,
             FaceFaceMap& face_face_map,
-            VertMeshMap& vert_mesh_map
+            VertMeshMap& vert_mesh_map,
+            EdgeBool& edge_is_constrained_map
         ) {
         // Called from python to store references to the appropriate property maps
-        tracked[&mesh] = Tracked{mesh_idx, face_mesh_map, face_face_map, vert_mesh_map};
+        tracked[&mesh] = Tracked{mesh_idx, face_mesh_map, face_face_map, vert_mesh_map, edge_is_constrained_map};
     }
     void new_vertex_added(size_t i_id, V v, const Mesh3& mesh) {
         Tracked& t = tracked[&mesh];

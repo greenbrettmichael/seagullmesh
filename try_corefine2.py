@@ -20,7 +20,7 @@ for i, sm in enumerate(sms):
     sm.face_data['idx'] = np.arange(sm.n_faces)
 
 orig = [sm.to_pyvista(True) for sm in sms]
-corefined = sm0.corefiner(sm1).track_input_mesh(face_mesh_map='face_mesh_map', face_face_map='face_face_map').corefine()
+corefined = sm0.corefiner(sm1).track(face_mesh_map='face_mesh_map', face_face_map='face_face_map').corefine()
 
 print((sm0.face_data['face_mesh_map'][:] == -1).all())
 corefined.update_face_properties(0, property_names=('idx',))
