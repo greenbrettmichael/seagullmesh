@@ -119,7 +119,7 @@ class Corefiner:
         if out is None:
             out = tracked[0].mesh
         elif out not in (tracked[0].mesh, tracked[1].mesh):
-            tracked_output = _TrackSpec(idx=2, mesh=out, **kwargs).realize(tracked)
+            tracked_output = _TrackSpec(idx=2, mesh=out, **kwargs).realize(tracker=tracker)
             tracked.append(tracked_output)
 
         fn(
