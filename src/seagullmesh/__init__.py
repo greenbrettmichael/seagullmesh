@@ -1373,6 +1373,16 @@ class ArrayPropertyMap(PropertyMap[Key, Val]):
         self[key] = val
 
 
+if hasattr(sgm, 'properties'):
+    class _PrincipalCurvaturesAndDirectionsPropertyMap(
+            PropertyMap[Key, sgm.properties.V_PrincipalCurvaturesAndDirections_PropertyMap]  # type: ignore
+    ):
+
+        def get_expanded(self, key: Indices | None = None):
+            idxs = self._to_cpp_indices(key) if key is not None else self.data.py_indices_type.all_indices(self.data.mesh)
+            return self.pmap.get_expanded(idxs)
+
+
 VertexIndexMap = PropertyMap[Vertex, int]
 VertexPointMap = PropertyMap[Vertex, Point2 | Point3]
 
@@ -1497,7 +1507,7 @@ class MeshData(Generic[Key]):
             raise TypeError(msg)
 
         cpp_pmap = pmap_class(self.mesh.mesh, name, default)
-        wrapped_pmap = self._data[name] = self.wrap(cpp_pmap=cpp_pmap, dtype_name=dtype_name)
+        wrapped_pmap = self._data[name] = self.wrap(cpp_pmap=cpp_pmap, dtype_name=dtype_name, default=default)
         return wrapped_pmap
 
     def remove(self, key: str):
@@ -1526,9 +1536,13 @@ class MeshData(Generic[Key]):
             cpp_pmap,  # the c++ class,
             wrapper_cls: Type[PropertyMap] | None = None,
             dtype_name: str = 'unknown',
+            default: Any = None,
     ) -> PropertyMap[Key, Any]:
         if wrapper_cls is None:
-            wrapper_cls = ScalarPropertyMap if cpp_pmap.is_scalar else ArrayPropertyMap
+            if isinstance(default, sgm.properties.PrincipalCurvaturesAndDirections):
+                wrapper_cls = _PrincipalCurvaturesAndDirectionsPropertyMap
+            else:
+                wrapper_cls = ScalarPropertyMap if cpp_pmap.is_scalar else ArrayPropertyMap
         return wrapper_cls(pmap=cpp_pmap, data=self, dtype=dtype_name)
 
     def _check_property_map(self, pmap: PropertyMap) -> PropertyMap[Key, Any]:
