@@ -248,8 +248,9 @@ class Faces(Indices[Face, sgm.mesh.Faces]):
         vpm = self.mesh.get_vertex_point_map(vert_points)
         return sgm.locate.construct_points(self.mesh.mesh, self.indices, bary_coords, vpm.pmap)
 
-    def triangle_soup(self) -> np.ndarray:
-        return sgm.io.triangle_soup(self.mesh.mesh, self.indices)  # TODO index, index_map
+    def triangle_soup(self, vim: VertexIndexMap | None = None) -> np.ndarray:
+        vim = vim or self.mesh.vertex_index_map
+        return sgm.io.triangle_soup(self.mesh.mesh, self.indices, vim.pmap)
 
     def normals(self) -> np.ndarray:
         """(nf, 3) array of face normal vectors"""
