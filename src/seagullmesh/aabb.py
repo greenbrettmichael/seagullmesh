@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Tuple, Sequence, NamedTuple
+from typing import Tuple, Sequence, NamedTuple, Any
 
 import numpy as np
 
 from seagullmesh import (
-    sgm, Mesh3, Vertex, Point2, Point3, Face, Faces, VertexPointMap
+    sgm, Mesh3, Vertex, Point2, Point3, Face, Faces, VertexPointMap, PropertyMap
 )
 
 
@@ -32,6 +32,19 @@ class SurfacePoints:
     def non_null(self) -> SurfacePoints:
         i = ~self.faces.is_null()
         return SurfacePoints(faces=self.faces[i], bary_coords=self.bary_coords[i])
+
+    def interpolate(self, pmaps: Sequence[str | PropertyMap[Vertex, Any]]) -> list[np.ndarray, ...]:
+        vs = self.faces.mesh.vertices
+        vert_idxs = self.faces.triangle_soup()
+        out = []
+
+        for pmap in pmaps:
+            pmap = self.faces.mesh.vertex_data.check(pmap)
+            data = pmap[vs][vert_idxs]  # (n_faces, 3)
+            interped = (data * self.bary_coords).sum(axis=1)
+            out.append(interped)
+
+        return out
 
 
 @dataclass
