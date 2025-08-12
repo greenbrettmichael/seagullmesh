@@ -434,7 +434,7 @@ class Mesh3:
     is_valid = property(lambda self: self.mesh.is_valid(False))
 
     def is_mesh_valid(self, verbose=False):
-        return self.mesh.mesh(verbose)
+        return self.mesh.is_valid(verbose)
 
     def is_triangle_mesh(self) -> bool:
         return self.mesh.is_triangle_mesh()
@@ -1102,8 +1102,8 @@ class Mesh3:
 
     def alpha_wrapping(
             self,
-            alpha: float | None,
-            offset: float | None,
+            alpha: float | None = None,
+            offset: float | None = None,
             relative_alpha: float = 20,
             relative_offset: float = 600,
     ) -> Mesh3:
@@ -1129,6 +1129,10 @@ class Mesh3:
             offset = diagonal / relative_offset if offset is None else offset
 
         mesh = sgm.alpha_wrapping.wrap_points(points, alpha, offset)
+        return Mesh3(mesh)
+
+    def approximate_mesh(self, n_max_proxies: int) -> Mesh3:
+        mesh = sgm.approximation.approximate_mesh(self.mesh, n_max_proxies)
         return Mesh3(mesh)
 
     def triangulate_faces(self, faces: Faces | None = None) -> Mesh3:
