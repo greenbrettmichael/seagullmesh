@@ -8,6 +8,7 @@
 #include <CGAL/Surface_mesh_approximation/approximate_triangle_mesh.h>
 
 namespace VSA = CGAL::Surface_mesh_approximation;
+namespace PMP = CGAL::Polygon_mesh_processing;
 
 void init_approximation(py::module &m) {
     m.def_submodule("approximation")
@@ -32,6 +33,9 @@ void init_approximation(py::module &m) {
                 if ( CGAL::is_closed(output) && (!PMP::is_outward_oriented(output)) ) {
                     PMP::reverse_face_orientations(output);
                 }
+                return output;
+            } else {
+                 throw std::runtime_error("Non-manifold approximation!");
             }
         })
     ;

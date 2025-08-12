@@ -134,7 +134,8 @@ ext_modules = [
             'src/parametrize.cpp',
             # 'src/geodesic_distances.cpp',
             # 'src/poisson_reconstruct.cpp',
-            # 'src/alpha_wrapping.cpp',
+            'src/alpha_wrapping.cpp',
+            'src/approximation.cpp'
         ],
         include_dirs=include_dirs,
         library_dirs=library_dirs,

@@ -21,6 +21,8 @@ void init_geometry(py::module&);
 void init_tube_mesher(py::module&);
 void init_min_sphere(py::module&);
 void init_orientation(py::module&);
+void init_approximation(py::module&);
+
 
 PYBIND11_MODULE(_seagullmesh, m) {
     m.doc() = "";
@@ -28,17 +30,20 @@ PYBIND11_MODULE(_seagullmesh, m) {
     init_geometry(m);
     init_properties(m);
     init_io(m);
+    init_approximation(m);
+    init_tube_mesher(m);
+    init_alpha_wrapping(m);
+
     init_locate(m);
     init_connected(m);
     init_border(m);
     init_meshing(m);
     init_corefine(m);
-    init_tube_mesher(m);
     init_min_sphere(m);
     init_skeletonization(m);
     init_simplification(m);
     init_parametrize(m);
 //    init_geodesic_distances(m);
 //    init_poisson_reconstruct(m);
-//    init_alpha_wrapping(m);
+
 }

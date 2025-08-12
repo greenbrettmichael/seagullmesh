@@ -441,6 +441,15 @@ class TubeMesher {
 void init_tube_mesher(py::module &m) {
     py::module sub = m.def_submodule("tube_mesher");
 
+    // TODO this belongs somehwere else
+    sub
+        .def("triangulate_hole", [](Mesh3& mesh, const H border_halfedge) {
+            std::vector<F> faces;
+            auto params = CGAL::parameters::face_output_iterator(std::back_inserter(faces));
+            PMP::triangulate_hole(mesh, border_halfedge, params);
+        })
+    ;
+
     py::class_<TubeInterpolator>(sub, "TubeInterpolator")
         .def(py::init<
                 std::vector<double>,
