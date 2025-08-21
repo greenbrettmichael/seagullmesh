@@ -1118,8 +1118,8 @@ class Mesh3:
     @staticmethod
     def from_alpha_wrapping(
             points: np.ndarray,
-            alpha: float | None,
-            offset: float | None,
+            alpha: float | None = None,
+            offset: float | None = None,
             relative_alpha: float = 20,
             relative_offset: float = 600,
     ):
