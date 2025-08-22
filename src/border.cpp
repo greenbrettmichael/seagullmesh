@@ -3,6 +3,7 @@
 #include <CGAL/Polygon_mesh_processing/border.h>
 #include <CGAL/Polygon_mesh_processing/merge_border_vertices.h>
 #include <CGAL/Polygon_mesh_processing/stitch_borders.h>
+#include <CGAL/Polygon_mesh_processing/triangulate_hole.h>
 
 namespace PMP = CGAL::Polygon_mesh_processing;
 
@@ -17,6 +18,14 @@ void init_border(py::module &m) {
             std::vector<H> out;
             PMP::extract_boundary_cycles(mesh, std::back_inserter(out));
             return Indices<H>(out);  // returns one halfedge per boundary cycle
+        })
+        .def("triangulate_holes", [](Mesh3& mesh, const Indices<H>& border_halfedges) {
+            for (H h : border_halfedges.to_vector()) {
+                PMP::triangulate_hole(mesh, h);
+            }
+        })
+        .def("triangulate_hole", [](Mesh3& mesh, H border_halfedge) {
+            PMP::triangulate_hole(mesh, border_halfedge);
         })
         .def("has_boundary", [](const Mesh3& mesh) {
             std::vector<H> out;

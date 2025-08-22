@@ -990,6 +990,9 @@ class Mesh3:
     def extract_boundary_cycles(self) -> Halfedges:
         return Halfedges(self, sgm.border.extract_boundary_cycles(self.mesh))
 
+    def triangulate_holes(self, border_halfedges: Halfedges) -> None:
+        return sgm.border.triangulate_holes(self.mesh, border_halfedges.indices)
+
     def has_boundary(self) -> bool:
         return sgm.border.has_boundary(self.mesh)
 
