@@ -73,9 +73,9 @@ if cgal_version >= (5, 0):
 if conda_prefix:
 
     if sys.platform.startswith('win'):
-        prefix = os.path.join(sys.prefix, 'Library\\')
+        prefix = os.path.join(conda_prefix, 'Library\\')
     else:
-        prefix = sys.prefix
+        prefix = conda_prefix
 
     print("Looking for CGAL in: ", prefix)
 
